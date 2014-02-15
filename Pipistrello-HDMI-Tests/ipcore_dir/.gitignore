@@ -1,0 +1,12 @@
+
+/*
+!/.gitignore
+!/*.xco
+!/*.xise
+
+# allow 'mig.prj'
+!/mig_39_2/
+/mig_39_2/*
+!/mig_39_2/user_design/
+/mig_39_2/user_design/*
+!/mig_39_2/user_design/mig.prj
