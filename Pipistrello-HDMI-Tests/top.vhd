@@ -45,7 +45,7 @@ entity top is
         HDMI_CLK_N  : out std_ulogic := '0';
         HDMI_SDA    : inout std_ulogic := '1';
         HDMI_SCL    : inout std_ulogic := '1';
-        HDMI_DET    : in std_ulogic;
+        HDMI_DET    : in std_ulogic; -- active low!
         
         -- IO
         LEDS    : out std_ulogic_vector(4 downto 0) := (others => '0');
@@ -91,7 +91,6 @@ architecture rtl of top is
     signal e_ddc_edid_data_out          : std_ulogic_vector(7 downto 0) := (others => '0');
     signal e_ddc_edid_data_out_valid    : std_ulogic := '0';
     signal e_ddc_edid_byte_index        : std_ulogic_vector(6 downto 0) := (others => '0');
-    signal e_ddc_edid_block_finished    : std_ulogic := '0';
     
     
     ----------------------------------------
@@ -106,6 +105,8 @@ architecture rtl of top is
             UART_Tx         : out std_logic;
             FIT1_Interrupt  : out std_logic;
             FIT1_Toggle     : out std_logic;
+            FIT2_Interrupt  : out std_logic;
+            FIT2_Toggle     : out std_logic;
             PIT1_Interrupt  : out std_logic;
             PIT1_Toggle     : out std_logic;
             GPO1            : out std_logic_vector(31 downto 0);
@@ -132,6 +133,8 @@ architecture rtl of top is
     signal microblaze_gpi2_int      : std_logic := '0';
     signal microblaze_fit1_int      : std_logic := '0';
     signal microblaze_fit1_toggle   : std_logic := '0';
+    signal microblaze_fit2_int      : std_logic := '0';
+    signal microblaze_fit2_toggle   : std_logic := '0';
     signal microblaze_pit1_int      : std_logic := '0';
     signal microblaze_pit1_toggle   : std_logic := '0';
     
@@ -159,7 +162,7 @@ begin
     LEDS(3) <= not USB_TXLED;
     LEDS(2) <= not USB_RXLED;
     LEDS(1) <= microblaze_gpo1(2);
-    LEDS(0) <= microblaze_fit1_toggle;
+    LEDS(0) <= not HDMI_DET;
     
     ------------------------------------
     ------ HDMI signal management ------
@@ -248,8 +251,7 @@ begin
             TRANSM_ERROR    => e_ddc_edid_transm_error,
             DATA_OUT        => e_ddc_edid_data_out,
             DATA_OUT_VALID  => e_ddc_edid_data_out_valid,
-            BYTE_INDEX      => e_ddc_edid_byte_index,
-            BLOCK_FINISHED  => e_ddc_edid_block_finished
+            BYTE_INDEX      => e_ddc_edid_byte_index
         );
     
     
@@ -263,9 +265,8 @@ begin
     microblaze_rxd  <= USB_RXD;
     USB_TXD         <= microblaze_txd;
     
-    microblaze_gpi1(31 downto 6)    <= (others => '0');
-    microblaze_gpi1(5)              <= hdmi_detect;
-    microblaze_gpi1(4)              <= e_ddc_edid_block_finished;
+    microblaze_gpi1(31 downto 5)    <= (others => '0');
+    microblaze_gpi1(4)              <= not hdmi_detect;
     microblaze_gpi1(3)              <= e_ddc_edid_data_out_valid;
     microblaze_gpi1(2)              <= e_ddc_edid_transm_error;
     microblaze_gpi1(1)              <= e_ddc_edid_busy;
@@ -288,6 +289,8 @@ begin
             UART_Tx         => microblaze_txd,
             FIT1_Interrupt  => microblaze_fit1_int,
             FIT1_Toggle     => microblaze_fit1_toggle,
+            FIT2_Interrupt  => microblaze_fit2_int,
+            FIT2_Toggle     => microblaze_fit2_toggle,
             PIT1_Interrupt  => microblaze_pit1_int,
             PIT1_Toggle     => microblaze_pit1_toggle,
             GPO1            => microblaze_gpo1,

@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Wed Feb 12 19:45:46 2014
+# Date: Sat Feb 15 18:46:06 2014
 #
 ##############################################################
 #
@@ -43,8 +43,8 @@ CSET component_name=microblaze_mcs_v1_4
 CSET debug_enabled=true
 CSET fit1_interrupt=true
 CSET fit1_no_clocks=100
-CSET fit2_interrupt=false
-CSET fit2_no_clocks=6216
+CSET fit2_interrupt=true
+CSET fit2_no_clocks=100000000
 CSET fit3_interrupt=false
 CSET fit3_no_clocks=6216
 CSET fit4_interrupt=false
@@ -100,7 +100,7 @@ CSET uart_rx_interrupt=false
 CSET uart_tx_interrupt=false
 CSET uart_use_parity=false
 CSET use_fit1=true
-CSET use_fit2=false
+CSET use_fit2=true
 CSET use_fit3=false
 CSET use_fit4=false
 CSET use_gpi1=true
@@ -123,4 +123,4 @@ CSET use_uart_tx=true
 MISC pkg_timestamp=2012-11-21T08:11:43Z
 # END Extra information
 GENERATE
-# CRC: 83039841
+# CRC: 5d485c3a
