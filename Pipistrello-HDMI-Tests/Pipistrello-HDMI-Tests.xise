@@ -266,7 +266,7 @@
     <property xil_pn:name="Optimization Strategy (Cover Mode)" xil_pn:value="Area" xil_pn:valueState="default"/>
     <property xil_pn:name="Optimize Instantiated Primitives" xil_pn:value="false" xil_pn:valueState="default"/>
     <property xil_pn:name="Other Bitgen Command Line Options" xil_pn:value="" xil_pn:valueState="default"/>
-    <property xil_pn:name="Other Bitgen Command Line Options spartan6" xil_pn:value="-bd &quot;D:/Dropbox/misc/VHDL/HDMI/Pipistrello-HDMI-Tests/ipcore_dir/mb_bootloop_le.elf&quot; tag microblaze_mcs_v1_4 -bd &quot;D:/xil_sdk_workspace/HDMI-Tests/Debug/HDMI-Tests.elf&quot; tag microblaze_mcs_v1_4" xil_pn:valueState="non-default"/>
+    <property xil_pn:name="Other Bitgen Command Line Options spartan6" xil_pn:value="-bd &quot;./ipcore_dir/mb_bootloop_le.elf&quot; tag microblaze_mcs_v1_4 -bd &quot;./EDK/HDMI-Tests/Debug/HDMI-Tests.elf&quot; tag microblaze_mcs_v1_4" xil_pn:valueState="non-default"/>
     <property xil_pn:name="Other Compiler Options" xil_pn:value="" xil_pn:valueState="default"/>
     <property xil_pn:name="Other Compiler Options Fit" xil_pn:value="" xil_pn:valueState="default"/>
     <property xil_pn:name="Other Compiler Options Map" xil_pn:value="" xil_pn:valueState="default"/>
