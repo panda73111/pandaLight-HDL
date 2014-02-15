@@ -56,8 +56,7 @@ entity DDC_EDID_MASTER is
         TRANSM_ERROR    : out std_ulogic := '0';
         DATA_OUT        : out std_ulogic_vector(7 downto 0) := (others => '0');
         DATA_OUT_VALID  : out std_ulogic := '0';
-        BYTE_INDEX      : out std_ulogic_vector(6 downto 0) := (others => '0');
-        BLOCK_FINISHED  : out std_ulogic := '0'
+        BYTE_INDEX      : out std_ulogic_vector(6 downto 0) := (others => '0')
     );
 end;
 
@@ -131,7 +130,6 @@ architecture rtl of DDC_EDID_MASTER is
         clk_stretch     : boolean;              -- delaying until scl is released
         bit_index       : unsigned(2 downto 0); -- 0..7
         byte_index      : unsigned(6 downto 0); -- counts bytes of one EDID block (128 bytes)
-        block_finished  : std_ulogic;
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -144,8 +142,7 @@ architecture rtl of DDC_EDID_MASTER is
         data_out_valid  => '0',
         clk_stretch     => false,
         bit_index       => to_unsigned(7, reg_type.bit_index'length),
-        byte_index      => to_unsigned(127, reg_type.byte_index'length),
-        block_finished  => '0'
+        byte_index      => to_unsigned(127, reg_type.byte_index'length)
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -164,7 +161,6 @@ begin
     DATA_OUT        <= cur_reg.data_out;
     DATA_OUT_VALID  <= cur_reg.data_out_valid;
     BYTE_INDEX      <= std_ulogic_vector(cur_reg.byte_index);
-    BLOCK_FINISHED  <= cur_reg.block_finished;
     
     scl_rise    <= cur_reg.tick_cnt = 0;
     scl_high    <= cur_reg.tick_cnt = one_qu_cycle_ticks;
@@ -194,7 +190,6 @@ begin
             when INIT =>
                 r.bit_index         := to_unsigned(7, reg_type.bit_index'length);
                 r.byte_index        := to_unsigned(127, reg_type.byte_index'length);
-                r.block_finished    := '0';
                 r.state             := WAIT_FOR_START;
             
             when WAIT_FOR_START =>
@@ -468,7 +463,6 @@ begin
                         r.data_out_valid    := '1';
                         if cur_reg.byte_index = 126 then
                             -- completed one EDID block
-                            r.block_finished    := '1';
                             r.state             := READ_ACCESS_SEND_NACK;
                         else
                             r.state := READ_ACCESS_SEND_ACK;

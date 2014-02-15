@@ -43,7 +43,6 @@ ARCHITECTURE behavior OF DDC_EDID_MASTER_tb IS
     signal ddc_edid_data_out        : std_ulogic_vector(7 downto 0) := (others => '0');
     signal ddc_edid_data_out_valid  : std_ulogic := '0';
     signal ddc_edid_byte_index      : std_ulogic_vector(6 downto 0) := (others => '0');
-    signal ddc_edid_block_finished  : std_ulogic := '0';
     signal ddc_edid_block_number    : std_ulogic_vector(7 downto 0) := (others => '0');
     
     -- Clock period definitions
@@ -107,8 +106,7 @@ BEGIN
             TRANSM_ERROR    => ddc_edid_transm_error,
             DATA_OUT        => ddc_edid_data_out,
             DATA_OUT_VALID  => ddc_edid_data_out_valid,
-            BYTE_INDEX      => ddc_edid_byte_index,
-            BLOCK_FINISHED  => ddc_edid_block_finished
+            BYTE_INDEX      => ddc_edid_byte_index
         );
     
     -- clock generation
