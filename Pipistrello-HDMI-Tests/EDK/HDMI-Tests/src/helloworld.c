@@ -116,11 +116,12 @@ main()
 
     while (1)
     {
-        microblaze_disable_interrupts();
         if (gpi_interrupted)
         {
             gpi_interrupted = FALSE;
+            microblaze_disable_interrupts();
             eval_gpi();
+            microblaze_enable_interrupts();
         }
 
         if (uart_error_interrupted)
@@ -145,7 +146,6 @@ main()
                 XIOModule_DiscreteClear(&io, OUT_BIT_CHANNEL, OUT_BIT_DDC_START);
             }
         }
-        microblaze_enable_interrupts();
     }
 
     cleanup_platform();
@@ -161,11 +161,18 @@ eval_gpi(void)
 
     flanks = in_reg1 ^ prev_in_reg1;
 
-    if (flanks & IN_BIT_HDMI_DETECT && in_reg1 & IN_BIT_HDMI_DETECT)
+    if (flanks & IN_BIT_HDMI_DETECT)
     {
-        // rising edge of 'HDMI detect'
-        conn_timeout = MIN_HDMI_CONNECT_CYCLES;
-        newly_connected = TRUE;
+        if (in_reg1 & IN_BIT_HDMI_DETECT)
+        {
+            // rising edge of 'HDMI detect'
+            conn_timeout = MIN_HDMI_CONNECT_CYCLES;
+            newly_connected = TRUE;
+        }
+        else
+        {
+            newly_connected = FALSE;
+        }
     }
 
     if (flanks & IN_BIT_DDC_BUSY)
@@ -211,7 +218,6 @@ void
 gpi1_interrupt(void* instancePtr)
 {
     in_reg1 = XIOModule_DiscreteRead(&io, IN_BIT_CHANNEL);
-    xil_printf("gpi int: 0x%x 0x%x\r\n", in_reg1, XIOModule_DiscreteRead(&io, IN_BYTE_CHANNEL));
     XIOModule_Acknowledge(&io, XIN_IOMODULE_GPI_1_INTERRUPT_INTR);
     gpi_interrupted = TRUE;
 }
