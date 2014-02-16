@@ -16,7 +16,6 @@
  *
  */
 
-#include <stdio.h>
 #include "platform.h"
 #include "xil_printf.h"
 #include "xparameters.h"
@@ -31,19 +30,20 @@
 #define IN_BIT_UART_CTS         (1 << 0)
 #define IN_BIT_DDC_BUSY         (1 << 1)
 #define IN_BIT_TRANSM_ERROR     (1 << 2)
-#define IN_BIT_DATA_VALID       (1 << 3)
-#define IN_BIT_HDMI_DETECT      (1 << 4)
-#define IN_BYTE_INDEX           0x000000FF
-#define IN_BYTE_DATA            0x0000FF00
-#define IN_BYTE_POS_INDEX       0
-#define IN_BYTE_POS_DATA        1
+#define IN_BIT_HDMI_DETECT      (1 << 3)
+#define IN_BYTE_DATA            0x000000FF
+#define IN_BYTE_POS_DATA        0
 
 #define OUT_BIT_UART_RTS        (1 << 0)
 #define OUT_BIT_DDC_START       (1 << 1)
 #define OUT_BIT_LED0            (1 << 2)
 //#define OUT_BIT_LED1            (1 << 3)
 #define OUT_BYTE_BLOCK_NUM      0x000000FF
+#define OUT_BYTE_INDEX          0x0000FF00
 #define OUT_BYTE_POS_BLOCK_NUM  0
+#define OUT_BYTE_POS_INDEX      8
+
+#define MIN_HDMI_CONNECT_CYCLES 10000
 
 void
 usleep(unsigned long micros);
@@ -60,9 +60,16 @@ uart_error_interrupt(void* instancePtr);
 void
 assert_callback(char *FilenamePtr, int LineNumber);
 
+void
+eval_gpi(void);
+
 XIOModule io;
+static u32 gpi_interrupted, uart_error_interrupted;
+static u32 in_reg1;
 u32 prev_in_reg1;
 u8 edid_table[128];
+u8 newly_connected;
+u32 conn_timeout;
 
 int
 main()
@@ -97,14 +104,48 @@ main()
     {
     }
 
-    prev_in_reg1 = XIOModule_DiscreteRead(&io, IN_BIT_CHANNEL) & ~IN_BIT_HDMI_DETECT;
-
+    in_reg1 = XIOModule_DiscreteRead(&io, IN_BIT_CHANNEL);
+    prev_in_reg1 = in_reg1 & ~IN_BIT_HDMI_DETECT;
     print("init\r\n");
+    gpi_interrupted = FALSE;
+    uart_error_interrupted = FALSE;
+    conn_timeout = MIN_HDMI_CONNECT_CYCLES;
+    newly_connected = FALSE;
 
-    microblaze_enable_interrupts();
+    eval_gpi();
 
     while (1)
     {
+        microblaze_disable_interrupts();
+        if (gpi_interrupted)
+        {
+            gpi_interrupted = FALSE;
+            eval_gpi();
+        }
+
+        if (uart_error_interrupted)
+        {
+            uart_error_interrupted = FALSE;
+            print("UART error interrupt\r\n");
+        }
+
+        if (newly_connected)
+        {
+            if (!--conn_timeout)
+            {
+                newly_connected = FALSE;
+
+                // Display was connected for MIN_HDMI_CONNECT_CYCLES cycles
+                print("Detected new device, retrieving EDID...\r\n");
+
+                // start DDC master to retrieve the EDID table
+                XIOModule_DiscreteWrite(&io, OUT_BYTE_CHANNEL,
+                        (0 << OUT_BYTE_POS_BLOCK_NUM) & OUT_BYTE_BLOCK_NUM);
+                XIOModule_DiscreteSet(&io, OUT_BIT_CHANNEL, OUT_BIT_DDC_START);
+                XIOModule_DiscreteClear(&io, OUT_BIT_CHANNEL, OUT_BIT_DDC_START);
+            }
+        }
+        microblaze_enable_interrupts();
     }
 
     cleanup_platform();
@@ -113,30 +154,18 @@ main()
 }
 
 void
-gpi1_interrupt(void* instancePtr)
+eval_gpi(void)
 {
-    u32 in_reg1, in_reg2, flanks;
-    u8 data, index, i;
-    XIOModule_Acknowledge(&io, XIN_IOMODULE_GPI_1_INTERRUPT_INTR);
+    u32 flanks;
+    u8 data, index;
 
-    in_reg1 = XIOModule_DiscreteRead(&io, IN_BIT_CHANNEL);
     flanks = in_reg1 ^ prev_in_reg1;
+
     if (flanks & IN_BIT_HDMI_DETECT && in_reg1 & IN_BIT_HDMI_DETECT)
     {
         // rising edge of 'HDMI detect'
-        print("Detected new device, retrieving EDID...");
-        XIOModule_DiscreteWrite(&io, 2, (0 << OUT_BYTE_POS_BLOCK_NUM) & OUT_BYTE_BLOCK_NUM);
-        XIOModule_DiscreteSet(&io, OUT_BIT_CHANNEL, OUT_BIT_DDC_START);
-        XIOModule_DiscreteClear(&io, OUT_BIT_CHANNEL, OUT_BIT_DDC_START);
-    }
-
-    if (flanks & IN_BIT_DATA_VALID && in_reg1 & IN_BIT_DATA_VALID)
-    {
-        // rising edge of 'data valid'
-        in_reg2 = XIOModule_DiscreteRead(&io, IN_BYTE_CHANNEL);
-        data = (in_reg2 & IN_BYTE_DATA) >> IN_BYTE_POS_DATA;
-        index = (in_reg2 & IN_BYTE_INDEX) >> IN_BYTE_POS_INDEX;
-        edid_table[index] = data;
+        conn_timeout = MIN_HDMI_CONNECT_CYCLES;
+        newly_connected = TRUE;
     }
 
     if (flanks & IN_BIT_DDC_BUSY)
@@ -153,15 +182,24 @@ gpi1_interrupt(void* instancePtr)
 
             if (in_reg1 & IN_BIT_TRANSM_ERROR)
             {
-                print("There was a transmission error while reading the EDID table!");
+                print("There was a transmission error while reading the EDID table!\r\n");
             }
             else
             {
                 print("Got a complete EDID block:");
-                for (i = 0; i < 128; i++)
+                for (index = 0; index < 128; index++)
                 {
-                    xil_printf("%x\r\n", edid_table[i]);
+                    XIOModule_DiscreteWrite(&io, OUT_BYTE_CHANNEL,
+                            (index << OUT_BYTE_POS_INDEX) & OUT_BYTE_INDEX);
+                    data = (XIOModule_DiscreteRead(&io, IN_BYTE_CHANNEL) & IN_BYTE_DATA)
+                            >> IN_BYTE_POS_DATA;
+
+                    // copy the EDID table from the fast external EDID RAM
+                    edid_table[index] = data;
+
+                    xil_printf(" 0x%x", data);
                 }
+                print("\r\n");
             }
         }
     }
@@ -170,10 +208,19 @@ gpi1_interrupt(void* instancePtr)
 }
 
 void
+gpi1_interrupt(void* instancePtr)
+{
+    in_reg1 = XIOModule_DiscreteRead(&io, IN_BIT_CHANNEL);
+    xil_printf("gpi int: 0x%x 0x%x\r\n", in_reg1, XIOModule_DiscreteRead(&io, IN_BYTE_CHANNEL));
+    XIOModule_Acknowledge(&io, XIN_IOMODULE_GPI_1_INTERRUPT_INTR);
+    gpi_interrupted = TRUE;
+}
+
+void
 uart_error_interrupt(void* instancePtr)
 {
     XIOModule_Acknowledge(&io, XIN_IOMODULE_UART_ERROR_INTERRUPT_INTR);
-    print("UART error interrupt\r\n");
+    uart_error_interrupted = TRUE;
 }
 
 void

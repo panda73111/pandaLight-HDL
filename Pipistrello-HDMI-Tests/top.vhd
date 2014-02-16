@@ -138,6 +138,21 @@ architecture rtl of top is
     signal microblaze_pit1_int      : std_logic := '0';
     signal microblaze_pit1_toggle   : std_logic := '0';
     
+    
+    ----------------------
+    ------ EDID RAM ------
+    ----------------------
+    
+    -- Inputs
+    signal edid_ram_clk         : std_ulogic := '0';
+    signal edid_ram_rd_addr     : std_ulogic_vector(6 downto 0) := (others => '0');
+    signal edid_ram_wr_en       : std_ulogic := '0';
+    signal edid_ram_wr_addr     : std_ulogic_vector(6 downto 0) := (others => '0');
+    signal edid_ram_data_in     : std_ulogic_vector(7 downto 0) := (others => '0');
+    
+    -- Outputs
+    signal edid_ram_data_out    : std_ulogic_vector(7 downto 0) := (others => '0');
+    
 begin
     
     ------------------------------
@@ -157,12 +172,20 @@ begin
             CLK_OUT_STOPPED => open
         );
     
+    
+    --------------------------------------
+    ------ global signal management ------
+    --------------------------------------
+    
     g_rst   <= PUSHBTN;
     LEDS(4) <= PUSHBTN;
     LEDS(3) <= not USB_TXLED;
     LEDS(2) <= not USB_RXLED;
     LEDS(1) <= microblaze_gpo1(2);
     LEDS(0) <= not HDMI_DET;
+    USB_TXD <= microblaze_txd;
+    USB_RTS <= microblaze_gpo1(0);
+    
     
     ------------------------------------
     ------ HDMI signal management ------
@@ -226,10 +249,12 @@ begin
     ------ E-DDC (E-)EDID Master ------
     -----------------------------------
     
-    e_ddc_edid_clk      <= g_clk;
-    e_ddc_edid_rst      <= g_rst;
-    e_ddc_edid_sda_in   <= HDMI_SDA;
-    e_ddc_edid_scl_in   <= HDMI_SCL;
+    e_ddc_edid_clk          <= g_clk;
+    e_ddc_edid_rst          <= g_rst;
+    e_ddc_edid_sda_in       <= HDMI_SDA;
+    e_ddc_edid_scl_in       <= HDMI_SCL;
+    e_ddc_edid_block_number <= std_ulogic_vector(microblaze_gpo2(7 downto 0));
+    e_ddc_edid_start        <= microblaze_gpo1(1);
     
     DDC_EDID_MASTER_inst : entity work.DDC_EDID_MASTER
         generic map (
@@ -263,23 +288,15 @@ begin
     microblaze_rst  <= g_rst;
     
     microblaze_rxd  <= USB_RXD;
-    USB_TXD         <= microblaze_txd;
     
-    microblaze_gpi1(31 downto 5)    <= (others => '0');
-    microblaze_gpi1(4)              <= not hdmi_detect;
-    microblaze_gpi1(3)              <= e_ddc_edid_data_out_valid;
+    microblaze_gpi1(31 downto 4)    <= (others => '0');
+    microblaze_gpi1(3)              <= not hdmi_detect;
     microblaze_gpi1(2)              <= e_ddc_edid_transm_error;
     microblaze_gpi1(1)              <= e_ddc_edid_busy;
     microblaze_gpi1(0)              <= USB_CTS;
     
-    microblaze_gpi2(31 downto 16)   <= (others => '0');
-    microblaze_gpi2(15 downto 8)    <= std_logic_vector(e_ddc_edid_data_out);
-    microblaze_gpi2(7 downto 0)     <= "0" & std_logic_vector(e_ddc_edid_byte_index);
-    
-    e_ddc_edid_start    <= microblaze_gpo1(1);
-    USB_RTS             <= microblaze_gpo1(0);
-    
-    e_ddc_edid_block_number <= std_ulogic_vector(microblaze_gpo2(7 downto 0));
+    microblaze_gpi2(31 downto 8)    <= (others => '0');
+    microblaze_gpi2(7 downto 0)     <= std_logic_vector(edid_ram_data_out);
     
     microblaze_inst : microblaze_mcs_v1_4
         port map (
@@ -300,7 +317,31 @@ begin
             GPI1_Interrupt  => microblaze_gpi1_int,
             GPI2_Interrupt  => microblaze_gpi2_int
         );
-
+    
+    
+    ----------------------
+    ------ EDID RAM ------
+    ----------------------
+    
+    edid_ram_clk        <= g_clk;
+    edid_ram_rd_addr    <= std_ulogic_vector(microblaze_gpo2(14 downto 8));
+    edid_ram_wr_en      <= e_ddc_edid_data_out_valid;
+    edid_ram_wr_addr    <= e_ddc_edid_byte_index;
+    edid_ram_data_in    <= e_ddc_edid_data_out;
+    
+    edid_ram_inst : entity work.DUAL_PORT_RAM
+        generic map (
+            ADDR_WIDTH  => 7,
+            DATA_WIDTH  => 8
+        )
+        port map (
+            CLK         => edid_ram_clk,
+            RD_ADDR     => edid_ram_rd_addr,
+            WR_EN       => edid_ram_wr_en,
+            WR_ADDR     => edid_ram_wr_addr,
+            DATA_IN     => edid_ram_data_in,
+            DATA_OUT    => edid_ram_data_out
+        );
     
 end rtl;
 
