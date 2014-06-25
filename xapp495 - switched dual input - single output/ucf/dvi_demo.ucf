@@ -33,8 +33,8 @@ NET "clk100"        LOC = "L15" | IOSTANDARD = LVCMOS33 | PERIOD = 100 MHz;
 ##############################################################################
 # Mechanical Switches (SW)
 ##############################################################################
-NET "SW<0>"         LOC = "A10" | IOSTANDARD = LVCMOS33 ;
-NET "SW<1>"         LOC = "D14" | IOSTANDARD = LVCMOS33 ;
+NET "SW"         LOC = "A10" | IOSTANDARD = LVCMOS33 ;
+#NET "SW<1>"         LOC = "D14" | IOSTANDARD = LVCMOS33 ;
 #NET "SW<2>"         LOC = "C14" | IOSTANDARD = LVCMOS33 ;
 #NET "SW<3>"         LOC = "P15" | IOSTANDARD = LVCMOS33 ;
 

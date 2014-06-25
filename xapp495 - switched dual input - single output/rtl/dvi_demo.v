@@ -64,7 +64,7 @@ module dvi_demo (
   output wire [3:0] TX1_TMDS,
   output wire [3:0] TX1_TMDSB,
 
-  input  wire [1:0] SW,
+  input  wire SW,
 
   output wire [7:0] LED
 );
@@ -79,23 +79,19 @@ module dvi_demo (
 
   BUFG clk25_buf (.I(clk25m), .O(clk25));
 
-  wire [1:0] sws;
+  wire sws;
 
   synchro #(.INITIALIZE("LOGIC0"))
-  synchro_sws_0 (.async(SW[0]),.sync(sws[0]),.clk(clk25));
+  synchro_sws_0 (.async(SW),.sync(sws),.clk(clk25));
 
-  synchro #(.INITIALIZE("LOGIC0"))
-  synchro_sws_1 (.async(SW[1]),.sync(sws[1]),.clk(clk25));
+  wire select = sws;
 
-  wire [1:0] select = sws;
-
-  reg [1:0] select_q = 2'b00;
-  reg [1:0] switch = 2'b00;
+  reg select_q = 2'b00;
+  reg switch = 2'b00;
   always @ (posedge clk25) begin
     select_q <= select;
 
-    switch[0] = select[0] ^ select_q[0];
-    switch[1] = select[1] ^ select_q[1];
+    switch = select ^ select_q;
   end
   
   wire rx_pllclk1, rx_pllclk2;
@@ -127,7 +123,7 @@ module dvi_demo (
   BUFIO2 #(.DIVIDE_BYPASS("TRUE"), .DIVIDE(1))
   bufio_rx1_tmdsclk (.DIVCLK(rx1_clk), .IOCLK(), .SERDESSTROBE(), .I(rx1_clkint));
   
-  BUFGMUX rx_bufg_clk (.S(select[0]), .I1(rx1_clk), .I0(rx0_clk), .O(rx_clk));
+  BUFGMUX rx_bufg_clk (.S(select), .I1(rx1_clk), .I0(rx0_clk), .O(rx_clk));
   
     //////////////////////////////////////////////////////////////////
   // 10x pclk is used to drive IOCLK network so a bit rate reference
@@ -301,13 +297,13 @@ module dvi_demo (
   wire         tx0_vsync;
   wire         tx0_pll_reset;
 
-  assign tx0_de           = (select[0]) ? rx1_de    : rx0_de;
-  assign tx0_blue         = (select[0]) ? rx1_blue  : rx0_blue;
-  assign tx0_green        = (select[0]) ? rx1_green : rx0_green;
-  assign tx0_red          = (select[0]) ? rx1_red   : rx0_red;
-  assign tx0_hsync        = (select[0]) ? rx1_hsync : rx0_hsync;
-  assign tx0_vsync        = (select[0]) ? rx1_vsync : rx0_vsync;
-  assign tx0_pll_reset    =  ~rx_bufpll_lock;
+  assign tx0_de           = (select) ? rx1_de    : rx0_de;
+  assign tx0_blue         = (select) ? rx1_blue  : rx0_blue;
+  assign tx0_green        = (select) ? rx1_green : rx0_green;
+  assign tx0_red          = (select) ? rx1_red   : rx0_red;
+  assign tx0_hsync        = (select) ? rx1_hsync : rx0_hsync;
+  assign tx0_vsync        = (select) ? rx1_vsync : rx0_vsync;
+  assign tx0_pll_reset    = switch | (~rx_bufpll_lock);
 
   //////////////////////////////////////////////////////////////////
   // Instantiate a dedicate PLL for output port
@@ -332,15 +328,9 @@ module dvi_demo (
     .CLKOUT5(),
     .LOCKED(tx0_plllckd),
     .CLKFBIN(tx0_clkfbin),
-    .CLKIN(tx0_pclk),
+    .CLKIN(rx_pllclk1),
     .RST(tx0_pll_reset)
   );
-
-  //
-  // This BUFGMUX directly selects between two RX PLL pclk outputs
-  // This way we have a matched skew between the RX pclk clocks and the TX pclk
-  //
-  BUFGMUX tx0_bufg_pclk (.S(select[0]), .I1(rx1_pllclk1), .I0(rx0_pllclk1), .O(tx0_pclk));
 
   //
   // This BUFG is needed in order to deskew between PLL clkin and clkout
@@ -363,7 +353,7 @@ module dvi_demo (
   assign tx0_reset = ~tx0_bufpll_lock;
 
   dvi_encoder_top dvi_tx0 (
-    .pclk        (tx0_pclk),
+    .pclk        (rx_pllclk1),
     .pclkx2      (tx0_pclkx2),
     .pclkx10     (tx0_pclkx10),
     .serdesstrobe(tx0_serdesstrobe),
