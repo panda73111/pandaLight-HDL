@@ -115,7 +115,7 @@ module dvi_demo (
   IBUFDS  #(.IOSTANDARD("TMDS_33"), .DIFF_TERM("FALSE")
   ) ibuf_rx1_clk (.I(RX1_TMDS[3]), .IB(RX1_TMDSB[3]), .O(rx1_clkint));
  
-  wire rx0_clk, rx1_clk;
+  wire rx0_clk, rx1_clk, rx0_clk_buf, rx1_clk_buf;
 
   BUFIO2 #(.DIVIDE_BYPASS("TRUE"), .DIVIDE(1))
   bufio_rx0_tmdsclk (.DIVCLK(rx0_clk), .IOCLK(), .SERDESSTROBE(), .I(rx0_clkint));
@@ -123,7 +123,11 @@ module dvi_demo (
   BUFIO2 #(.DIVIDE_BYPASS("TRUE"), .DIVIDE(1))
   bufio_rx1_tmdsclk (.DIVCLK(rx1_clk), .IOCLK(), .SERDESSTROBE(), .I(rx1_clkint));
   
-  BUFGMUX rx_bufg_clk (.S(select), .I1(rx1_clk), .I0(rx0_clk), .O(rx_clk));
+  BUFG bufg_rx0_tmdsclk (.I(rx0_clk), .O(rx0_clk_buf));
+  
+  BUFG bufg_rx1_tmdsclk (.I(rx1_clk), .O(rx1_clk_buf));
+  
+  BUFGMUX rx_bufg_clk (.S(select), .I1(rx1_clk_buf), .I0(rx0_clk_buf), .O(rx_clk));
   
     //////////////////////////////////////////////////////////////////
   // 10x pclk is used to drive IOCLK network so a bit rate reference
@@ -161,18 +165,28 @@ module dvi_demo (
     .RST(~rstbtn_n)
   );
   
-  wire bufpll_lock;
-  BUFPLL #(.DIVIDE(5)) ioclk_buf (.PLLIN(rx_pllclk0), .GCLK(rx_pclkx2), .LOCKED(rx_pll_lckd),
-           .IOCLK(rx_pclkx10), .SERDESSTROBE(rx_serdesstrobe), .LOCK(rx_bufpll_lock));
+  wire rx0_bufpll_lock;
+  wire rx0_pclkx10;
+  wire rx0_serdesstrobe;
+  BUFPLL #(.DIVIDE(5)) rx0_ioclk_buf (.PLLIN(rx_pllclk0), .GCLK(rx_pclkx2), .LOCKED(rx_pll_lckd),
+           .IOCLK(rx0_pclkx10), .SERDESSTROBE(rx0_serdesstrobe), .LOCK(rx0_bufpll_lock));
+
+  wire rx1_bufpll_lock;
+  wire rx1_pclkx10;
+  wire rx1_serdesstrobe;
+  BUFPLL #(.DIVIDE(5)) rx1_ioclk_buf (.PLLIN(rx_pllclk0), .GCLK(rx_pclkx2), .LOCKED(rx_pll_lckd),
+           .IOCLK(rx1_pclkx10), .SERDESSTROBE(rx1_serdesstrobe), .LOCK(rx1_bufpll_lock));
+           
+  wire rx_pllclk1_buf;
+  BUFG (.I(rx_pllclk1), .O(rx_pllclk1_buf));
   
   /////////////////////////
   //
   // Input Port 0
   //
   /////////////////////////
-  wire rx0_reset =  ~rx_bufpll_lock;
+  wire rx0_reset =  ~rx0_bufpll_lock;
   wire rx0_plllckd;
-  wire rx0_serdesstrobe;
   wire rx0_hsync;          // hsync data
   wire rx0_vsync;          // vsync data
   wire rx0_de;             // data enable
@@ -201,8 +215,8 @@ module dvi_demo (
     .reset       (rx0_reset),
     .pclk        (rx_pclk),
     .pclkx2      (rx_pclkx2),
-    .pclkx10     (rx_pclkx10),
-    .serdesstrobe(rx_serdesstrobe),
+    .pclkx10     (rx0_pclkx10),
+    .serdesstrobe(rx0_serdesstrobe),
     .hsync       (rx0_hsync),
     .vsync       (rx0_vsync),
     .de          (rx0_de),
@@ -226,9 +240,8 @@ module dvi_demo (
   // Input Port 1
   //
   /////////////////////////
-  wire rx1_reset =  ~rx_bufpll_lock;
+  wire rx1_reset =  ~rx1_bufpll_lock;
   wire rx1_plllckd;
-  wire rx1_serdesstrobe;
   wire rx1_hsync;          // hsync data
   wire rx1_vsync;          // vsync data
   wire rx1_de;             // data enable
@@ -257,8 +270,8 @@ module dvi_demo (
     .reset       (rx1_reset),
     .pclk        (rx_pclk),
     .pclkx2      (rx_pclkx2),
-    .pclkx10     (rx_pclkx10),
-    .serdesstrobe(rx_serdesstrobe),
+    .pclkx10     (rx1_pclkx10),
+    .serdesstrobe(rx1_serdesstrobe),
     .hsync       (rx1_hsync),
     .vsync       (rx1_vsync),
     .de          (rx1_de),
@@ -303,7 +316,7 @@ module dvi_demo (
   assign tx0_red          = (select) ? rx1_red   : rx0_red;
   assign tx0_hsync        = (select) ? rx1_hsync : rx0_hsync;
   assign tx0_vsync        = (select) ? rx1_vsync : rx0_vsync;
-  assign tx0_pll_reset    = switch | (~rx_bufpll_lock);
+  assign tx0_pll_reset    = switch | (select ? (~rx1_bufpll_lock) : (~rx0_bufpll_lock));
 
   //////////////////////////////////////////////////////////////////
   // Instantiate a dedicate PLL for output port
@@ -328,7 +341,7 @@ module dvi_demo (
     .CLKOUT5(),
     .LOCKED(tx0_plllckd),
     .CLKFBIN(tx0_clkfbin),
-    .CLKIN(rx_pllclk1),
+    .CLKIN(rx_pllclk1_buf),
     .RST(tx0_pll_reset)
   );
 
