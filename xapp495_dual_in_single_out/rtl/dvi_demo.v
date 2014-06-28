@@ -340,9 +340,9 @@ module dvi_demo (
            .IOCLK(tx0_pclkx10), .SERDESSTROBE(tx0_serdesstrobe), .LOCK(tx0_bufpll_lock));
   
 `ifdef DIRECTPASS
-  wire        tx0_reset         = rx0_reset;
-  wire        tx0_pclk          = rx_pclk;
-  wire [29:0] tx0_s_data        = rx0_sdata;
+  wire        tx0_reset  = (select) ? rx1_reset : rx0_reset;
+  wire [29:0] tx0_s_data = (select) ? rx1_sdata : rx0_sdata;
+  wire        tx0_pclk   = rx_pclk;
 
   //
   // Forward TMDS Clock Using OSERDES2 block
@@ -434,12 +434,12 @@ module dvi_demo (
   wire         tx0_hsync;
   wire         tx0_vsync;
 
-  assign tx0_de           = (select) ? rx1_de    : rx0_de;
-  assign tx0_blue         = (select) ? rx1_blue  : rx0_blue;
-  assign tx0_green        = (select) ? rx1_green : rx0_green;
-  assign tx0_red          = (select) ? rx1_red   : rx0_red;
-  assign tx0_hsync        = (select) ? rx1_hsync : rx0_hsync;
-  assign tx0_vsync        = (select) ? rx1_vsync : rx0_vsync;
+  assign tx0_de    = (select) ? rx1_de    : rx0_de;
+  assign tx0_blue  = (select) ? rx1_blue  : rx0_blue;
+  assign tx0_green = (select) ? rx1_green : rx0_green;
+  assign tx0_red   = (select) ? rx1_red   : rx0_red;
+  assign tx0_hsync = (select) ? rx1_hsync : rx0_hsync;
+  assign tx0_vsync = (select) ? rx1_vsync : rx0_vsync;
 
   assign tx0_reset = ~tx0_bufpll_lock;
 
