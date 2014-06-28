@@ -18,12 +18,12 @@ TIMESPEC TS_DVI_CLOCK1 = PERIOD "DVI_CLOCK1" 100 MHz HIGH 50%;
 #
 # Multi-cycle paths for TX0
 #
-TIMEGRP "bramgrp_0" = RAMS(dvi_tx0/pixel2x/dataint<*>);
-TIMEGRP "fddbgrp_0" = FFS(dvi_tx0/pixel2x/db<*>);
-TIMEGRP "bramra_0"  = FFS(dvi_tx0/pixel2x/ra<*>);
-
-TIMESPEC "TS_ramdo_0" = FROM "bramgrp_0" TO "fddbgrp_0" TS_DVI_CLOCK0;
-TIMESPEC "TS_ramra_0" = FROM "bramra_0"  TO "fddbgrp_0" TS_DVI_CLOCK0;
+#TIMEGRP "bramgrp_0" = RAMS(dvi_tx0/pixel2x/dataint<*>);
+#TIMEGRP "fddbgrp_0" = FFS(dvi_tx0/pixel2x/db<*>);
+#TIMEGRP "bramra_0"  = FFS(dvi_tx0/pixel2x/ra<*>);
+#
+#TIMESPEC "TS_ramdo_0" = FROM "bramgrp_0" TO "fddbgrp_0" TS_DVI_CLOCK0;
+#TIMESPEC "TS_ramra_0" = FROM "bramra_0"  TO "fddbgrp_0" TS_DVI_CLOCK0;
 
 ##############################################################################
 # SYSCLK Input

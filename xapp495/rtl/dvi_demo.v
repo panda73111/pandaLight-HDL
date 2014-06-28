@@ -49,7 +49,7 @@
 
 `timescale 1 ns / 1 ps
 
-//`define DIRECTPASS
+`define DIRECTPASS
 
 module dvi_demo (
   input wire        rstbtn_n,    //The pink reset button

@@ -49,7 +49,7 @@
 
 `timescale 1 ns / 1 ps
 
-//`define DIRECTPASS
+`define DIRECTPASS
 
 module dvi_demo (
   input wire        rstbtn_n,    //The pink reset button
@@ -127,7 +127,7 @@ module dvi_demo (
   
   BUFG bufg_rx1_tmdsclk (.I(rx1_clk), .O(rx1_clk_buf));
   
-  BUFGMUX rx_bufg_clk (.S(select), .I1(rx1_clk_buf), .I0(rx0_clk_buf), .O(rx_clk));
+  BUFGMUX bufg_rx_clk (.S(select), .I1(rx1_clk_buf), .I0(rx0_clk_buf), .O(rx_clk));
   
     //////////////////////////////////////////////////////////////////
   // 10x pclk is used to drive IOCLK network so a bit rate reference
@@ -141,9 +141,8 @@ module dvi_demo (
   // 3. pclkx10: 10x rate of pclk used as IO clock
   //
   wire rx_clkfbout;
-  wire rx_pllclk0;
+  wire rx_pllclk0; // send pllclk0 out so it can be fed into a different BUFPLL
   wire rx_pll_lckd;
-  wire pllclk0;        // send pllclk0 out so it can be fed into a different BUFPLL
   PLL_BASE # (
     .CLKIN_PERIOD(10),
     .CLKFBOUT_MULT(10), //set VCO to 10x of CLKIN
@@ -176,9 +175,6 @@ module dvi_demo (
   wire rx1_serdesstrobe;
   BUFPLL #(.DIVIDE(5)) rx1_ioclk_buf (.PLLIN(rx_pllclk0), .GCLK(rx_pclkx2), .LOCKED(rx_pll_lckd),
            .IOCLK(rx1_pclkx10), .SERDESSTROBE(rx1_serdesstrobe), .LOCK(rx1_bufpll_lock));
-           
-  wire rx_pllclk1_buf;
-  BUFG (.I(rx_pllclk1), .O(rx_pllclk1_buf));
   
   /////////////////////////
   //
@@ -292,37 +288,17 @@ module dvi_demo (
 
   // TMDS output
   
-  /////////////////
-  //
-  // Output Port 0
-  //
-  /////////////////
-  wire         tx0_de;
-  wire         tx0_pclk;
-  wire         tx0_pclkx2;
-  wire         tx0_pclkx10;
-  wire         tx0_serdesstrobe;
-  wire         tx0_reset;
-  wire [7:0]   tx0_blue;
-  wire [7:0]   tx0_green;
-  wire [7:0]   tx0_red;
-  wire         tx0_hsync;
-  wire         tx0_vsync;
-  wire         tx0_pll_reset;
-
-  assign tx0_de           = (select) ? rx1_de    : rx0_de;
-  assign tx0_blue         = (select) ? rx1_blue  : rx0_blue;
-  assign tx0_green        = (select) ? rx1_green : rx0_green;
-  assign tx0_red          = (select) ? rx1_red   : rx0_red;
-  assign tx0_hsync        = (select) ? rx1_hsync : rx0_hsync;
-  assign tx0_vsync        = (select) ? rx1_vsync : rx0_vsync;
-  assign tx0_pll_reset    = switch | (select ? (~rx1_bufpll_lock) : (~rx0_bufpll_lock));
-
   //////////////////////////////////////////////////////////////////
   // Instantiate a dedicate PLL for output port
   //////////////////////////////////////////////////////////////////
-  wire tx0_clkfbout, tx0_clkfbin, tx0_plllckd;
+  wire tx0_pclkx2;
+  wire tx0_pclkx10;
+  wire tx0_serdesstrobe;
+  wire tx0_clkfbout, tx0_clkfbin, tx0_pll_lckd;
   wire tx0_pllclk0, tx0_pllclk2;
+  wire tx0_pll_reset;
+  
+  assign tx0_pll_reset    = switch | (select ? (~rx1_bufpll_lock) : (~rx0_bufpll_lock));
 
   PLL_BASE # (
     .CLKIN_PERIOD(10),
@@ -339,9 +315,9 @@ module dvi_demo (
     .CLKOUT3(),
     .CLKOUT4(),
     .CLKOUT5(),
-    .LOCKED(tx0_plllckd),
+    .LOCKED(tx0_pll_lckd),
     .CLKFBIN(tx0_clkfbin),
-    .CLKIN(rx_pllclk1_buf),
+    .CLKIN(rx_pclk),
     .RST(tx0_pll_reset)
   );
 
@@ -360,13 +336,115 @@ module dvi_demo (
   // regenerate pclkx10 for TX
   //
   wire tx0_bufpll_lock;
-  BUFPLL #(.DIVIDE(5)) tx0_ioclk_buf (.PLLIN(tx0_pllclk0), .GCLK(tx0_pclkx2), .LOCKED(tx0_plllckd),
+  BUFPLL #(.DIVIDE(5)) tx0_ioclk_buf (.PLLIN(tx0_pllclk0), .GCLK(tx0_pclkx2), .LOCKED(tx0_pll_lckd),
            .IOCLK(tx0_pclkx10), .SERDESSTROBE(tx0_serdesstrobe), .LOCK(tx0_bufpll_lock));
+  
+`ifdef DIRECTPASS
+  wire        tx0_reset         = rx0_reset;
+  wire        tx0_pclk          = rx_pclk;
+  wire [29:0] tx0_s_data        = rx0_sdata;
+
+  //
+  // Forward TMDS Clock Using OSERDES2 block
+  //
+  reg [4:0] tx0_tmdsclkint = 5'b00000;
+  reg toggle = 1'b0;
+
+  always @ (posedge tx0_pclkx2 or posedge tx0_reset) begin
+    if (tx0_reset)
+      toggle <= 1'b0;
+    else
+      toggle <= ~toggle;
+  end
+
+  always @ (posedge tx0_pclkx2) begin
+    if (toggle)
+      tx0_tmdsclkint <= 5'b11111;
+    else
+      tx0_tmdsclkint <= 5'b00000;
+  end
+
+  wire tx0_tmdsclk;
+
+  serdes_n_to_1 #(
+    .SF           (5))
+  clkout (
+    .iob_data_out (tx0_tmdsclk),
+    .ioclk        (tx0_pclkx10),
+    .serdesstrobe (tx0_serdesstrobe),
+    .gclk         (tx0_pclkx2),
+    .reset        (tx0_reset),
+    .datain       (tx0_tmdsclkint));
+
+  OBUFDS TMDS3 (.I(tx0_tmdsclk), .O(TX0_TMDS[3]), .OB(TX0_TMDSB[3])) ; // clock
+
+  wire [4:0] tx0_tmds_data0, tx0_tmds_data1, tx0_tmds_data2;
+  wire [2:0] tx0_tmdsint;
+
+  //
+  // Forward TMDS Data: 3 channels
+  //
+  serdes_n_to_1 #(.SF(5)) oserdes0 (
+             .ioclk(tx0_pclkx10),
+             .serdesstrobe(tx0_serdesstrobe),
+             .reset(tx0_reset),
+             .gclk(tx0_pclkx2),
+             .datain(tx0_tmds_data0),
+             .iob_data_out(tx0_tmdsint[0])) ;
+
+  serdes_n_to_1 #(.SF(5)) oserdes1 (
+             .ioclk(tx0_pclkx10),
+             .serdesstrobe(tx0_serdesstrobe),
+             .reset(tx0_reset),
+             .gclk(tx0_pclkx2),
+             .datain(tx0_tmds_data1),
+             .iob_data_out(tx0_tmdsint[1])) ;
+
+  serdes_n_to_1 #(.SF(5)) oserdes2 (
+             .ioclk(tx0_pclkx10),
+             .serdesstrobe(tx0_serdesstrobe),
+             .reset(tx0_reset),
+             .gclk(tx0_pclkx2),
+             .datain(tx0_tmds_data2),
+             .iob_data_out(tx0_tmdsint[2])) ;
+
+  OBUFDS TMDS0 (.I(tx0_tmdsint[0]), .O(TX0_TMDS[0]), .OB(TX0_TMDSB[0])) ;
+  OBUFDS TMDS1 (.I(tx0_tmdsint[1]), .O(TX0_TMDS[1]), .OB(TX0_TMDSB[1])) ;
+  OBUFDS TMDS2 (.I(tx0_tmdsint[2]), .O(TX0_TMDS[2]), .OB(TX0_TMDSB[2])) ;
+
+  convert_30to15_fifo pixel2x (
+    .rst     (tx0_reset),
+    .clk     (tx0_pclk),
+    .clkx2   (tx0_pclkx2),
+    .datain  (tx0_s_data),
+    .dataout ({tx0_tmds_data2, tx0_tmds_data1, tx0_tmds_data0}));
+
+`else
+  /////////////////
+  //
+  // Output Port 0
+  //
+  /////////////////
+  wire         tx0_de;
+  wire         tx0_pclk = rx_pclk;
+  wire         tx0_reset;
+  wire [7:0]   tx0_blue;
+  wire [7:0]   tx0_green;
+  wire [7:0]   tx0_red;
+  wire         tx0_hsync;
+  wire         tx0_vsync;
+
+  assign tx0_de           = (select) ? rx1_de    : rx0_de;
+  assign tx0_blue         = (select) ? rx1_blue  : rx0_blue;
+  assign tx0_green        = (select) ? rx1_green : rx0_green;
+  assign tx0_red          = (select) ? rx1_red   : rx0_red;
+  assign tx0_hsync        = (select) ? rx1_hsync : rx0_hsync;
+  assign tx0_vsync        = (select) ? rx1_vsync : rx0_vsync;
 
   assign tx0_reset = ~tx0_bufpll_lock;
 
   dvi_encoder_top dvi_tx0 (
-    .pclk        (rx_pllclk1),
+    .pclk        (tx0_pclk),
     .pclkx2      (tx0_pclkx2),
     .pclkx10     (tx0_pclkx10),
     .serdesstrobe(tx0_serdesstrobe),
@@ -379,6 +457,7 @@ module dvi_demo (
     .de          (tx0_de),
     .TMDS        (TX0_TMDS),
     .TMDSB       (TX0_TMDSB));
+`endif
 
   //////////////////////////////////////
   // Status LED
