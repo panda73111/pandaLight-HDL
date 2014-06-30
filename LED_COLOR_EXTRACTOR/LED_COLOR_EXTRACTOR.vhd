@@ -105,13 +105,27 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     
 begin
     
+    -- left border first LED to right border last LED
     total_top_led_width     <= FRAME_WIDTH-LED_PAD_TOP_LEFT-LED_PAD_TOP_RIGHT;
-    total_right_led_height  <= FRAME_HEIGHT-LED_PAD_RIGHT_TOP-LED_PAD_RIGHT_BOTTOM;
     total_bottom_led_width  <= FRAME_WIDTH-LED_PAD_BOTTOM_LEFT-LED_PAD_BOTTOM_RIGHT;
+    -- top border first LED to bottom border last LED
+    total_right_led_height  <= FRAME_HEIGHT-LED_PAD_RIGHT_TOP-LED_PAD_RIGHT_BOTTOM;
     total_left_led_height   <= FRAME_HEIGHT-LED_PAD_LEFT_TOP-LED_PAD_LEFT_BOTTOM;
     
-    hor_led_num <= frame_x/HOR_LED_CNT;
-    ver_led_num <= frame_y/VER_LED_CNT;
+    -- next step: calculate the center points of each LED
+    -- (hor. center of top/bottom LEDs, ver. center of left/right LEDs)
+    -- from which I can 'pad' using the LED width/height to get the first and last
+    -- frame x value for hor. LEDs and frame y value for ver. LEDs.
+    -- The problem with this approach is that this would need these divisions:
+    --   total_top_led_width/HOR_LED_CNT
+    --   total_bottom_led_width/HOR_LED_CNT
+    --   total_right_led_height/VER_LED_CNT
+    --   total_left_led_height/VER_LED_CNT
+    -- And hardware divisions are bad and should be avoided.
+    -- I need to think about this...
+    
+    --hor_led_num <= ;
+    --ver_led_num <= ;
     
     pixel_cnt_proc : process(RST, CLK)
     begin
@@ -125,7 +139,7 @@ begin
             end if;
             if FRAME_HSYNC='1' then
                 frame_x <= frame_x+1;
-                if frame_x=FRAME_WIDTH then
+                if frame_x=uns(FRAME_WIDTH)-1 then
                     frame_x <= (others => '0');
                     frame_y <= frame_y+1;
                 end if;
@@ -138,10 +152,10 @@ begin
     begin
         if rising_edge(CLK) then
             if FRAME_HSYNC='1' then
-                first_right_led_x   := FRAME_WIDTH-VER_LED_WIDTH;
+                first_right_led_x   := uns(FRAME_WIDTH)-uns(VER_LED_WIDTH)-1;
                 if frame_x=0 then
                     -- first pixel of a left border LED
-                elsif frame_x<=VER_LED_WIDTH then
+                elsif frame_x<=uns(VER_LED_WIDTH) then
                     -- left border LED
                 elsif frame_x=first_right_led_x then
                     -- first pixel of a right border LED
