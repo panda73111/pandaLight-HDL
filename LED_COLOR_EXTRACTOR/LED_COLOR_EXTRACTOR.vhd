@@ -45,6 +45,15 @@ entity LED_COLOR_EXTRACTOR is
         VER_LED_WIDTH   : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         VER_LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         
+        LED_PAD_TOP_LEFT        : in std_ulogic_vector(FRAME_SIZE_BITS/2-1 downto 0);
+        LED_PAD_TOP_RIGHT       : in std_ulogic_vector(FRAME_SIZE_BITS/2-1 downto 0);
+        LED_PAD_RIGHT_TOP       : in std_ulogic_vector(FRAME_SIZE_BITS/2-1 downto 0);
+        LED_PAD_RIGHT_BOTTOM    : in std_ulogic_vector(FRAME_SIZE_BITS/2-1 downto 0);
+        LED_PAD_BOTTOM_LEFT     : in std_ulogic_vector(FRAME_SIZE_BITS/2-1 downto 0);
+        LED_PAD_BOTTOM_RIGHT    : in std_ulogic_vector(FRAME_SIZE_BITS/2-1 downto 0);
+        LED_PAD_LEFT_TOP        : in std_ulogic_vector(FRAME_SIZE_BITS/2-1 downto 0);
+        LED_PAD_LEFT_BOTTOM     : in std_ulogic_vector(FRAME_SIZE_BITS/2-1 downto 0);
+        
         FRAME_VSYNC : in std_ulogic;
         FRAME_HSYNC : in std_ulogic;
         
@@ -83,13 +92,23 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     signal hor_ram  : hor_ram_type;
     signal ver_ram  : ver_ram_type;
     
-    signal frame_x  : std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0) := (others => '0');
-    signal frame_y  : std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0) := (others => '0');
+    signal total_top_led_width      : unsigned(LED_CNT_BITS+LED_SIZE_BITS-1 downto 0) := (others => '0');
+    signal total_right_led_height   : unsigned(LED_CNT_BITS+LED_SIZE_BITS-1 downto 0) := (others => '0');
+    signal total_bottom_led_width   : unsigned(LED_CNT_BITS+LED_SIZE_BITS-1 downto 0) := (others => '0');
+    signal total_left_led_height    : unsigned(LED_CNT_BITS+LED_SIZE_BITS-1 downto 0) := (others => '0');
     
-    signal hor_led_num  : std_ulogic_vector(LED_CNT_BITS-1 downto 0) := (others => '0');
-    signal ver_led_num  : std_ulogic_vector(LED_CNT_BITS-1 downto 0) := (others => '0');
+    signal frame_x  : unsigned(FRAME_SIZE_BITS-1 downto 0) := (others => '0');
+    signal frame_y  : unsigned(FRAME_SIZE_BITS-1 downto 0) := (others => '0');
+    
+    signal hor_led_num  : unsigned(LED_CNT_BITS-1 downto 0) := (others => '0');
+    signal ver_led_num  : unsigned(LED_CNT_BITS-1 downto 0) := (others => '0');
     
 begin
+    
+    total_top_led_width     <= FRAME_WIDTH-LED_PAD_TOP_LEFT-LED_PAD_TOP_RIGHT;
+    total_right_led_height  <= FRAME_HEIGHT-LED_PAD_RIGHT_TOP-LED_PAD_RIGHT_BOTTOM;
+    total_bottom_led_width  <= FRAME_WIDTH-LED_PAD_BOTTOM_LEFT-LED_PAD_BOTTOM_RIGHT;
+    total_left_led_height   <= FRAME_HEIGHT-LED_PAD_LEFT_TOP-LED_PAD_LEFT_BOTTOM;
     
     hor_led_num <= frame_x/HOR_LED_CNT;
     ver_led_num <= frame_y/VER_LED_CNT;
@@ -115,7 +134,7 @@ begin
     end process;
     
     ver_proc : process(CLK)
-        variable first_right_led_x  : std_ulogic_vector(frame_x'range);
+        variable first_right_led_x  : unsigned(frame_x'range);
     begin
         if rising_edge(CLK) then
             if FRAME_HSYNC='1' then
