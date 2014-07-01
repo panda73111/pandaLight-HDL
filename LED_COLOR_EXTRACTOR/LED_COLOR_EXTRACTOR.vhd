@@ -104,25 +104,6 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     -- the following buffers contain LED colors which are refreshed every
     -- time a new frame pixel comes in
     
-    -- horizontal buffer: used by the top LED row and the bottom LED row
-    type hor_buf_type is
-        array(0 to (2**LED_CNT_BITS)-1) of
-        led_color_type;
-        
-    -- vertical buffer: used by the left LED column and the right LED column;
-    -- because two LEDs can overlap, two LEDs are needed
-    type ver_buf_type is
-        array(0 to 1) of
-        led_color_type;
-    
-    type hor_bufs_type is
-        array(T to B) of
-        hor_buf_type;
-    
-    type ver_bufs_type is
-        array(L to R) of
-        ver_buf_type;
-    
     type led_nums_type is
         array(0 to 3) of
         unsigned(LED_CNT_BITS-1 downto 0);
@@ -186,9 +167,6 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     ---------------
     --- signals ---
     ---------------
-    
-    signal hor_bufs : hor_bufs_type;
-    signal ver_bufs : ver_bufs_type;
     
     signal led_nums
         : led_nums_type
@@ -288,7 +266,19 @@ begin
         end if;
     end process;
     
-    side_scan_proc_gen : for side in L to R generate
+    side_scan_proc_gen : for side in 0 to 3 generate
+        constant HOR    : boolean := side=T or side=B;
+        constant VER    : boolean := side=L or side=R;
+        
+        -- horizontal buffer: used by the top LED row and the bottom LED row;
+        -- vertical buffer: used by the left LED column and the right LED column,
+        -- because two LEDs can overlap, two LEDs are needed
+        constant BUF_SIZE   : natural := sel(HOR, 2**LED_CNT_BITS, 2);
+        
+        type buf_type is
+            array(0 to BUF_SIZE-1) of
+            led_color_type;
+        
         alias overlap
             : boolean is
             overlaps(side);
@@ -313,10 +303,6 @@ begin
             : unsigned(LED_CNT_BITS-1 downto 0) is
             led_nums(side);
         
-        alias side_buf
-            : ver_buf_type is
-            ver_bufs(side);
-        
         signal led_cnt
             : unsigned(LED_CNT_BITS-1 downto 0)
             := (others => '0');
@@ -326,16 +312,18 @@ begin
             := (others => '0');
         
         signal cur_led_p    : natural := 0;
+        
+        signal side_buf : buf_type;
     begin
         
-        hor_pointer_gen : if side=T or side=B generate
+        hor_param_gen : if hor generate
             led_cnt     <= uns(HOR_LED_CNT);
             led_width   <= uns(HOR_LED_WIDTH);
             led_height  <= uns(HOR_LED_HEIGHT);
             cur_led_p   <= int(led_num);
         end generate;
         
-        ver_pointer_gen : if side=L or side=R generate
+        ver_param_gen : if ver generate
             led_cnt     <= uns(VER_LED_CNT);
             led_width   <= uns(VER_LED_WIDTH);
             led_height  <= uns(VER_LED_HEIGHT);
@@ -367,7 +355,11 @@ begin
                         end if;
                         
                         if overlap then
-                            if inner_coords(X)=0 and next_inner_coords(Y)=0 then
+                            if
+                                (ver and inner_coords(X)=0 and next_inner_coords(Y)=0)
+                                or
+                                (hor and inner_coords(Y)=0 and next_inner_coords(X)=0)
+                            then
                                 -- first pixel of the next (overlapping) LED area
                                 side_buf(cur_led_p+1).R <= FRAME_R;
                                 side_buf(cur_led_p+1).G <= FRAME_G;
@@ -381,21 +373,42 @@ begin
                         end if;
                         
                         -- left led x & y increment
-                        inner_coords(X) <= inner_coords(X)+1;
-                        if inner_coords(X)=led_width-1 then
-                            inner_coords(X) <= (others => '0');
-                            inner_coords(Y) <= inner_coords(Y)+1;
-                            if inner_coords(Y)=led_height-1 or frame_y=FRAME_HEIGHT-1 then
-                                led_num <= led_num+1;
-                                if overlap then
-                                    -- the first part of the now current pixel is in the
-                                    -- previously next pixel's register
-                                    side_buf(cur_led_p) <= side_buf(cur_led_p+1);
-                                    inner_coords(Y) <= abs_overlap;
-                                else
-                                    inner_coords(Y) <= (others => '0');
+                        if ver then
+                            
+                            -- L and R: the LED is changed after one LED is completed
+                            inner_coords(X) <= inner_coords(X)+1;
+                            if inner_coords(X)=led_width-1 or frame_x=FRAME_WIDTH-1 then
+                                inner_coords(X) <= (others => '0');
+                                inner_coords(Y) <= inner_coords(Y)+1;
+                                if inner_coords(Y)=led_height-1 or frame_y=FRAME_HEIGHT-1 then
+                                    led_num <= led_num+1;
+                                    if overlap then
+                                        -- the first part of the now 'current LED' is in the
+                                        -- previously 'next LED' register
+                                        side_buf(cur_led_p) <= side_buf(cur_led_p+1);
+                                        inner_coords(Y)     <= abs_overlap;
+                                    else
+                                        inner_coords(Y)     <= (others => '0');
+                                    end if;
                                 end if;
                             end if;
+                            
+                        elsif hor then
+                            
+                            -- T and B: the LED is changed after one row of pixels is completed
+                            inner_coords(X) <= inner_coords(X)+1;
+                            if inner_coords(X)=led_width-1 or frame_x=FRAME_WIDTH-1 then
+                                inner_coords(X) <= (others => '0');
+                                led_num         <= led_num+1;
+                                if led_num=led_cnt then
+                                    -- frame row chaning, jump to the first LED
+                                    inner_coords(Y) <= inner_coords(Y)+1;
+                                    led_num         <= (others => '0');
+                                elsif overlap then
+                                    inner_coords(X) <= abs_overlap;
+                                end if;
+                            end if;
+                            
                         end if;
                     end if;
                 end if;
