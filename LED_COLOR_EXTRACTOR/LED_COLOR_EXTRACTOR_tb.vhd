@@ -28,10 +28,10 @@ END LED_COLOR_EXTRACTOR_tb;
 ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS 
     
     constant FRAME_SIZE_BITS : natural := 11;
-    constant LED_CNT_BITS    : natural := 6;
-    constant LED_SIZE_BITS   : natural := 8;
-    constant LED_PAD_BITS    : natural := 8;
-    constant LED_STEP_BITS   : natural := 8;
+    constant LED_CNT_BITS    : natural := 7;
+    constant LED_SIZE_BITS   : natural := 7;
+    constant LED_PAD_BITS    : natural := 7;
+    constant LED_STEP_BITS   : natural := 7;
     constant R_BITS          : natural range 1 to 12 := 8;
     constant G_BITS          : natural range 1 to 12 := 8;
     constant B_BITS          : natural range 1 to 12 := 8;
@@ -117,6 +117,55 @@ BEGIN
         R       => frame_r,
         G       => frame_g,
         B       => frame_b
+    );
+    
+    led_ppm_visualizer_inst : entity work.led_ppm_visualizer
+    generic map (
+        FILENAME_BASE   => "frame",
+        FRAMES_TO_SAVE  => 5,
+        STOP_SIM        => true,
+        FRAME_SIZE_BITS => FRAME_SIZE_BITS,
+        LED_CNT_BITS    => LED_CNT_BITS,
+        LED_SIZE_BITS   => LED_SIZE_BITS,
+        LED_PAD_BITS    => LED_PAD_BITS,
+        LED_STEP_BITS   => LED_STEP_BITS,
+        R_BITS          => R_BITS,
+        G_BITS          => G_BITS,
+        B_BITS          => B_BITS
+    )
+    port map (
+        CLK => clk,
+        
+        HOR_LED_CNT     => hor_led_cnt,
+        VER_LED_CNT     => ver_led_cnt,
+        
+        HOR_LED_WIDTH   => hor_led_width,
+        HOR_LED_HEIGHT  => hor_led_height,
+        VER_LED_WIDTH   => ver_led_width,
+        VER_LED_HEIGHT  => ver_led_height,
+        
+        LED_PAD_TOP_LEFT        => led_pad_top_left,
+        LED_PAD_TOP_TOP         => led_pad_top_top,
+        LED_PAD_RIGHT_TOP       => led_pad_right_top,
+        LED_PAD_RIGHT_RIGHT     => led_pad_right_right,
+        LED_PAD_BOTTOM_LEFT     => led_pad_bottom_left,
+        LED_PAD_BOTTOM_BOTTOM   => led_pad_bottom_bottom,
+        LED_PAD_LEFT_TOP        => led_pad_left_top,
+        LED_PAD_LEFT_LEFT       => led_pad_left_left,
+        LED_STEP_TOP            => led_step_top,
+        LED_STEP_RIGHT          => led_step_right,
+        LED_STEP_BOTTOM         => led_step_bottom,
+        LED_STEP_LEFT           => led_step_left,
+        
+        FRAME_WIDTH     => frame_width,
+        FRAME_HEIGHT    => frame_height,
+        
+        LED_VSYNC   => led_vsync,
+        LED_VALID   => led_valid,
+        LED_NUM     => led_num,
+        LED_R       => led_r,
+        LED_G       => led_g,
+        LED_B       => led_b
     );
     
     LED_COLOR_EXTRACTOR_inst : entity work.LED_COLOR_EXTRACTOR

@@ -18,7 +18,7 @@
 --   
 --   Generic:
 --     FRAME_SIZE_BITS : Number of bits for each dimension of the incoming video frame
---     LED_CNT_BITS    : Number of bits for the number of LEDs each horizontally and vertically
+--     LED_CNT_BITS    : Number of bits for the number of all LEDs
 --     LED_SIZE_BITS   : Number of bits for each dimension of the pixel area per LED
 --     LED_PAD_BITS    : Number of bits for the padding pixel count per side
 --     LED_STEP_BITS   : Number of bits for the pixel count LED center to LED center
@@ -76,7 +76,7 @@ use work.help_funcs.all;
 entity LED_COLOR_EXTRACTOR is
     generic (
         FRAME_SIZE_BITS : natural := 11;
-        LED_CNT_BITS    : natural := 5;
+        LED_CNT_BITS    : natural := 7;
         LED_SIZE_BITS   : natural := 7;
         LED_PAD_BITS    : natural := 7;
         LED_STEP_BITS   : natural := 7;
@@ -224,6 +224,10 @@ architecture rtl of LED_COLOR_EXTRACTOR is
         : side_flag_type
         := (others => false);
     
+    signal first_leds_completed
+        : side_flag_type
+        := (others => false);
+    
     signal leds_output_queue
         : leds_output_queue_type
         := (others => (others => (others => '0')));
@@ -362,6 +366,10 @@ begin
             : led_color_type is
             leds_output_queue(side);
         
+        alias first_led_completed
+            : boolean is
+            first_leds_completed(side);
+        
         signal led_cnt
             : unsigned(LED_CNT_BITS-1 downto 0)
             := (others => '0');
@@ -386,15 +394,16 @@ begin
             led_cnt     <= uns(VER_LED_CNT);
             led_width   <= uns(VER_LED_WIDTH);
             led_height  <= uns(VER_LED_HEIGHT);
-            cur_led_p   <= int(led_num(0 downto 0)+RIGHT_OFFS);
+            cur_led_p   <= int(resize(led_num(0 downto 0), 2)+RIGHT_OFFS);
         end generate;
         
         side_scan_proc : process(RST, CLK)
         begin
             if RST='1' then
-                inner_coords    <= (others => (others => '0'));
-                led_num         <= (others => '0');
-                led_completed   <= false;
+                inner_coords        <= (others => (others => '0'));
+                led_num             <= (others => '0');
+                led_completed       <= false;
+                first_led_completed <= false;
             elsif rising_edge(CLK) then
                 led_completed   <= false;
                 
@@ -443,7 +452,12 @@ begin
                                 inner_coords(X) <= (others => '0');
                                 inner_coords(Y) <= inner_coords(Y)+1;
                                 if inner_coords(Y)=led_height-1 or frame_y=FRAME_HEIGHT-1 then
-                                    led_num             <= led_num+1;
+                                    -- this was the last pixel of the LED area
+                                    if first_led_completed then
+                                        led_num             <= led_num+1;
+                                    else
+                                        first_led_completed <= true;
+                                    end if;
                                     led_completed       <= true;
                                     led_output_queue    <= side_buf(cur_led_p);
                                     if overlap then
@@ -462,25 +476,36 @@ begin
                             -- T and B: the LED is changed after one row of pixels is completed
                             inner_coords(X) <= inner_coords(X)+1;
                             if inner_coords(X)=led_width-1 or frame_x=FRAME_WIDTH-1 then
-                                inner_coords(X)     <= (others => '0');
-                                led_num             <= led_num+1;
-                                led_completed       <= true;
-                                led_output_queue    <= side_buf(cur_led_p);
                                 if led_num=led_cnt then
                                     -- frame row chaning, jump to the first LED
                                     inner_coords(Y) <= inner_coords(Y)+1;
                                     led_num         <= (others => '0');
-                                elsif overlap then
-                                    inner_coords(X) <= abs_overlap;
                                 end if;
+                                if inner_coords(Y)=led_height-1 or frame_y=FRAME_HEIGHT-1 then
+                                    -- this was the last pixel of the LED area
+                                    if first_led_completed then
+                                        led_num             <= led_num+1;
+                                    else
+                                        first_led_completed <= true;
+                                    end if;
+                                    led_completed       <= true;
+                                    led_output_queue    <= side_buf(cur_led_p);
+                                end if;
+                                if overlap then
+                                    inner_coords(X) <= abs_overlap;
+                                else
+                                    inner_coords(X) <= (others => '0');
+                                end if;
+                                
                             end if;
                             
                         end if;
                     end if;
                 end if;
                 if FRAME_VSYNC='0' then
-                    inner_coords    <= (others => (others => '0'));
-                    led_num         <= (others => '0');
+                    inner_coords        <= (others => (others => '0'));
+                    led_num             <= (others => '0');
+                    first_led_completed <= false;
                 end if;
             end if;
         end process;
@@ -507,10 +532,10 @@ begin
                 if leds_completed(side) or leds_queued(side) then
                     -- count the LEDs from top left clockwise
                     case side is
-                        when T  => LED_NUM <= stdulv(led_nums(T));
-                        when R  => LED_NUM <= stdulv(led_nums(T)+led_nums(R));
-                        when B  => LED_NUM <= stdulv(led_nums(T)+led_nums(R)+rev_bottom_led_num);
-                        when L  => LED_NUM <= stdulv(led_nums(T)+led_nums(R)+rev_bottom_led_num+rev_left_led_num);
+                        when T  => LED_NUM  <= stdulv(led_nums(T));
+                        when R  => LED_NUM  <= stdulv(led_nums(T)+led_nums(R));
+                        when B  => LED_NUM  <= stdulv(led_nums(T)+led_nums(R)+rev_bottom_led_num);
+                        when L  => LED_NUM  <= stdulv(led_nums(T)+led_nums(R)+rev_bottom_led_num+rev_left_led_num);
                     end case;
                     LED_R               <= leds_output_queue(side).R;
                     LED_G               <= leds_output_queue(side).G;

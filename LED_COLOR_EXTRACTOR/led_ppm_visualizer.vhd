@@ -25,12 +25,12 @@ use work.txt_util.all;
 entity led_ppm_visualizer is
     generic (
         FILENAME_BASE       : string;
-        FILENAME_START_NUM  : natural;
+        FILENAME_START_NUM  : natural := 0;
         FRAMES_TO_SAVE      : natural;
         STOP_SIM            : boolean;
         WHITESPACE_CHAR     : character := character'val(13);
         FRAME_SIZE_BITS     : natural := 11;
-        LED_CNT_BITS        : natural := 5;
+        LED_CNT_BITS        : natural := 7;
         LED_SIZE_BITS       : natural := 7;
         LED_PAD_BITS        : natural := 7;
         LED_STEP_BITS       : natural := 7;
@@ -75,10 +75,18 @@ entity led_ppm_visualizer is
 end led_ppm_visualizer;
 
 architecture rtl of led_ppm_visualizer is
-    constant maxval : natural := 2**(R_BITS+G_BITS+B_BITS);
+    constant maxval : natural := (2**(max(R_BITS, max(G_BITS, B_BITS))))-1;
     
     type char_file is file of character;
     type data_type is (BYTE, HWORD, WORD);
+    
+    type frame_col_type is
+        array(0 to (2**FRAME_SIZE_BITS)-1) of
+        std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
+    
+    type frame_buf_type is
+        array(0 to (2**FRAME_SIZE_BITS)-1) of
+        frame_col_type;
     
     function to_char (v : std_ulogic_vector) return character is
     begin
@@ -120,18 +128,70 @@ begin
     
     write_file_proc : process
         file img_file       : char_file;
-        variable filename   : string(1 to base_filename'length+6);
+        variable filename   : string(1 to FILENAME_BASE'length+6);
         variable file_index : integer := 0;
+        variable frame_buf  : frame_buf_type := (others => (others => (others => '0')));
+        variable pixel      : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
+        variable r          : std_ulogic_vector(R_BITS-1 downto 0);
+        variable g          : std_ulogic_vector(G_BITS-1 downto 0);
+        variable b          : std_ulogic_vector(B_BITS-1 downto 0);
+        variable led_start_x, led_start_y   : natural range 0 to (2**FRAME_SIZE_BITS)-1;
+        variable led_end_x, led_end_y       : natural range 0 to (2**FRAME_SIZE_BITS)-1;
+        variable side_led_index             : natural range 0 to (2**LED_CNT_BITS)-1;
     begin
         while file_index/=frames_to_save loop
-            filename    := base_filename & integer'image(file_index) & ".ppm";
+            filename    := FILENAME_BASE & integer'image(file_index) & ".ppm";
             
             wait until LED_VSYNC='1';
             
             while LED_VSYNC='1' loop
                 wait until rising_edge(CLK);
                 if LED_VALID='1' then
-                    -- TODO: store and/or draw the LEDS
+                    if LED_NUM<HOR_LED_CNT then
+                        
+                        -- top side
+                        side_led_index  := int(LED_NUM);
+                        led_start_x     := int(LED_PAD_TOP_LEFT+(LED_STEP_TOP*side_led_index));
+                        led_end_x       := led_start_x+int(HOR_LED_WIDTH);
+                        led_start_y     := int(LED_PAD_TOP_TOP);
+                        led_end_y       := led_start_y+int(HOR_LED_HEIGHT);
+                        
+                    elsif LED_NUM<HOR_LED_CNT+VER_LED_CNT then
+                        
+                        -- right side
+                        side_led_index  := int(LED_NUM-HOR_LED_CNT);
+                        led_start_x     := int(FRAME_WIDTH-LED_PAD_RIGHT_RIGHT-VER_LED_WIDTH);
+                        led_end_x       := led_start_x+int(VER_LED_WIDTH);
+                        led_start_y     := int(LED_PAD_RIGHT_TOP+(LED_STEP_RIGHT*side_led_index));
+                        led_end_y       := led_start_y+int(VER_LED_HEIGHT);
+                        
+                    elsif LED_NUM<(HOR_LED_CNT*2)+VER_LED_CNT then
+                        
+                        -- bottom side
+                        side_led_index  := int(HOR_LED_CNT-1-(LED_NUM-HOR_LED_CNT-VER_LED_CNT));
+                        led_start_x     := int(LED_PAD_BOTTOM_LEFT+(LED_STEP_BOTTOM*side_led_index));
+                        led_end_x       := led_start_x+int(HOR_LED_WIDTH);
+                        led_start_y     := int(FRAME_HEIGHT-LED_PAD_BOTTOM_BOTTOM-HOR_LED_HEIGHT);
+                        led_end_y       := led_start_y+int(HOR_LED_HEIGHT);
+                        
+                    else
+                        
+                        -- left side
+                        side_led_index  := int(VER_LED_CNT-1-(LED_NUM-(HOR_LED_CNT*2)-VER_LED_CNT));
+                        led_start_x     := int(LED_PAD_LEFT_LEFT);
+                        led_end_x       := led_start_x+int(VER_LED_WIDTH);
+                        led_start_y     := int(LED_PAD_LEFT_TOP+(LED_STEP_LEFT*side_led_index));
+                        led_end_y       := led_start_y+int(VER_LED_HEIGHT);
+                        
+                    end if;
+                    
+                    -- draw the LED
+                    for y in led_start_y to led_end_y loop
+                        for x in led_start_x to led_end_x loop
+                            frame_buf(x)(y) := LED_R & LED_G & LED_B;
+                        end loop;
+                    end loop;
+                    
                 end if;
             end loop;
             
@@ -139,16 +199,27 @@ begin
             file_open(img_file, filename, write_mode);
             
             -- write the file header
-            file_write(img_file, "P6");              -- magic number
+            file_write(img_file, "P6");                   -- magic number
             file_write(img_file, WHITESPACE_CHAR);
-            file_write(img_file, str(FRAME_WIDTH));  -- width
+            file_write(img_file, str(int(FRAME_WIDTH)));  -- width
             file_write(img_file, WHITESPACE_CHAR);
-            file_write(img_file, str(FRAME_HEIGHT)); -- height
+            file_write(img_file, str(int(FRAME_HEIGHT))); -- height
             file_write(img_file, WHITESPACE_CHAR);
-            file_write(img_file, str(maxval));       -- Maxval
+            file_write(img_file, str(maxval));            -- Maxval
             file_write(img_file, WHITESPACE_CHAR);
             
-            -- TODO: write image buffer
+            for y in 0 to int(FRAME_HEIGHT-1) loop
+                for x in 0 to int(FRAME_WIDTH-1) loop
+                    pixel   := frame_buf(x)(y);
+                    r       := pixel(pixel'left downto pixel'left-R_BITS+1);
+                    g       := pixel(pixel'left-R_BITS downto B_BITS);
+                    b       := pixel(B_BITS-1 downto 0);
+                    file_write(img_file, r);
+                    file_write(img_file, g);
+                    file_write(img_file, b);
+                end loop;
+                --file_write(img_file, character'val(13)); -- newline
+            end loop;
             
             report("closing file " & filename);
             file_close(img_file);
