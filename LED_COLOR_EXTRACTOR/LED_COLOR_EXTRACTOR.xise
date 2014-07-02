@@ -41,6 +41,10 @@
       <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="33"/>
       <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="33"/>
     </file>
+    <file xil_pn:name="led_ppm_visualizer.vhd" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="0"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="39"/>
+    </file>
   </files>
 
   <properties>

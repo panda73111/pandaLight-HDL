@@ -75,23 +75,24 @@ use work.help_funcs.all;
 
 entity LED_COLOR_EXTRACTOR is
     generic (
-        FRAME_SIZE_BITS : integer := 11;
-        LED_CNT_BITS    : integer := 6;
-        LED_SIZE_BITS   : integer := 8;
-        LED_PAD_BITS    : integer := 8;
-        LED_STEP_BITS   : integer := 8;
-        R_BITS          : integer := 8;
-        G_BITS          : integer := 8;
-        B_BITS          : integer := 8
+        FRAME_SIZE_BITS : natural := 11;
+        LED_CNT_BITS    : natural := 6;
+        LED_SIZE_BITS   : natural := 8;
+        LED_PAD_BITS    : natural := 8;
+        LED_STEP_BITS   : natural := 8;
+        R_BITS          : natural range 1 to 12 := 8;
+        G_BITS          : natural range 1 to 12 := 8;
+        B_BITS          : natural range 1 to 12 := 8
     );
     port (
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
         HOR_LED_CNT     : in std_ulogic_vector(LED_CNT_BITS-1 downto 0);
+        VER_LED_CNT     : in std_ulogic_vector(LED_CNT_BITS-1 downto 0);
+        
         HOR_LED_WIDTH   : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         HOR_LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
-        VER_LED_CNT     : in std_ulogic_vector(LED_CNT_BITS-1 downto 0);
         VER_LED_WIDTH   : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         VER_LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         
@@ -118,6 +119,7 @@ entity LED_COLOR_EXTRACTOR is
         FRAME_G : in std_ulogic_vector(G_BITS-1 downto 0);
         FRAME_B : in std_ulogic_vector(B_BITS-1 downto 0);
         
+        LED_VSYNC   : out std_ulogic := '0';
         LED_VALID   : out std_ulogic := '0';
         LED_NUM     : out std_ulogic_vector(LED_CNT_BITS-1 downto 0) := (others => '0');
         LED_R       : out std_ulogic_vector(R_BITS-1 downto 0) := (others => '0');
@@ -149,9 +151,6 @@ architecture rtl of LED_COLOR_EXTRACTOR is
         G   : std_ulogic_vector(G_BITS-1 downto 0);
         B   : std_ulogic_vector(B_BITS-1 downto 0);
     end record;
-    
-    -- the following buffers contain LED colors which are refreshed every
-    -- time a new frame pixel comes in
     
     type led_nums_type is
         array(0 to 3) of
@@ -263,16 +262,19 @@ begin
     --- static routes ---
     ---------------------
     
+    -- is there any overlap?
     overlaps(T) <= LED_STEP_TOP<HOR_LED_WIDTH;
     overlaps(R) <= LED_STEP_RIGHT<VER_LED_HEIGHT;
     overlaps(B) <= LED_STEP_BOTTOM<HOR_LED_WIDTH;
     overlaps(L) <= LED_STEP_LEFT<VER_LED_HEIGHT;
     
+    -- the amount of overlapping pixels (in one dimension)
     abs_overlaps(T) <= uns(HOR_LED_HEIGHT-LED_STEP_TOP);
     abs_overlaps(R) <= uns(VER_LED_HEIGHT-LED_STEP_RIGHT);
     abs_overlaps(B) <= uns(HOR_LED_HEIGHT-LED_STEP_BOTTOM);
     abs_overlaps(L) <= uns(VER_LED_HEIGHT-LED_STEP_LEFT);
     
+    -- for the overlap detection, the position of the next LED's pixel area is watched
     next_leds_inner_coords(T)(X)    <= leds_inner_coords(T)(X)+uns(LED_STEP_TOP);
     next_leds_inner_coords(T)(Y)    <= leds_inner_coords(T)(Y);
     next_leds_inner_coords(R)(X)    <= leds_inner_coords(R)(X);
@@ -282,6 +284,7 @@ begin
     next_leds_inner_coords(L)(X)    <= leds_inner_coords(L)(X);
     next_leds_inner_coords(L)(Y)    <= leds_inner_coords(L)(Y)+uns(LED_STEP_LEFT);
     
+    -- point of the first pixel of the first LED on each side (the most top left pixel)
     first_leds_pos(T)(X)    <= resize(  uns(LED_PAD_TOP_LEFT),      FRAME_SIZE_BITS);
     first_leds_pos(T)(Y)    <= resize(  uns(LED_PAD_TOP_TOP),       FRAME_SIZE_BITS);
     first_leds_pos(R)(X)    <=          uns(FRAME_WIDTH-VER_LED_WIDTH-LED_PAD_RIGHT_RIGHT);
