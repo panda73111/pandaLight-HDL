@@ -30,10 +30,10 @@ entity led_ppm_visualizer is
         STOP_SIM            : boolean;
         WHITESPACE_CHAR     : character := character'val(13);
         FRAME_SIZE_BITS     : natural := 11;
-        LED_CNT_BITS        : natural := 6;
-        LED_SIZE_BITS       : natural := 8;
-        LED_PAD_BITS        : natural := 8;
-        LED_STEP_BITS       : natural := 8;
+        LED_CNT_BITS        : natural := 5;
+        LED_SIZE_BITS       : natural := 7;
+        LED_PAD_BITS        : natural := 7;
+        LED_STEP_BITS       : natural := 7;
         R_BITS              : natural range 1 to 16 := 8;
         G_BITS              : natural range 1 to 16 := 8;
         B_BITS              : natural range 1 to 16 := 8

@@ -76,10 +76,10 @@ use work.help_funcs.all;
 entity LED_COLOR_EXTRACTOR is
     generic (
         FRAME_SIZE_BITS : natural := 11;
-        LED_CNT_BITS    : natural := 6;
-        LED_SIZE_BITS   : natural := 8;
-        LED_PAD_BITS    : natural := 8;
-        LED_STEP_BITS   : natural := 8;
+        LED_CNT_BITS    : natural := 5;
+        LED_SIZE_BITS   : natural := 7;
+        LED_PAD_BITS    : natural := 7;
+        LED_STEP_BITS   : natural := 7;
         R_BITS          : natural range 1 to 12 := 8;
         G_BITS          : natural range 1 to 12 := 8;
         B_BITS          : natural range 1 to 12 := 8
@@ -180,37 +180,13 @@ architecture rtl of LED_COLOR_EXTRACTOR is
         array(0 to 3) of
         led_pos_type;
     
-    ----------------------
-    --- default values ---
-    ----------------------
+    type side_flag_type is
+        array(0 to 3) of
+        boolean;
     
-    constant led_nums_type_def
-        : led_nums_type
-        := (others => (others => '0'));
-    
-    constant inner_coords_type_def
-        : inner_coords_type
-        := (others => (others => '0'));
-    
-    constant led_inner_coords_type_def
-        : led_inner_coords_type
-        := (others => inner_coords_type_def);
-    
-    constant overlaps_type_def
-        : overlaps_type
-        := (others => false);
-    
-    constant abs_overlaps_type_def
-        : abs_overlaps_type
-        := (others => (others => '0'));
-    
-    constant led_pos_type_def
-        : led_pos_type
-        := (others => (others => '0'));
-    
-    constant first_leds_pos_type_def
-        : first_leds_pos_type
-        := (others => led_pos_type_def);
+    type leds_output_queue_type is
+        array(0 to 3) of
+        led_color_type;
     
     ---------------
     --- signals ---
@@ -218,27 +194,44 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     
     signal led_nums
         : led_nums_type
-        := led_nums_type_def;
+        := (others => (others => '0'));
     
     signal leds_inner_coords, next_leds_inner_coords
         : led_inner_coords_type
-        := led_inner_coords_type_def;
+        := (others => (others => (others => '0')));
     
     signal overlaps
         : overlaps_type
-        := overlaps_type_def;
+        := (others => false);
     
     signal abs_overlaps
         : abs_overlaps_type
-        := abs_overlaps_type_def;
+        := (others => (others => '0'));
     
     signal first_leds_pos
         : first_leds_pos_type
-        := first_leds_pos_type_def;
+        := (others => (others => (others => '0')));
     
     signal frame_x, frame_y
         : unsigned(FRAME_SIZE_BITS-1 downto 0)
         := (others => '0');
+    
+    signal leds_completed
+        : side_flag_type
+        := (others => false);
+    
+    signal leds_queued
+        : side_flag_type
+        := (others => false);
+    
+    signal leds_output_queue
+        : leds_output_queue_type
+        := (others => (others => (others => '0')));
+    
+    signal
+        rev_bottom_led_num,
+        rev_left_led_num
+    : unsigned(LED_CNT_BITS-1 downto 0);
     
     
     -----------------
@@ -294,6 +287,9 @@ begin
     first_leds_pos(L)(X)    <= resize(  uns(LED_PAD_LEFT_LEFT),     FRAME_SIZE_BITS);
     first_leds_pos(L)(Y)    <= resize(  uns(LED_PAD_LEFT_TOP),      FRAME_SIZE_BITS);
     
+    rev_bottom_led_num  <= uns(HOR_LED_CNT-led_nums(B));
+    rev_left_led_num    <= uns(VER_LED_CNT-led_nums(L));
+    
     -----------------
     --- processes ---
     -----------------
@@ -326,8 +322,9 @@ begin
         -- contains one row of each LED, so we need a buffer for all those LEDs;
         -- vertical buffer: used by the left LED column and the right LED column, the LEDs are
         -- completely computed one at a time (frame top to bottom), so we only need a buffer
-        -- for two LEDs (because of the possible overlap of two LEDs)
-        constant BUF_SIZE   : natural := sel(HOR, 2**LED_CNT_BITS, 2);
+        -- for four LEDs because of the possible overlap of two LEDs per side
+        constant BUF_SIZE   : natural := sel(HOR, 2**LED_CNT_BITS, 4);
+        constant RIGHT_OFFS : natural := sel(side=R, 2, 0);
         
         type buf_type is
             array(0 to BUF_SIZE-1) of
@@ -357,6 +354,14 @@ begin
             : unsigned(LED_CNT_BITS-1 downto 0) is
             led_nums(side);
         
+        alias led_completed
+            : boolean is
+            leds_completed(side);
+        
+        alias led_output_queue
+            : led_color_type is
+            leds_output_queue(side);
+        
         signal led_cnt
             : unsigned(LED_CNT_BITS-1 downto 0)
             := (others => '0');
@@ -381,15 +386,18 @@ begin
             led_cnt     <= uns(VER_LED_CNT);
             led_width   <= uns(VER_LED_WIDTH);
             led_height  <= uns(VER_LED_HEIGHT);
-            cur_led_p   <= 0;
+            cur_led_p   <= int(led_num(0 downto 0)+RIGHT_OFFS);
         end generate;
         
         side_scan_proc : process(RST, CLK)
         begin
             if RST='1' then
-                inner_coords    <= inner_coords_type_def;
+                inner_coords    <= (others => (others => '0'));
                 led_num         <= (others => '0');
+                led_completed   <= false;
             elsif rising_edge(CLK) then
+                led_completed   <= false;
+                
                 if FRAME_HSYNC='1' then
                     if
                         frame_x>=first_led_pos(X) and
@@ -435,11 +443,13 @@ begin
                                 inner_coords(X) <= (others => '0');
                                 inner_coords(Y) <= inner_coords(Y)+1;
                                 if inner_coords(Y)=led_height-1 or frame_y=FRAME_HEIGHT-1 then
-                                    led_num <= led_num+1;
+                                    led_num             <= led_num+1;
+                                    led_completed       <= true;
+                                    led_output_queue    <= side_buf(cur_led_p);
                                     if overlap then
                                         -- the first part of the now 'current LED' is in the
-                                        -- previously 'next LED' register
-                                        side_buf(cur_led_p) <= side_buf(cur_led_p+1);
+                                        -- previously 'next LED' register, the two registers
+                                        -- are switched, so continue after the overlap
                                         inner_coords(Y)     <= abs_overlap;
                                     else
                                         inner_coords(Y)     <= (others => '0');
@@ -452,8 +462,10 @@ begin
                             -- T and B: the LED is changed after one row of pixels is completed
                             inner_coords(X) <= inner_coords(X)+1;
                             if inner_coords(X)=led_width-1 or frame_x=FRAME_WIDTH-1 then
-                                inner_coords(X) <= (others => '0');
-                                led_num         <= led_num+1;
+                                inner_coords(X)     <= (others => '0');
+                                led_num             <= led_num+1;
+                                led_completed       <= true;
+                                led_output_queue    <= side_buf(cur_led_p);
                                 if led_num=led_cnt then
                                     -- frame row chaning, jump to the first LED
                                     inner_coords(Y) <= inner_coords(Y)+1;
@@ -467,12 +479,55 @@ begin
                     end if;
                 end if;
                 if FRAME_VSYNC='0' then
-                    inner_coords    <= inner_coords_type_def;
+                    inner_coords    <= (others => (others => '0'));
                     led_num         <= (others => '0');
                 end if;
             end if;
         end process;
         
     end generate;
+    
+    led_output_proc : process(RST, CLK)
+    begin
+        if RST='1' then
+            leds_queued <= (others => false);
+            LED_VSYNC   <= '0';
+            LED_VALID   <= '0';
+        elsif rising_edge(CLK) then
+            if FRAME_VSYNC='1' then
+                LED_VSYNC   <= '1';
+            end if;
+            LED_VALID   <= '0';
+            for side in 0 to 3 loop
+                if leds_completed(side) then
+                    leds_queued(side)   <= true;
+                end if;
+            end loop;
+            for side in 0 to 3 loop
+                if leds_completed(side) or leds_queued(side) then
+                    -- count the LEDs from top left clockwise
+                    case side is
+                        when T  => LED_NUM <= stdulv(led_nums(T));
+                        when R  => LED_NUM <= stdulv(led_nums(T)+led_nums(R));
+                        when B  => LED_NUM <= stdulv(led_nums(T)+led_nums(R)+rev_bottom_led_num);
+                        when L  => LED_NUM <= stdulv(led_nums(T)+led_nums(R)+rev_bottom_led_num+rev_left_led_num);
+                    end case;
+                    LED_R               <= leds_output_queue(side).R;
+                    LED_G               <= leds_output_queue(side).G;
+                    LED_B               <= leds_output_queue(side).B;
+                    LED_VALID           <= '1';
+                    leds_queued(side)   <= false;
+                    exit;
+                end if;
+            end loop;
+            if
+                FRAME_VSYNC='0' and
+                leds_completed=(0 to 3 => false) and
+                leds_queued=(0 to 3 => false)
+            then
+                LED_VSYNC   <= '0';
+            end if;
+        end if;
+    end process;
     
 end rtl;
