@@ -4,8 +4,6 @@
 -- Create Date:    14:30:22 06/29/2014 
 -- Design Name:    LED_COLOR_EXTRACTOR
 -- Module Name:    LED_COLOR_EXTRACTOR - rtl
--- Project Name: 
--- Target Devices: 
 -- Tool versions: Xilinx ISE 14.7
 -- Description:
 --   Component that extracts a variable number of averaged pixel groups
@@ -13,8 +11,59 @@
 --   to a LED stripe around a TV
 -- Revision: 0
 -- Revision 0.01 - File Created
--- Additional Comments: 
---
+-- Additional Comments:
+--   All the settings inputs (LED count, area size, padding, step and frame dimensions)
+--   should not be changed during a FRAME_VSYNC=HIGH period, as this leads to incorrect
+--   LED color data!
+--   
+--   Generic:
+--     FRAME_SIZE_BITS : Number of bits for each dimension of the incoming video frame
+--     LED_CNT_BITS    : Number of bits for the number of LEDs each horizontally and vertically
+--     LED_SIZE_BITS   : Number of bits for each dimension of the pixel area per LED
+--     LED_PAD_BITS    : Number of bits for the padding pixel count per side
+--     LED_STEP_BITS   : Number of bits for the pixel count LED center to LED center
+--     R_BITS          : Number of bits for the 'red' value in both frame and LED data
+--     G_BITS          : Number of bits for the 'green' value in both frame and LED data
+--     B_BITS          : Number of bits for the 'blue' value in both frame and LED data
+--   Port:
+--     CLK : clock input
+--     RST : active high reset, aborts and resets calculation until released
+--     
+--     HOR_LED_CNT     : number of LEDs at each top and bottom side of the TV screen
+--     HOR_LED_WIDTH   : width of one LED area of each of these horizontal LEDs
+--     HOR_LED_HEIGHT  : height of one LED area of each of these horizontal LEDs
+--     VER_LED_CNT     : number of LEDs at each left and right side of the TV screen
+--     VER_LED_WIDTH   : width of one LED area of each of these vertical LEDs
+--     VER_LED_HEIGHT  : height of one LED area of each of these vertical LEDs
+--     
+--     LED_PAD_TOP_LEFT        : spacing pixel count between left frame edge and top LEDs
+--     LED_PAD_TOP_TOP         : spacing pixel count between top frame edge and top LEDs
+--     LED_PAD_RIGHT_TOP       : spacing pixel count between top frame edge and right LEDs
+--     LED_PAD_RIGHT_RIGHT     : spacing pixel count between right frame edge and right LEDs
+--     LED_PAD_BOTTOM_LEFT     : spacing pixel count between left frame edge and bottom LEDs
+--     LED_PAD_BOTTOM_BOTTOM   : spacing pixel count between bottom frame edge and bottom LEDs
+--     LED_PAD_LEFT_TOP        : spacing pixel count between top frame edge and left LEDs
+--     LED_PAD_LEFT_LEFT       : spacing pixel count between left frame edge and left LEDs
+--     LED_STEP_TOP            : number of pixels from a top LED to the next one, center to center
+--     LED_STEP_RIGHT          : number of pixels from a right LED to the next one, center to center
+--     LED_STEP_BOTTOM         : number of pixels from a bottom LED to the next one, center to center
+--     LED_STEP_LEFT           : number of pixels from a left LED to the next one, center to center
+--     
+--     FRAME_VSYNC : active high vertical sync of the incoming frame data
+--     FRAME_HSYNC : active high horizontal sync of the incoming frame data
+--     
+--     FRAME_WIDTH     : the frame width, in pixel
+--     FRAME_HEIGHT    : the frame height, in pixel
+--     
+--     FRAME_R : the 'red' value of the current pixel
+--     FRAME_G : the 'green' value of the current pixel
+--     FRAME_B : the 'blue' value of the current pixel
+--     
+--     LED_VALID   : 
+--     LED_NUM     : 
+--     LED_R       : 
+--     LED_G       : 
+--     LED_B       : 
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.std_logic_1164.ALL;
@@ -27,7 +76,7 @@ use work.help_funcs.all;
 entity LED_COLOR_EXTRACTOR is
     generic (
         FRAME_SIZE_BITS : integer := 11;
-        LED_CNT_BITS    : integer := 8;
+        LED_CNT_BITS    : integer := 6;
         LED_SIZE_BITS   : integer := 8;
         LED_PAD_BITS    : integer := 8;
         LED_STEP_BITS   : integer := 8;
@@ -69,11 +118,11 @@ entity LED_COLOR_EXTRACTOR is
         FRAME_G : in std_ulogic_vector(G_BITS-1 downto 0);
         FRAME_B : in std_ulogic_vector(B_BITS-1 downto 0);
         
-        LED_VALID   : out std_ulogic;
-        LED_NUM     : out std_ulogic_vector(LED_CNT_BITS-1 downto 0);
-        LED_R       : out std_ulogic_vector(R_BITS-1 downto 0);
-        LED_G       : out std_ulogic_vector(G_BITS-1 downto 0);
-        LED_B       : out std_ulogic_vector(B_BITS-1 downto 0)
+        LED_VALID   : out std_ulogic := '0';
+        LED_NUM     : out std_ulogic_vector(LED_CNT_BITS-1 downto 0) := (others => '0');
+        LED_R       : out std_ulogic_vector(R_BITS-1 downto 0) := (others => '0');
+        LED_G       : out std_ulogic_vector(G_BITS-1 downto 0) := (others => '0');
+        LED_B       : out std_ulogic_vector(B_BITS-1 downto 0) := (others => '0')
     );
 end LED_COLOR_EXTRACTOR;
 
@@ -270,9 +319,11 @@ begin
         constant HOR    : boolean := side=T or side=B;
         constant VER    : boolean := side=L or side=R;
         
-        -- horizontal buffer: used by the top LED row and the bottom LED row;
-        -- vertical buffer: used by the left LED column and the right LED column,
-        -- because two LEDs can overlap, two LEDs are needed
+        -- horizontal buffer: used by the top LED row and the bottom LED row, one frame row
+        -- contains one row of each LED, so we need a buffer for all those LEDs;
+        -- vertical buffer: used by the left LED column and the right LED column, the LEDs are
+        -- completely computed one at a time (frame top to bottom), so we only need a buffer
+        -- for two LEDs (because of the possible overlap of two LEDs)
         constant BUF_SIZE   : natural := sel(HOR, 2**LED_CNT_BITS, 2);
         
         type buf_type is
@@ -356,9 +407,9 @@ begin
                         
                         if overlap then
                             if
-                                (ver and inner_coords(X)=0 and next_inner_coords(Y)=0)
+                                (VER and inner_coords(X)=0 and next_inner_coords(Y)=0)
                                 or
-                                (hor and inner_coords(Y)=0 and next_inner_coords(X)=0)
+                                (HOR and inner_coords(Y)=0 and next_inner_coords(X)=0)
                             then
                                 -- first pixel of the next (overlapping) LED area
                                 side_buf(cur_led_p+1).R <= FRAME_R;
@@ -373,7 +424,7 @@ begin
                         end if;
                         
                         -- left led x & y increment
-                        if ver then
+                        if VER then
                             
                             -- L and R: the LED is changed after one LED is completed
                             inner_coords(X) <= inner_coords(X)+1;
@@ -393,7 +444,7 @@ begin
                                 end if;
                             end if;
                             
-                        elsif hor then
+                        elsif HOR then
                             
                             -- T and B: the LED is changed after one row of pixels is completed
                             inner_coords(X) <= inner_coords(X)+1;
@@ -414,6 +465,7 @@ begin
                 end if;
                 if FRAME_VSYNC='0' then
                     inner_coords    <= inner_coords_type_def;
+                    led_num         <= (others => '0');
                 end if;
             end if;
         end process;
