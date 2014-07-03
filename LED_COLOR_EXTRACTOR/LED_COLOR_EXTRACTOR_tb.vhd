@@ -52,21 +52,13 @@ ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS
     : std_ulogic_vector(LED_SIZE_BITS-1 downto 0) := (others => '0');
     
     signal
-        led_pad_top_left,
-        led_pad_top_top,
-        led_pad_right_top,
-        led_pad_right_right,
-        led_pad_bottom_left,
-        led_pad_bottom_bottom,
-        led_pad_left_top,
-        led_pad_left_left
+        hor_led_pad,
+        ver_led_pad
     : std_ulogic_vector(LED_PAD_BITS-1 downto 0) := (others => '0');
     signal
         
-        led_step_top,
-        led_step_right,
-        led_step_bottom,
-        led_step_left
+        hor_led_step,
+        ver_led_step
     : std_ulogic_vector(LED_STEP_BITS-1 downto 0) := (others => '0');
     
     signal
@@ -141,21 +133,12 @@ BEGIN
         
         HOR_LED_WIDTH   => hor_led_width,
         HOR_LED_HEIGHT  => hor_led_height,
+        HOR_LED_STEP    => hor_led_step,
+        HOR_LED_PAD     => hor_led_pad,
         VER_LED_WIDTH   => ver_led_width,
         VER_LED_HEIGHT  => ver_led_height,
-        
-        LED_PAD_TOP_LEFT        => led_pad_top_left,
-        LED_PAD_TOP_TOP         => led_pad_top_top,
-        LED_PAD_RIGHT_TOP       => led_pad_right_top,
-        LED_PAD_RIGHT_RIGHT     => led_pad_right_right,
-        LED_PAD_BOTTOM_LEFT     => led_pad_bottom_left,
-        LED_PAD_BOTTOM_BOTTOM   => led_pad_bottom_bottom,
-        LED_PAD_LEFT_TOP        => led_pad_left_top,
-        LED_PAD_LEFT_LEFT       => led_pad_left_left,
-        LED_STEP_TOP            => led_step_top,
-        LED_STEP_RIGHT          => led_step_right,
-        LED_STEP_BOTTOM         => led_step_bottom,
-        LED_STEP_LEFT           => led_step_left,
+        VER_LED_STEP    => ver_led_step,
+        VER_LED_PAD     => ver_led_pad,
         
         FRAME_WIDTH     => frame_width,
         FRAME_HEIGHT    => frame_height,
@@ -188,21 +171,12 @@ BEGIN
         
         HOR_LED_WIDTH   => hor_led_width,
         HOR_LED_HEIGHT  => hor_led_height,
+        HOR_LED_STEP    => hor_led_step,
+        HOR_LED_PAD     => hor_led_pad,
         VER_LED_WIDTH   => ver_led_width,
         VER_LED_HEIGHT  => ver_led_height,
-        
-        LED_PAD_TOP_LEFT        => led_pad_top_left,
-        LED_PAD_TOP_TOP         => led_pad_top_top,
-        LED_PAD_RIGHT_TOP       => led_pad_right_top,
-        LED_PAD_RIGHT_RIGHT     => led_pad_right_right,
-        LED_PAD_BOTTOM_LEFT     => led_pad_bottom_left,
-        LED_PAD_BOTTOM_BOTTOM   => led_pad_bottom_bottom,
-        LED_PAD_LEFT_TOP        => led_pad_left_top,
-        LED_PAD_LEFT_LEFT       => led_pad_left_left,
-        LED_STEP_TOP            => led_step_top,
-        LED_STEP_RIGHT          => led_step_right,
-        LED_STEP_BOTTOM         => led_step_bottom,
-        LED_STEP_LEFT           => led_step_left,
+        VER_LED_STEP    => ver_led_step,
+        VER_LED_PAD     => ver_led_pad,
         
         FRAME_VSYNC     => frame_vsync,
         FRAME_HSYNC     => frame_hsync,
@@ -236,13 +210,10 @@ BEGIN
         
         hor_led_width   <= stdulv(50,   LED_SIZE_BITS);
         hor_led_height  <= stdulv(100,  LED_SIZE_BITS);
+        hor_led_step    <= stdulv(80,   LED_STEP_BITS);
         ver_led_width   <= stdulv(100,  LED_SIZE_BITS);
         ver_led_height  <= stdulv(50,   LED_SIZE_BITS);
-        
-        led_step_top    <= stdulv(80,   LED_STEP_BITS);
-        led_step_right  <= stdulv(80,   LED_STEP_BITS);
-        led_step_bottom <= stdulv(80,   LED_STEP_BITS);
-        led_step_left   <= stdulv(80,   LED_STEP_BITS);
+        ver_led_step    <= stdulv(80,   LED_STEP_BITS);
         
         -- hold reset state for 100 ns.
         rst <= '1';
