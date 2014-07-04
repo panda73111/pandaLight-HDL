@@ -189,7 +189,7 @@ begin
                         led_num_reg<LED_CNT-1
                     then
                         if
-                            inner_coords(Y)=0 and
+                            next_inner_coords(Y)=0 and
                             next_inner_coords(X)=0
                         then
                             -- first pixel of the next (overlapping) LED area
