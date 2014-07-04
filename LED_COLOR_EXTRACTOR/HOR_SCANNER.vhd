@@ -107,8 +107,7 @@ architecture rtl of HOR_SCANNER is
     
     signal
         first_led_pos,
-        led_pos,
-        next_led_pos
+        led_pos
         : led_pos_type
         := (others => (others => '0'));
     
@@ -121,12 +120,6 @@ begin
     ---------------------
     --- static routes ---
     ---------------------
-    
-    LED_NUM <= stdulv(led_num_reg);
-    
-    -- which half of the frame?
-    side        <= T when FRAME_Y<FRAME_HEIGHT(FRAME_SIZE_BITS-1 downto 1) else B;
-    LED_SIDE    <= '0' when side=T else '1';
     
     -- in case of overlapping LEDs, the position of the next LED's pixel area is needed
     next_inner_coords(X)    <= inner_coords(X)+uns(LED_STEP);
@@ -160,6 +153,7 @@ begin
             inner_coords    <= (others => (others => '0'));
             led_num_reg     <= (others => '0');
             LED_VALID       <= '0';
+            side            <= T;
         elsif rising_edge(CLK) then
             LED_VALID   <= '0';
             
@@ -216,34 +210,42 @@ begin
                     inner_coords(X) <= inner_coords(X)+1;
                     if inner_coords(X)=LED_WIDTH-1 or FRAME_X=FRAME_WIDTH-1 then
                         inner_coords(X) <= (others => '0');
-                        if FRAME_X=FRAME_WIDTH-1 then
-                            -- the screen ended, ignore the following LEDs
-                            led_num_reg     <= (others => '0');
+                        led_num_reg     <= led_num_reg+1;
+                        led_pos(X)      <= uns(led_pos(X)+LED_STEP);
+                        if led_num_reg=LED_CNT-1 or frame_x=FRAME_WIDTH-1 then
+                            -- frame row chaning, jump to the first LED
                             inner_coords(Y) <= inner_coords(Y)+1;
-                        else
-                            led_num_reg <= led_num_reg+1;
-                            if led_num_reg=LED_CNT-1 then
-                                -- frame row chaning, jump to the first LED
-                                inner_coords(Y) <= inner_coords(Y)+1;
-                                led_num_reg     <= (others => '0');
-                            end if;
-                            if overlaps and led_num_reg<LED_CNT-1 then
-                                inner_coords(X) <= abs_overlap;
-                            end if;
+                            led_num_reg     <= (others => '0');
+                        end if;
+                        if overlaps and led_num_reg<LED_CNT-1 then
+                            inner_coords(X) <= abs_overlap;
                         end if;
                         if inner_coords(Y)=LED_HEIGHT-1 or FRAME_Y=FRAME_HEIGHT-1 then
                             -- this was the last pixel of the LED area
                             led_num_reg <= led_num_reg+1;
-                            led_pos(X)  <= uns(led_pos(X)+LED_STEP);
                             LED_VALID   <= '1';
                             LED_COLOR   <= led_buf(led_num_p);
+                            LED_NUM     <= stdulv(led_num_reg);
+                            if side=T then
+                                LED_SIDE    <= '0';
+                            else
+                                LED_SIDE    <= '1';
+                            end if;
+                            if led_num_reg=LED_CNT-1 then
+                                -- this was the last top LED
+                                inner_coords(Y) <= (others => '0');
+                                side            <= B;
+                                led_num_reg     <= (others => '0');
+                            end if;
                         end if;
                     end if;
                 end if;
             end if;
+            
             if FRAME_VSYNC='0' then
                 inner_coords    <= (others => (others => '0'));
                 led_num_reg     <= (others => '0');
+                side            <= T;
             end if;
         end if;
     end process;

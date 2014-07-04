@@ -154,10 +154,6 @@ architecture rtl of LED_COLOR_EXTRACTOR is
         array(0 to 1) of
         std_ulogic_vector(RGB_BITS-1 downto 0);
     
-    type leds_output_queue_type is
-        array(0 to 1) of
-        std_ulogic_vector(RGB_BITS-1 downto 0);
-    
     ---------------
     --- signals ---
     ---------------
@@ -172,10 +168,6 @@ architecture rtl of LED_COLOR_EXTRACTOR is
         : unsigned(FRAME_SIZE_BITS-1 downto 0)
         := (others => '0');
     
-    signal leds_queued
-        : side_flag_type
-        := (others => false);
-    
     signal leds_valid
         : std_ulogic_vector(0 to 1)
         := (others => '0');
@@ -188,14 +180,12 @@ architecture rtl of LED_COLOR_EXTRACTOR is
         : leds_color_type
         := (others => (others => '0'));
     
-    signal leds_output_queue
-        : leds_output_queue_type
-        := (others => (others => '0'));
-    
     signal
         rev_hor_led_num,
         rev_ver_led_num
         : std_ulogic_vector(LED_CNT_BITS-1 downto 0);
+    
+    signal ver_queued   : boolean := false;
     
 begin
     
@@ -203,8 +193,8 @@ begin
     --- static routes ---
     ---------------------
     
-    rev_hor_led_num <= HOR_LED_CNT-leds_num(HOR);
-    rev_ver_led_num <= VER_LED_CNT-leds_num(VER);
+    rev_hor_led_num <= HOR_LED_CNT-leds_num(HOR)-1;
+    rev_ver_led_num <= VER_LED_CNT-leds_num(VER)-1;
     
     -----------------
     --- processes ---
@@ -317,7 +307,7 @@ begin
     led_output_proc : process(RST, CLK)
     begin
         if RST='1' then
-            leds_queued <= (others => false);
+            ver_queued  <= false;
             LED_VSYNC   <= '0';
             LED_VALID   <= '0';
         elsif rising_edge(CLK) then
@@ -325,32 +315,43 @@ begin
                 LED_VSYNC   <= '1';
             end if;
             LED_VALID   <= '0';
+            if leds_valid(VER)='1' then
+                -- if two edge LEDs are completed at the same time,
+                -- queue the vertical one
+                ver_queued  <= true;
+            end if;
             for dim in 0 to 1 loop
-                if leds_valid(dim) then
-                    leds_queued(dim)    <= true;
-                end if;
-            end loop;
-            for side in 0 to 3 loop
-                if leds_completed(side) or leds_queued(side) then
+                if leds_valid(dim)='1' or ver_queued then
                     -- count the LEDs from top left clockwise
-                    case side is
-                        when T  => LED_NUM  <= leds_num(HOR);
-                        when R  => LED_NUM  <= leds_num(HOR)+leds_num(VER);
-                        when B  => LED_NUM  <= leds_num(HOR)+leds_num(VER)+rev_hor_led_num;
-                        when L  => LED_NUM  <= leds_num(HOR)+leds_num(VER)+rev_hor_led_num+rev_ver_led_num;
-                    end case;
-                    LED_R               <= leds_output_queue(side)(RGB_BITS-1 downto G_BITS+B_BITS);
-                    LED_G               <= leds_output_queue(side)(G_BITS+B_BITS-1 downto B_BITS);
-                    LED_B               <= leds_output_queue(side)(B_BITS-1 downto 0);
-                    LED_VALID           <= '1';
-                    leds_queued(side)   <= false;
+                    if dim=HOR then
+                        if leds_side(dim)='0' then
+                            -- top LED
+                            LED_NUM <= leds_num(HOR);
+                        else
+                            -- bottom LED
+                            LED_NUM  <= HOR_LED_CNT+VER_LED_CNT+rev_hor_led_num;
+                        end if;
+                    else
+                        if leds_side(dim)='0' then
+                            -- left LED
+                            LED_NUM <= HOR_LED_CNT+VER_LED_CNT+HOR_LED_CNT+rev_ver_led_num;
+                        else
+                            -- right LED
+                            LED_NUM <= HOR_LED_CNT+leds_num(VER);
+                        end if;
+                    end if;
+                    LED_R       <= leds_color(dim)(RGB_BITS-1 downto G_BITS+B_BITS);
+                    LED_G       <= leds_color(dim)(G_BITS+B_BITS-1 downto B_BITS);
+                    LED_B       <= leds_color(dim)(B_BITS-1 downto 0);
+                    LED_VALID   <= '1';
+                    ver_queued  <= false;
                     exit;
                 end if;
             end loop;
             if
                 FRAME_VSYNC='0' and
-                leds_completed=(0 to 3 => false) and
-                leds_queued=(0 to 3 => false)
+                leds_valid="00" and
+                not ver_queued
             then
                 LED_VSYNC   <= '0';
             end if;

@@ -211,9 +211,11 @@ BEGIN
         hor_led_width   <= stdulv(50,   LED_SIZE_BITS);
         hor_led_height  <= stdulv(100,  LED_SIZE_BITS);
         hor_led_step    <= stdulv(80,   LED_STEP_BITS);
+        hor_led_pad     <= stdulv(0,   LED_PAD_BITS);
         ver_led_width   <= stdulv(100,  LED_SIZE_BITS);
         ver_led_height  <= stdulv(50,   LED_SIZE_BITS);
         ver_led_step    <= stdulv(80,   LED_STEP_BITS);
+        ver_led_pad     <= stdulv(0,   LED_PAD_BITS);
         
         -- hold reset state for 100 ns.
         rst <= '1';
