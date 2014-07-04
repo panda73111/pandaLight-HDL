@@ -25,6 +25,7 @@ entity VER_SCANNER is
         LED_CNT_BITS    : natural := 7;
         LED_SIZE_BITS   : natural := 7;
         LED_PAD_BITS    : natural := 7;
+        LED_OFFS_BITS   : natural := 7;
         LED_STEP_BITS   : natural := 7;
         R_BITS          : natural range 1 to 12 := 8;
         G_BITS          : natural range 1 to 12 := 8;
@@ -40,8 +41,8 @@ entity VER_SCANNER is
         LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         LED_STEP    : in std_ulogic_vector(LED_STEP_BITS-1 downto 0);
         
-        HOR_LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
-        VER_LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
+        LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
+        LED_OFFS    : in std_ulogic_vector(LED_OFFS_BITS-1 downto 0);
         
         FRAME_VSYNC : in std_ulogic;
         FRAME_HSYNC : in std_ulogic;
@@ -135,14 +136,14 @@ begin
     abs_overlap <= uns(LED_HEIGHT-LED_STEP);
     
     -- x coordinate of every left/right LED
-    led_first_left_x    <= uns(HOR_LED_PAD);
-    led_first_right_x   <= uns(FRAME_WIDTH-LED_WIDTH-HOR_LED_PAD);
+    led_first_left_x    <= uns(LED_PAD);
+    led_first_right_x   <= uns(FRAME_WIDTH-LED_WIDTH-LED_PAD);
     
     -- point of the first pixel of the first LED on each side (the most top left pixel)
     first_led_pos(X)    <=
         resize( led_first_left_x,   FRAME_SIZE_BITS) when side=L else
                 led_first_right_x;
-    first_led_pos(Y)    <=  resize(uns(VER_LED_PAD), FRAME_SIZE_BITS);
+    first_led_pos(Y)    <=  resize(uns(LED_OFFS), FRAME_SIZE_BITS);
     
     -----------------
     --- processes ---
@@ -220,10 +221,10 @@ begin
                         led_num_p       <= (led_num_p+2) mod 4;
                         if side=L then
                             side        <= R;
-                            led_pos(X)  <= led_first_right_x;
+                            led_pos(X)  <= resize(led_first_right_x, FRAME_SIZE_BITS);
                         else
                             side        <= L;
-                            led_pos(X)  <= led_first_left_x;
+                            led_pos(X)  <= resize(led_first_left_x, FRAME_SIZE_BITS);
                         end if;
                         if side=R or FRAME_X=FRAME_WIDTH-1 then
                             inner_coords(Y) <= inner_coords(Y)+1;

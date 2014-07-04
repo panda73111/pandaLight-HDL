@@ -25,6 +25,7 @@ entity HOR_SCANNER is
         LED_CNT_BITS    : natural := 7;
         LED_SIZE_BITS   : natural := 7;
         LED_PAD_BITS    : natural := 7;
+        LED_OFFS_BITS   : natural := 7;
         LED_STEP_BITS   : natural := 7;
         R_BITS          : natural range 1 to 12 := 8;
         G_BITS          : natural range 1 to 12 := 8;
@@ -40,8 +41,8 @@ entity HOR_SCANNER is
         LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         LED_STEP    : in std_ulogic_vector(LED_STEP_BITS-1 downto 0);
         
-        HOR_LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
-        VER_LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
+        LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
+        LED_OFFS    : in std_ulogic_vector(LED_OFFS_BITS-1 downto 0);
         
         FRAME_VSYNC : in std_ulogic;
         FRAME_HSYNC : in std_ulogic;
@@ -132,10 +133,10 @@ begin
     abs_overlap <= uns(LED_HEIGHT-LED_STEP);
     
     -- point of the first pixel of the first LED on each side (the most top left pixel)
-    first_led_pos(X)    <= resize(uns(HOR_LED_PAD), FRAME_SIZE_BITS);
+    first_led_pos(X)    <= resize(uns(LED_OFFS), FRAME_SIZE_BITS);
     first_led_pos(Y)    <=
-        resize( uns(VER_LED_PAD),                           FRAME_SIZE_BITS) when side=T else
-                uns(FRAME_HEIGHT-LED_HEIGHT-VER_LED_PAD);
+        resize( uns(LED_PAD),                           FRAME_SIZE_BITS) when side=T else
+                uns(FRAME_HEIGHT-LED_HEIGHT-LED_PAD);
     
     led_num_p   <= int(led_num_reg);
     

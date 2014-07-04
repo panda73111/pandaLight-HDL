@@ -33,6 +33,7 @@ entity led_ppm_visualizer is
         LED_CNT_BITS        : natural := 7;
         LED_SIZE_BITS       : natural := 7;
         LED_PAD_BITS        : natural := 7;
+        LED_OFFS_BITS       : natural := 7;
         LED_STEP_BITS       : natural := 7;
         R_BITS              : natural range 1 to 16 := 8;
         G_BITS              : natural range 1 to 16 := 8;
@@ -48,10 +49,12 @@ entity led_ppm_visualizer is
         HOR_LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         HOR_LED_STEP    : in std_ulogic_vector(LED_STEP_BITS-1 downto 0);
         HOR_LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
+        HOR_LED_OFFS    : in std_ulogic_vector(LED_OFFS_BITS-1 downto 0);
         VER_LED_WIDTH   : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         VER_LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         VER_LED_STEP    : in std_ulogic_vector(LED_STEP_BITS-1 downto 0);
         VER_LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
+        VER_LED_OFFS    : in std_ulogic_vector(LED_OFFS_BITS-1 downto 0);
         
         FRAME_WIDTH     : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
         FRAME_HEIGHT    : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
@@ -142,36 +145,36 @@ begin
                         
                         -- top side
                         side_led_index  := int(LED_NUM);
-                        led_start_x     := int(HOR_LED_PAD+(HOR_LED_STEP*side_led_index));
+                        led_start_x     := int(HOR_LED_OFFS+(HOR_LED_STEP*side_led_index));
                         led_end_x       := led_start_x+int(HOR_LED_WIDTH);
-                        led_start_y     := int(VER_LED_PAD);
+                        led_start_y     := int(HOR_LED_PAD);
                         led_end_y       := led_start_y+int(HOR_LED_HEIGHT);
                         
                     elsif LED_NUM<HOR_LED_CNT+VER_LED_CNT then
                         
                         -- right side
                         side_led_index  := int(LED_NUM-HOR_LED_CNT);
-                        led_start_x     := int(FRAME_WIDTH-HOR_LED_PAD-VER_LED_WIDTH);
+                        led_start_x     := int(FRAME_WIDTH-VER_LED_PAD-VER_LED_WIDTH);
                         led_end_x       := led_start_x+int(VER_LED_WIDTH);
-                        led_start_y     := int(VER_LED_PAD+(VER_LED_STEP*side_led_index));
+                        led_start_y     := int(VER_LED_OFFS+(VER_LED_STEP*side_led_index));
                         led_end_y       := led_start_y+int(VER_LED_HEIGHT);
                         
                     elsif LED_NUM<(HOR_LED_CNT*2)+VER_LED_CNT then
                         
                         -- bottom side
                         side_led_index  := int(HOR_LED_CNT-1-(LED_NUM-HOR_LED_CNT-VER_LED_CNT));
-                        led_start_x     := int(HOR_LED_PAD+(HOR_LED_STEP*side_led_index));
+                        led_start_x     := int(HOR_LED_OFFS+(HOR_LED_STEP*side_led_index));
                         led_end_x       := led_start_x+int(HOR_LED_WIDTH);
-                        led_start_y     := int(FRAME_HEIGHT-VER_LED_PAD-HOR_LED_HEIGHT);
+                        led_start_y     := int(FRAME_HEIGHT-HOR_LED_PAD-HOR_LED_HEIGHT);
                         led_end_y       := led_start_y+int(HOR_LED_HEIGHT);
                         
                     else
                         
                         -- left side
                         side_led_index  := int(VER_LED_CNT-1-(LED_NUM-(HOR_LED_CNT*2)-VER_LED_CNT));
-                        led_start_x     := int(HOR_LED_PAD);
+                        led_start_x     := int(VER_LED_PAD);
                         led_end_x       := led_start_x+int(VER_LED_WIDTH);
-                        led_start_y     := int(VER_LED_PAD+(VER_LED_STEP*side_led_index));
+                        led_start_y     := int(VER_LED_OFFS+(VER_LED_STEP*side_led_index));
                         led_end_y       := led_start_y+int(VER_LED_HEIGHT);
                         
                     end if;

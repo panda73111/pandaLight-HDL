@@ -78,6 +78,7 @@ entity LED_COLOR_EXTRACTOR is
         LED_CNT_BITS    : natural := 7;
         LED_SIZE_BITS   : natural := 7;
         LED_PAD_BITS    : natural := 7;
+        LED_OFFS_BITS   : natural := 7;
         LED_STEP_BITS   : natural := 7;
         R_BITS          : natural range 1 to 12 := 8;
         G_BITS          : natural range 1 to 12 := 8;
@@ -94,10 +95,12 @@ entity LED_COLOR_EXTRACTOR is
         HOR_LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         HOR_LED_STEP    : in std_ulogic_vector(LED_STEP_BITS-1 downto 0);
         HOR_LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
+        HOR_LED_OFFS    : in std_ulogic_vector(LED_OFFS_BITS-1 downto 0);
         VER_LED_WIDTH   : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         VER_LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         VER_LED_STEP    : in std_ulogic_vector(LED_STEP_BITS-1 downto 0);
         VER_LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
+        VER_LED_OFFS    : in std_ulogic_vector(LED_OFFS_BITS-1 downto 0);
         
         FRAME_VSYNC : in std_ulogic;
         FRAME_HSYNC : in std_ulogic;
@@ -226,6 +229,7 @@ begin
             LED_CNT_BITS    => LED_CNT_BITS,
             LED_SIZE_BITS   => LED_SIZE_BITS,
             LED_PAD_BITS    => LED_PAD_BITS,
+            LED_OFFS_BITS   => LED_OFFS_BITS,
             LED_STEP_BITS   => LED_STEP_BITS,
             R_BITS          => R_BITS,
             G_BITS          => G_BITS,
@@ -240,8 +244,8 @@ begin
             LED_HEIGHT  => hor_led_height,
             LED_STEP    => hor_led_step,
             
-            HOR_LED_PAD => hor_led_pad,
-            VER_LED_PAD => ver_led_pad,
+            LED_PAD     => hor_led_pad,
+            LED_OFFS    => hor_led_offs,
             
             FRAME_VSYNC => FRAME_VSYNC,
             FRAME_HSYNC => FRAME_HSYNC,
@@ -268,6 +272,7 @@ begin
             LED_CNT_BITS    => LED_CNT_BITS,
             LED_SIZE_BITS   => LED_SIZE_BITS,
             LED_PAD_BITS    => LED_PAD_BITS,
+            LED_OFFS_BITS   => LED_OFFS_BITS,
             LED_STEP_BITS   => LED_STEP_BITS,
             R_BITS          => R_BITS,
             G_BITS          => G_BITS,
@@ -282,8 +287,8 @@ begin
             LED_HEIGHT  => ver_led_height,
             LED_STEP    => ver_led_step,
             
-            HOR_LED_PAD => hor_led_pad,
-            VER_LED_PAD => ver_led_pad,
+            LED_PAD     => ver_led_pad,
+            LED_OFFS    => ver_led_offs,
             
             FRAME_VSYNC => FRAME_VSYNC,
             FRAME_HSYNC => FRAME_HSYNC,
