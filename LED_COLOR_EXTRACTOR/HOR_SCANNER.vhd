@@ -96,6 +96,27 @@ architecture rtl of HOR_SCANNER is
         array(0 to 1) of
         unsigned(FRAME_SIZE_BITS-1 downto 0);
     
+    type state_type is (INIT, SCAN_TOP, SCAN_BOTTOM);
+    
+    type reg_type is record
+        state               : state_type;
+        overlap_buf         : std_ulogic_vector(RGB_BITS-1 downto 0);
+        buf_rd_p, buf_wr_p  : natural range 0 to (2**LED_CNT_BITS)-1;
+        buf_do, buf_di      : std_ulogic_vector(RGB_BITS-1 downto 0);
+        buf_wr_en           : std_ulogic;
+    end record;
+    
+    constant reg_type_def   : reg_type := (
+        state       => INIT,
+        overlap_buf => (others => '0'),
+        buf_rd_p    => 0,
+        buf_wr_p    => 0,
+        buf_di      => (others => '0'),
+        buf_do      => (others => '0'),
+        buf_wr_en   => '0'
+    );
+    
+    signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal led_num_reg  : unsigned(LED_CNT_BITS-1 downto 0) := (others => '0');
     signal overlaps     : boolean := false;
     signal abs_overlap  : unsigned(LED_SIZE_BITS-1 downto 0) := (others => '0');
@@ -112,9 +133,8 @@ architecture rtl of HOR_SCANNER is
         : led_pos_type
         := (others => (others => '0'));
     
-    signal side         : natural range T to B := T;
-    signal led_num_p    : natural range 0 to (2**LED_CNT_BITS)-1 := 0;
-    signal led_buf      : led_buf_type;
+    signal side     : natural range T to B := T;
+    signal led_buf  : led_buf_type;
     
 begin
     
@@ -138,13 +158,29 @@ begin
         resize( uns(LED_PAD),                           FRAME_SIZE_BITS) when side=T else
                 uns(FRAME_HEIGHT-LED_HEIGHT-LED_PAD);
     
-    led_num_p   <= int(led_num_reg);
     
     -----------------
     --- processes ---
     -----------------
     
-    hor_scan_proc : process(RST, CLK)
+    -- ensure block RAM usage
+    led_buf_proc : process(CLK)
+        alias rd_p  is cur_reg.buf_rd_p;
+        alias wr_p  is cur_reg.buf_rd_p;
+        alias di    is cur_reg.buf_di;
+        alias do    is cur_reg.buf_do;
+        alias wr_en is cur_reg.buf_wr_en;
+    begin
+        if rising_edge(CLK) then
+            -- read first mode
+            do  <= led_buf(rd_p);
+            if wr_en='1' then
+                led_buf(wr_p)   <= di;
+            end if;
+        end if;
+    end process;
+    
+    stm_proc : process(cur_reg)
         variable
             old_led_color,
             new_led_color
