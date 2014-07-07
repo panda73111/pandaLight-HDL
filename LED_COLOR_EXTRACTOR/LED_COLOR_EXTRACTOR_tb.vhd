@@ -227,33 +227,33 @@ BEGIN
         
         -- Test 1: Standard 50 LED configuration, no overlap, no edges
         
-        hor_led_width   <= stdulv(60,   LED_SIZE_BITS);
-        hor_led_height  <= stdulv(80,   LED_SIZE_BITS);
-        hor_led_step    <= stdulv(80,   LED_STEP_BITS);
-        hor_led_pad     <= stdulv(5,    LED_PAD_BITS);
-        hor_led_offs    <= stdulv(10,   LED_OFFS_BITS);
-        ver_led_width   <= stdulv(80,   LED_SIZE_BITS);
-        ver_led_height  <= stdulv(60,   LED_SIZE_BITS);
-        ver_led_step    <= stdulv(80,   LED_STEP_BITS);
-        ver_led_pad     <= stdulv(5,    LED_PAD_BITS);
-        ver_led_offs    <= stdulv(10,   LED_OFFS_BITS);
-        
-        for i in 1 to 5 loop
-            wait until rising_edge(clk) and frame_vsync='1';
-            wait until rising_edge(clk) and frame_vsync='0';
-        end loop;
+--        hor_led_width   <= stdulv(60,   LED_SIZE_BITS);
+--        hor_led_height  <= stdulv(80,   LED_SIZE_BITS);
+--        hor_led_step    <= stdulv(80,   LED_STEP_BITS);
+--        hor_led_pad     <= stdulv(5,    LED_PAD_BITS);
+--        hor_led_offs    <= stdulv(10,   LED_OFFS_BITS);
+--        ver_led_width   <= stdulv(80,   LED_SIZE_BITS);
+--        ver_led_height  <= stdulv(60,   LED_SIZE_BITS);
+--        ver_led_step    <= stdulv(80,   LED_STEP_BITS);
+--        ver_led_pad     <= stdulv(5,    LED_PAD_BITS);
+--        ver_led_offs    <= stdulv(10,   LED_OFFS_BITS);
+--        
+--        for i in 1 to 5 loop
+--            wait until rising_edge(clk) and frame_vsync='1';
+--            wait until rising_edge(clk) and frame_vsync='0';
+--        end loop;
         
         -- Test 1 finished
         -- Test 2: Standard 50 LED configuration, overlaps, edges
         
         hor_led_width   <= stdulv(160,  LED_SIZE_BITS);
         hor_led_height  <= stdulv(80,   LED_SIZE_BITS);
-        hor_led_step    <= stdulv(65,   LED_STEP_BITS);
+        hor_led_step    <= stdulv(50,   LED_STEP_BITS);
         hor_led_pad     <= stdulv(5,    LED_PAD_BITS);
         hor_led_offs    <= stdulv(80,   LED_OFFS_BITS);
         ver_led_width   <= stdulv(80,   LED_SIZE_BITS);
         ver_led_height  <= stdulv(160,  LED_SIZE_BITS);
-        ver_led_step    <= stdulv(90,   LED_STEP_BITS);
+        ver_led_step    <= stdulv(75,   LED_STEP_BITS);
         ver_led_pad     <= stdulv(5,    LED_PAD_BITS);
         ver_led_offs    <= stdulv(39,   LED_OFFS_BITS);
         

@@ -270,6 +270,14 @@ begin
             
             when MAIN_PIXEL =>
                 r.buf_di    := led_arith_mean(frame_rgb, buf_do);
+                if
+                    r.buf_p/=LED_CNT-1 and
+                    overlaps
+                then
+                    -- not the first LED and there's an overlap,
+                    -- use the buffered color average
+                    r.buf_di    := led_arith_mean(frame_rgb, cr.overlap_buf);
+                end if;
                 if FRAME_HSYNC='1' then
                     r.buf_wr_en         := '1';
                     r.inner_coords(X)   := cr.inner_coords(X)+1;
@@ -284,10 +292,20 @@ begin
             when RIGHT_BORDER_PIXEL =>
                 r.inner_coords(X)   := (others => '0');
                 r.buf_di            := led_arith_mean(frame_rgb, buf_do);
+                if overlaps then
+                    r.inner_coords(X)   := abs_overlap;
+                end if;
                 if FRAME_HSYNC='1' then
                     r.buf_wr_en     := '1';
                     r.led_pos(X)    := uns(cr.led_pos(X)+LED_STEP);
                     r.state         := LEFT_BORDER_PIXEL;
+                    if overlaps then
+                        r.buf_p     := cr.buf_p+1;
+                        if cr.buf_p=LED_CNT-1 then
+                            r.buf_p := 0;
+                        end if;
+                        r.state := MAIN_PIXEL;
+                    end if;
                     if cr.buf_p=LED_CNT-1 then
                         -- finished one line of all LED areas
                         r.state := LINE_SWITCH;
