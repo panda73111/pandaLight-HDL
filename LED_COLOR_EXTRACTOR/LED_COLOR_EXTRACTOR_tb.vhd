@@ -29,8 +29,8 @@ ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS
     
     constant FRAME_SIZE_BITS : natural := 11;
     constant LED_CNT_BITS    : natural := 7;
-    constant LED_SIZE_BITS   : natural := 7;
-    constant LED_PAD_BITS    : natural := 7;
+    constant LED_SIZE_BITS   : natural := 8;
+    constant LED_PAD_BITS    : natural := 5;
     constant LED_OFFS_BITS   : natural := 7;
     constant LED_STEP_BITS   : natural := 7;
     constant R_BITS          : natural range 1 to 12 := 8;
@@ -60,7 +60,7 @@ ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS
     signal
         hor_led_offs,
         ver_led_offs
-        : std_ulogic_vector(LED_PAD_BITS-1 downto 0) := (others => '0');
+        : std_ulogic_vector(LED_OFFS_BITS-1 downto 0) := (others => '0');
     
     signal
         
@@ -78,11 +78,9 @@ ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS
         frame_height
         : std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0) := (others => '0');
     
-    signal
-        frame_r,
-        frame_g,
-        frame_b
-        : std_ulogic_vector(7 downto 0) := (others => '0');
+    signal frame_r  : std_ulogic_vector(R_BITS-1 downto 0) := (others => '0');
+    signal frame_g  : std_ulogic_vector(G_BITS-1 downto 0) := (others => '0');
+    signal frame_b  : std_ulogic_vector(B_BITS-1 downto 0) := (others => '0');
 
     --Outputs
     signal led_vsync    : std_ulogic := '0';
@@ -121,7 +119,7 @@ BEGIN
     led_ppm_visualizer_inst : entity work.led_ppm_visualizer
     generic map (
         FILENAME_BASE   => "frame",
-        FRAMES_TO_SAVE  => 5,
+        FRAMES_TO_SAVE  => 10,
         STOP_SIM        => true,
         FRAME_SIZE_BITS => FRAME_SIZE_BITS,
         LED_CNT_BITS    => LED_CNT_BITS,
@@ -218,26 +216,46 @@ BEGIN
         frame_width     <= stdulv(1280, FRAME_SIZE_BITS);
         frame_height    <= stdulv(720,  FRAME_SIZE_BITS);
         
+        -- hold reset state for 100 ns.
+        rst <= '1';
+        wait for 100 ns;
+        rst <= '0';
+        wait until rising_edge(clk);
+        
         hor_led_cnt     <= stdulv(16,   LED_CNT_BITS);
         ver_led_cnt     <= stdulv(9,    LED_CNT_BITS);
         
+        -- Test 1: Standard 50 LED configuration, no overlap, no edges
+        
         hor_led_width   <= stdulv(60,   LED_SIZE_BITS);
-        hor_led_height  <= stdulv(80,  LED_SIZE_BITS);
+        hor_led_height  <= stdulv(80,   LED_SIZE_BITS);
         hor_led_step    <= stdulv(80,   LED_STEP_BITS);
         hor_led_pad     <= stdulv(5,    LED_PAD_BITS);
         hor_led_offs    <= stdulv(10,   LED_OFFS_BITS);
-        ver_led_width   <= stdulv(80,  LED_SIZE_BITS);
+        ver_led_width   <= stdulv(80,   LED_SIZE_BITS);
         ver_led_height  <= stdulv(60,   LED_SIZE_BITS);
         ver_led_step    <= stdulv(80,   LED_STEP_BITS);
         ver_led_pad     <= stdulv(5,    LED_PAD_BITS);
         ver_led_offs    <= stdulv(10,   LED_OFFS_BITS);
         
-        -- hold reset state for 100 ns.
-        rst <= '1';
-        wait for 100 ns;
-        rst <= '0';
-        wait for clk_period*10;
-        wait until rising_edge(clk);
+        for i in 1 to 5 loop
+            wait until rising_edge(clk) and frame_vsync='1';
+            wait until rising_edge(clk) and frame_vsync='0';
+        end loop;
+        
+        -- Test 1 finished
+        -- Test 2: Standard 50 LED configuration, overlaps, edges
+        
+        hor_led_width   <= stdulv(160,  LED_SIZE_BITS);
+        hor_led_height  <= stdulv(80,   LED_SIZE_BITS);
+        hor_led_step    <= stdulv(65,   LED_STEP_BITS);
+        hor_led_pad     <= stdulv(5,    LED_PAD_BITS);
+        hor_led_offs    <= stdulv(80,   LED_OFFS_BITS);
+        ver_led_width   <= stdulv(80,   LED_SIZE_BITS);
+        ver_led_height  <= stdulv(160,  LED_SIZE_BITS);
+        ver_led_step    <= stdulv(90,   LED_STEP_BITS);
+        ver_led_pad     <= stdulv(5,    LED_PAD_BITS);
+        ver_led_offs    <= stdulv(39,   LED_OFFS_BITS);
         
         wait;
     end process;

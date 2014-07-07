@@ -204,7 +204,7 @@ begin
                             led_buf((led_num_p+1) mod 4)    <= FRAME_R & FRAME_G & FRAME_G;
                         else
                             -- any other pixel of the next (overlapping) LED area
-                            old_led_color   := led_buf(led_num_p+1);
+                            old_led_color   := led_buf((led_num_p+1) mod 4);
                             new_led_color   :=
                                 arith_mean(FRAME_R, old_led_color(RGB_BITS-1 downto G_BITS+B_BITS)) &
                                 arith_mean(FRAME_G, old_led_color(G_BITS+B_BITS-1 downto B_BITS)) &

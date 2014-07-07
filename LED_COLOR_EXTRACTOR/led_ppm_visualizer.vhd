@@ -124,7 +124,7 @@ begin
         file img_file       : char_file;
         variable filename   : string(1 to FILENAME_BASE'length+6);
         variable file_index : integer := 0;
-        variable frame_buf  : frame_buf_type := (others => (others => (others => '0')));
+        variable frame_buf  : frame_buf_type;
         variable pixel      : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         variable r          : std_ulogic_vector(R_BITS-1 downto 0);
         variable g          : std_ulogic_vector(G_BITS-1 downto 0);
@@ -135,6 +135,7 @@ begin
     begin
         while file_index/=frames_to_save loop
             filename    := FILENAME_BASE & integer'image(file_index) & ".ppm";
+            frame_buf   := (others => (others => (others => '0')));
             
             wait until LED_VSYNC='1';
             

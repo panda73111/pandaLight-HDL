@@ -253,7 +253,6 @@ begin
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
             
-            FRAME_WIDTH     => FRAME_WIDTH,
             FRAME_HEIGHT    => FRAME_HEIGHT,
             
             FRAME_R => frame_r,

@@ -51,7 +51,6 @@ entity HOR_SCANNER is
         FRAME_X : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
         FRAME_Y : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
         
-        FRAME_WIDTH     : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
         FRAME_HEIGHT    : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
         
         FRAME_R : in std_ulogic_vector(R_BITS-1 downto 0);
@@ -139,7 +138,7 @@ architecture rtl of HOR_SCANNER is
         led_color           => (others => '0')
     );
     
-    signal next_inner_x         : unsigned(LED_SIZE_BITS-1 downto 0);
+    signal next_inner_x         : unsigned(LED_SIZE_BITS-1 downto 0) := (others => '0');
     signal first_leds_pos       : leds_pos_type;
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal overlaps             : boolean := false;
@@ -217,9 +216,9 @@ begin
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, FRAME_WIDTH, FRAME_HEIGHT, FRAME_VSYNC, FRAME_HSYNC,
-        FRAME_X, FRAME_Y, LED_CNT, LED_WIDTH, LED_HEIGHT, LED_STEP, LED_OFFS, frame_rgb,
-        buf_do, overlaps, abs_overlap, next_inner_x, first_leds_pos
+    stm_proc : process(RST, cur_reg, FRAME_HEIGHT, FRAME_VSYNC, FRAME_HSYNC, FRAME_X, FRAME_Y,
+        LED_CNT, LED_WIDTH, LED_HEIGHT, LED_STEP, LED_OFFS, frame_rgb, buf_do, overlaps,
+        abs_overlap, next_inner_x, first_leds_pos
     )
         alias cr        : reg_type is cur_reg;
         variable r      : reg_type;
@@ -249,6 +248,14 @@ begin
             when LEFT_BORDER_PIXEL =>
                 r.inner_coords(X)   := uns(1, LED_SIZE_BITS);
                 r.buf_di            := frame_rgb;
+                if
+                    r.buf_p/=LED_CNT-1 and
+                    overlaps
+                then
+                    -- not the first LED and there's an overlap,
+                    -- use the buffered color average
+                    r.buf_di    := led_arith_mean(frame_rgb, cr.overlap_buf);
+                end if;
                 if
                     FRAME_HSYNC='1' and
                     FRAME_X=stdulv(cr.led_pos(X))
@@ -313,7 +320,15 @@ begin
             
         end case;
         
-        if RST='1' then
+        -- in case there's an overlap, buffer the average color
+        r.overlap_buf   := led_arith_mean(frame_rgb, cr.overlap_buf);
+        if next_inner_x=0 then
+            -- left border pixel of the following LED,
+            -- reset the buffer with the current color
+            r.overlap_buf   := frame_rgb;
+        end if;
+        
+        if RST='1' or FRAME_VSYNC='0' then
             r   := reg_type_def;
         end if;
         
