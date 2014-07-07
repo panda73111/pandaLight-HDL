@@ -10,7 +10,8 @@
 -- Revision: 0
 -- Revision 0.01 - File Created
 -- Additional Comments: 
---
+--   Any LED area must be within the FRAME!
+--   The minimum LED area is 1x3 pixel in size!
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.std_logic_1164.ALL;
@@ -96,46 +97,74 @@ architecture rtl of HOR_SCANNER is
         array(0 to 1) of
         unsigned(FRAME_SIZE_BITS-1 downto 0);
     
-    type state_type is (INIT, SCAN_TOP, SCAN_BOTTOM);
+    type leds_pos_type is
+        array(0 to 1) of
+        led_pos_type;
+    
+    type state_type is (
+        FIRST_LED_FIRST_PIXEL,
+        LEFT_BORDER_PIXEL,
+        MAIN_PIXEL,
+        RIGHT_BORDER_PIXEL,
+        LINE_SWITCH,
+        LAST_PIXEL,
+        SIDE_SWITCH
+    );
     
     type reg_type is record
         state               : state_type;
         side                : natural range T to B;
         overlap_buf         : std_ulogic_vector(RGB_BITS-1 downto 0);
-        buf_rd_p, buf_wr_p  : natural range 0 to (2**LED_CNT_BITS)-1;
-        buf_do, buf_di      : std_ulogic_vector(RGB_BITS-1 downto 0);
+        buf_p               : natural range 0 to (2**LED_CNT_BITS)-1;
+        buf_di              : std_ulogic_vector(RGB_BITS-1 downto 0);
         buf_wr_en           : std_ulogic;
         inner_coords        : inner_coords_type;
         led_pos             : led_pos_type;
         led_valid           : std_ulogic;
         led_num             : std_ulogic_vector(LED_CNT_BITS-1 downto 0);
-        led_side            : std_ulogic;
         led_color           : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
-        state               => INIT,
+        state               => FIRST_LED_FIRST_PIXEL,
         side                => T,
         overlap_buf         => (others => '0'),
-        buf_rd_p            => 0,
-        buf_wr_p            => 0,
+        buf_p               => 0,
         buf_di              => (others => '0'),
-        buf_do              => (others => '0'),
         buf_wr_en           => '0',
         inner_coords        => (others => (others => '0')),
         led_pos             => (others => (others => '0')),
         led_valid           => '0',
         led_num             => (others => '0'),
-        led_side            => '0',
         led_color           => (others => '0')
     );
     
-    signal next_inner_coords    : inner_coords_type := (others => (others => '0'));
+    signal next_inner_x         : unsigned(LED_SIZE_BITS-1 downto 0);
+    signal first_leds_pos       : leds_pos_type;
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal overlaps             : boolean := false;
     signal abs_overlap          : unsigned(LED_SIZE_BITS-1 downto 0) := (others => '0');
-    signal first_led_pos        : led_pos_type := (others => (others => '0'));
     signal led_buf              : led_buf_type;
+    signal buf_do               : std_ulogic_vector(RGB_BITS-1 downto 0);
+    signal frame_rgb            : std_ulogic_vector(RGB_BITS-1 downto 0);
+    
+    function led_arith_mean(vl, vr : std_ulogic_vector) return std_ulogic_vector is
+        variable rl, rr : std_ulogic_vector(R_BITS-1 downto 0);
+        variable gl, gr : std_ulogic_vector(G_BITS-1 downto 0);
+        variable bl, br : std_ulogic_vector(B_BITS-1 downto 0);
+    begin
+        -- computes the arithmetic means of each R, G and B component
+        rl  := vl(RGB_BITS-1 downto G_BITS+B_BITS);
+        gl  := vl(G_BITS+B_BITS-1 downto B_BITS);
+        bl  := vl(B_BITS-1 downto 0);
+        rr  := vr(RGB_BITS-1 downto G_BITS+B_BITS);
+        gr  := vr(G_BITS+B_BITS-1 downto B_BITS);
+        br  := vr(B_BITS-1 downto 0);
+        return
+            arith_mean(rl, rr) &
+            arith_mean(gl, gr) &
+            arith_mean(bl, br);
+    end function;
     
 begin
     
@@ -145,24 +174,25 @@ begin
     
     LED_VALID   <= cur_reg.led_valid;
     LED_NUM     <= cur_reg.led_num;
-    LED_SIDE    <= cur_reg.led_side;
+    LED_SIDE    <= '0' when cur_reg.side=T else '1';
     LED_COLOR   <= cur_reg.led_color;
     
+    frame_rgb   <= FRAME_R & FRAME_G & FRAME_B;
+    
+    -- the position of the first top/bottom LED
+    first_leds_pos(T)(X)    <= resize(uns(LED_OFFS), FRAME_SIZE_BITS);
+    first_leds_pos(T)(Y)    <= resize(uns(LED_PAD), FRAME_SIZE_BITS);
+    first_leds_pos(B)(X)    <= resize(uns(LED_OFFS), FRAME_SIZE_BITS);
+    first_leds_pos(B)(Y)    <= uns(FRAME_HEIGHT-LED_HEIGHT-LED_PAD);
+    
     -- in case of overlapping LEDs, the position of the next LED's pixel area is needed
-    next_inner_coords(X)    <= cur_reg.inner_coords(X)+uns(LED_STEP);
-    next_inner_coords(Y)    <= cur_reg.inner_coords(Y);
+    next_inner_x    <= cur_reg.inner_coords(X)+uns(LED_STEP);
     
     -- is there any overlap?
     overlaps    <= LED_STEP<LED_WIDTH;
     
     -- the amount of overlapping pixels (in one dimension)
     abs_overlap <= uns(LED_HEIGHT-LED_STEP);
-    
-    -- point of the first pixel of the first LED on each side (the most top left pixel)
-    first_led_pos(X)    <= resize(uns(LED_OFFS), FRAME_SIZE_BITS);
-    first_led_pos(Y)    <=
-        resize( uns(LED_PAD),                           FRAME_SIZE_BITS) when side=T else
-                uns(FRAME_HEIGHT-LED_HEIGHT-LED_PAD);
     
     
     -----------------
@@ -171,122 +201,117 @@ begin
     
     -- ensure block RAM usage
     led_buf_proc : process(CLK)
-        alias rd_p  is cur_reg.buf_rd_p;
-        alias wr_p  is cur_reg.buf_rd_p;
-        alias di    is cur_reg.buf_di;
-        alias do    is cur_reg.buf_do;
-        alias wr_en is cur_reg.buf_wr_en;
+        alias p     is next_reg.buf_p;
+        alias di    is next_reg.buf_di;
+        alias do    is buf_do;
+        alias wr_en is next_reg.buf_wr_en;
     begin
         if rising_edge(CLK) then
-            -- read first mode
-            do  <= led_buf(rd_p);
+            -- write first mode
             if wr_en='1' then
-                led_buf(wr_p)   <= di;
+                led_buf(p)  <= di;
+                do          <= di;
+            else
+                do  <= led_buf(p);
             end if;
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg)
-        variable r  : reg_type;
-        variable
-            old_led_color,
-            new_led_color
-        : std_ulogic_vector(RGB_BITS-1 downto 0);
+    stm_proc : process(RST, cur_reg, FRAME_WIDTH, FRAME_HEIGHT, FRAME_VSYNC, FRAME_HSYNC,
+        FRAME_X, FRAME_Y, LED_CNT, LED_WIDTH, LED_HEIGHT, LED_STEP, LED_OFFS, frame_rgb,
+        buf_do, overlaps, abs_overlap, next_inner_x, first_leds_pos
+    )
+        alias cr        : reg_type is cur_reg;
+        variable r      : reg_type;
     begin
-        r   := cur_reg;
+        r   := cr;
         
-        r.led_valid <= '0';
+        r.led_valid := '0';
+        r.buf_wr_en := '0';
         
-        if led_num_reg=0 then
-            led_pos <= first_led_pos;
-        end if;
-        
-        if FRAME_HSYNC='1' then
-            if
-                led_num_reg<LED_CNT and
-                FRAME_X>=led_pos(X) and
-                FRAME_X<led_pos(X)+LED_WIDTH and
-                FRAME_Y>=led_pos(Y) and
-                FRAME_Y<led_pos(Y)+LED_HEIGHT
-            then
-                -- within an LED area
-                
-                if inner_coords(X)=0 and inner_coords(Y)=0 then
-                    -- first pixel of a LED area
-                    led_buf(led_num_p)  <= FRAME_R & FRAME_G & FRAME_G;
-                else
-                    -- any other pixel of the LED area
-                    old_led_color   := led_buf(led_num_p);
-                    new_led_color   :=
-                        arith_mean(FRAME_R, old_led_color(RGB_BITS-1 downto G_BITS+B_BITS)) &
-                        arith_mean(FRAME_G, old_led_color(G_BITS+B_BITS-1 downto B_BITS)) &
-                        arith_mean(FRAME_B, old_led_color(B_BITS-1 downto 0));
-                    led_buf(led_num_p)  <= new_led_color;
-                end if;
-                
+        case cr.state is
+            
+            when FIRST_LED_FIRST_PIXEL =>
+                r.buf_p             := 0;
+                r.led_pos           := first_leds_pos(cr.side);
+                r.inner_coords(X)   := uns(1, LED_SIZE_BITS);
+                r.inner_coords(Y)   := (others => '0');
+                r.buf_di            := frame_rgb;
                 if
-                    overlaps and
-                    led_num_reg<LED_CNT-1
+                    FRAME_HSYNC='1' and
+                    FRAME_X=stdulv(first_leds_pos(cr.side)(X)) and
+                    FRAME_Y=stdulv(first_leds_pos(cr.side)(Y))
                 then
-                    if
-                        next_inner_coords(Y)=0 and
-                        next_inner_coords(X)=0
-                    then
-                        -- first pixel of the next (overlapping) LED area
-                        led_buf(led_num_p+1)    <= FRAME_R & FRAME_G & FRAME_G;
-                    else
-                        -- any other pixel of the next (overlapping) LED area
-                        old_led_color   := led_buf(led_num_p+1);
-                        new_led_color   :=
-                            arith_mean(FRAME_R, old_led_color(RGB_BITS-1 downto G_BITS+B_BITS)) &
-                            arith_mean(FRAME_G, old_led_color(G_BITS+B_BITS-1 downto B_BITS)) &
-                            arith_mean(FRAME_B, old_led_color(B_BITS-1 downto 0));
-                        led_buf(led_num_p+1)    <= new_led_color;
+                    r.buf_wr_en         := '1';
+                    r.state             := MAIN_PIXEL;
+                end if;
+            
+            when LEFT_BORDER_PIXEL =>
+                r.inner_coords(X)   := uns(1, LED_SIZE_BITS);
+                r.buf_di            := frame_rgb;
+                if
+                    FRAME_HSYNC='1' and
+                    FRAME_X=stdulv(cr.led_pos(X))
+                then
+                    r.buf_p     := cr.buf_p+1;
+                    if cr.buf_p=LED_CNT-1 then
+                        r.buf_p := 0;
+                    end if;
+                    r.buf_wr_en := '1';
+                    r.state     := MAIN_PIXEL;
+                end if;
+            
+            when MAIN_PIXEL =>
+                r.buf_di    := led_arith_mean(frame_rgb, buf_do);
+                if FRAME_HSYNC='1' then
+                    r.buf_wr_en         := '1';
+                    r.inner_coords(X)   := cr.inner_coords(X)+1;
+                    if cr.inner_coords(X)=LED_WIDTH-2 then
+                        r.state := RIGHT_BORDER_PIXEL;
+                        if cr.inner_coords(Y)=LED_HEIGHT-1 then
+                            r.state := LAST_PIXEL;
+                        end if;
                     end if;
                 end if;
+            
+            when RIGHT_BORDER_PIXEL =>
+                r.inner_coords(X)   := (others => '0');
+                r.buf_di            := led_arith_mean(frame_rgb, buf_do);
+                if FRAME_HSYNC='1' then
+                    r.buf_wr_en     := '1';
+                    r.led_pos(X)    := uns(cr.led_pos(X)+LED_STEP);
+                    r.state         := LEFT_BORDER_PIXEL;
+                    if cr.buf_p=LED_CNT-1 then
+                        -- finished one line of all LED areas
+                        r.state := LINE_SWITCH;
+                    end if;
+                end if;
+            
+            when LINE_SWITCH =>
+                r.inner_coords(Y)   := cr.inner_coords(Y)+1;
+                r.led_pos           := first_leds_pos(cr.side);
+                r.state             := LEFT_BORDER_PIXEL;
+            
+            when LAST_PIXEL =>
+                r.inner_coords(X)   := (others => '0');
+                if FRAME_HSYNC='1' then
+                    -- give out the LED color
+                    r.led_valid     := '1';
+                    r.led_color     := led_arith_mean(frame_rgb, buf_do);
+                    r.led_num       := stdulv(cr.buf_p, LED_CNT_BITS);
                     
-                -- left led x & y increment;
-                -- the LED is changed after one row of pixels is completed
-                inner_coords(X) <= inner_coords(X)+1;
-                if inner_coords(X)=LED_WIDTH-1 or FRAME_X=FRAME_WIDTH-1 then
-                    inner_coords(X) <= (others => '0');
-                    led_num_reg     <= led_num_reg+1;
-                    led_pos(X)      <= uns(led_pos(X)+LED_STEP);
-                    if led_num_reg=LED_CNT-1 or frame_x=FRAME_WIDTH-1 then
-                        -- frame row chaning, jump to the first LED
-                        inner_coords(Y) <= inner_coords(Y)+1;
-                        led_num_reg     <= (others => '0');
-                    end if;
-                    if overlaps and led_num_reg<LED_CNT-1 then
-                        inner_coords(X) <= abs_overlap;
-                    end if;
-                    if inner_coords(Y)=LED_HEIGHT-1 or FRAME_Y=FRAME_HEIGHT-1 then
-                        -- this was the last pixel of the LED area
-                        led_num_reg <= led_num_reg+1;
-                        LED_VALID   <= '1';
-                        LED_COLOR   <= led_buf(led_num_p);
-                        LED_NUM     <= stdulv(led_num_reg);
-                        if side=T then
-                            LED_SIDE    <= '0';
-                        else
-                            LED_SIDE    <= '1';
-                        end if;
-                        if led_num_reg=LED_CNT-1 then
-                            -- this was the last top LED
-                            inner_coords(Y) <= (others => '0');
-                            side            <= B;
-                            led_num_reg     <= (others => '0');
-                        end if;
+                    r.led_pos(X)    := uns(cr.led_pos(X)+LED_STEP);
+                    r.state         := LEFT_BORDER_PIXEL;
+                    if cr.buf_p=LED_CNT-1 then
+                        r.state := SIDE_SWITCH;
                     end if;
                 end if;
-            end if;
-        end if;
-        
-        if FRAME_VSYNC='0' then
-            r.inner_coords  <= (others => (others => '0'));
-            r.buf_rd_p      <= 0;
-            r.side          <= T;
-        end if;
+            
+            when SIDE_SWITCH =>
+                r.side          := (cr.side+1) mod 2;
+                r.state         := FIRST_LED_FIRST_PIXEL;
+            
+        end case;
         
         if RST='1' then
             r   := reg_type_def;
