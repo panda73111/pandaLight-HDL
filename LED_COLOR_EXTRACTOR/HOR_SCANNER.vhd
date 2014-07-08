@@ -267,7 +267,7 @@ begin
             when MAIN_PIXEL =>
                 r.buf_di    := led_arith_mean(frame_rgb, buf_do);
                 if
-                    r.buf_p/=0 and
+                    cr.buf_p/=0 and
                     overlaps
                 then
                     -- not the first LED and there's an overlap,
@@ -337,8 +337,8 @@ begin
                 end if;
             
             when SIDE_SWITCH =>
-                r.side          := (cr.side+1) mod 2;
-                r.state         := FIRST_LED_FIRST_PIXEL;
+                r.side  := (cr.side+1) mod 2;
+                r.state := FIRST_LED_FIRST_PIXEL;
             
         end case;
         
