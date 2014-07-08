@@ -42,8 +42,6 @@ entity VER_SCANNER is
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
-        LED_CNT : in std_ulogic_vector(LED_CNT_BITS-1 downto 0);
-        
         LED_WIDTH   : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
         LED_STEP    : in std_ulogic_vector(LED_STEP_BITS-1 downto 0);
@@ -229,7 +227,7 @@ begin
     end process;
     
     stm_proc : process(RST, cur_reg, FRAME_WIDTH, FRAME_VSYNC, FRAME_HSYNC, FRAME_X, FRAME_Y,
-        LED_CNT, LED_WIDTH, LED_HEIGHT, LED_STEP, LED_OFFS, frame_rgb, buf_do, ov_buf_do, overlaps,
+        LED_WIDTH, LED_HEIGHT, LED_STEP, LED_OFFS, frame_rgb, buf_do, ov_buf_do, overlaps,
         abs_overlap, next_inner_y, first_leds_pos
     )
         alias cr        : reg_type is cur_reg; -- current registers

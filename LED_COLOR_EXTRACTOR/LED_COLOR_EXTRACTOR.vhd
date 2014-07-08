@@ -281,7 +281,6 @@ begin
             CLK => clk,
             RST => rst,
             
-            LED_CNT     => ver_led_cnt,
             LED_WIDTH   => ver_led_width,
             LED_HEIGHT  => ver_led_height,
             LED_STEP    => ver_led_step,
@@ -323,7 +322,7 @@ begin
                 -- queue the vertical one
                 ver_queued  <= true;
             end if;
-            for dim in 0 to 1 loop
+            for dim in HOR to VER loop
                 if leds_valid(dim)='1' or ver_queued then
                     -- count the LEDs from top left clockwise
                     if dim=HOR then
@@ -347,7 +346,9 @@ begin
                     LED_G       <= leds_color(dim)(G_BITS+B_BITS-1 downto B_BITS);
                     LED_B       <= leds_color(dim)(B_BITS-1 downto 0);
                     LED_VALID   <= '1';
-                    ver_queued  <= false;
+                    if dim=VER then
+                        ver_queued  <= false;
+                    end if;
                     exit;
                 end if;
             end loop;
