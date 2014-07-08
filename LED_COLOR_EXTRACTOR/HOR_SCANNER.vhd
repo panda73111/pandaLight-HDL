@@ -185,13 +185,13 @@ begin
     first_leds_pos(B)(Y)    <= uns(FRAME_HEIGHT-LED_HEIGHT-LED_PAD);
     
     -- in case of overlapping LEDs, the position of the next LED's pixel area is needed
-    next_inner_x    <= cur_reg.inner_coords(X)+uns(LED_STEP);
+    next_inner_x    <= cur_reg.inner_coords(X)-uns(LED_STEP);
     
     -- is there any overlap?
     overlaps    <= LED_STEP<LED_WIDTH;
     
     -- the amount of overlapping pixels (in one dimension)
-    abs_overlap <= uns(LED_HEIGHT-LED_STEP);
+    abs_overlap <= uns(LED_WIDTH-LED_STEP);
     
     
     -----------------
@@ -249,7 +249,7 @@ begin
                 r.inner_coords(X)   := uns(1, LED_SIZE_BITS);
                 r.buf_di            := frame_rgb;
                 if
-                    r.buf_p/=LED_CNT-1 and
+                    r.buf_p/=0 and
                     overlaps
                 then
                     -- not the first LED and there's an overlap,
@@ -260,10 +260,6 @@ begin
                     FRAME_HSYNC='1' and
                     FRAME_X=stdulv(cr.led_pos(X))
                 then
-                    r.buf_p     := cr.buf_p+1;
-                    if cr.buf_p=LED_CNT-1 then
-                        r.buf_p := 0;
-                    end if;
                     r.buf_wr_en := '1';
                     r.state     := MAIN_PIXEL;
                 end if;
@@ -271,7 +267,7 @@ begin
             when MAIN_PIXEL =>
                 r.buf_di    := led_arith_mean(frame_rgb, buf_do);
                 if
-                    r.buf_p/=LED_CNT-1 and
+                    r.buf_p/=0 and
                     overlaps
                 then
                     -- not the first LED and there's an overlap,
@@ -299,11 +295,11 @@ begin
                     r.buf_wr_en     := '1';
                     r.led_pos(X)    := uns(cr.led_pos(X)+LED_STEP);
                     r.state         := LEFT_BORDER_PIXEL;
+                    r.buf_p         := cr.buf_p+1;
+                    if cr.buf_p=LED_CNT-1 then
+                        r.buf_p := 0;
+                    end if;
                     if overlaps then
-                        r.buf_p     := cr.buf_p+1;
-                        if cr.buf_p=LED_CNT-1 then
-                            r.buf_p := 0;
-                        end if;
                         r.state := MAIN_PIXEL;
                     end if;
                     if cr.buf_p=LED_CNT-1 then
@@ -319,6 +315,9 @@ begin
             
             when LAST_PIXEL =>
                 r.inner_coords(X)   := (others => '0');
+                if overlaps then
+                    r.inner_coords(X)   := abs_overlap;
+                end if;
                 if FRAME_HSYNC='1' then
                     -- give out the LED color
                     r.led_valid     := '1';
@@ -326,8 +325,13 @@ begin
                     r.led_num       := stdulv(cr.buf_p, LED_CNT_BITS);
                     
                     r.led_pos(X)    := uns(cr.led_pos(X)+LED_STEP);
+                    r.buf_p         := cr.buf_p+1;
                     r.state         := LEFT_BORDER_PIXEL;
+                    if overlaps then
+                        r.state := MAIN_PIXEL;
+                    end if;
                     if cr.buf_p=LED_CNT-1 then
+                        r.buf_p := 0;
                         r.state := SIDE_SWITCH;
                     end if;
                 end if;

@@ -157,7 +157,7 @@ begin
                         side_led_index  := int(LED_NUM-HOR_LED_CNT);
                         led_start_x     := int(FRAME_WIDTH-VER_LED_PAD-VER_LED_WIDTH);
                         led_end_x       := led_start_x+int(VER_LED_WIDTH);
-                        led_start_y     := int(VER_LED_OFFS+(VER_LED_STEP*side_led_index));
+                        led_start_y     := int(VER_LED_OFFS+(resize(uns(VER_LED_STEP), FRAME_SIZE_BITS)*side_led_index));
                         led_end_y       := led_start_y+int(VER_LED_HEIGHT);
                         
                     elsif LED_NUM<(HOR_LED_CNT*2)+VER_LED_CNT then
@@ -175,7 +175,7 @@ begin
                         side_led_index  := int(VER_LED_CNT-1-(LED_NUM-(HOR_LED_CNT*2)-VER_LED_CNT));
                         led_start_x     := int(VER_LED_PAD);
                         led_end_x       := led_start_x+int(VER_LED_WIDTH);
-                        led_start_y     := int(VER_LED_OFFS+(VER_LED_STEP*side_led_index));
+                        led_start_y     := int(VER_LED_OFFS+(resize(uns(VER_LED_STEP), FRAME_SIZE_BITS)*side_led_index));
                         led_end_y       := led_start_y+int(VER_LED_HEIGHT);
                         
                     end if;
