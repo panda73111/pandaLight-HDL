@@ -90,7 +90,7 @@ architecture rtl of TMDS_CHANNEL_IDELAY is
     
 begin
     
-    BUSY                <= slave_busy;
+    BUSY    <= slave_busy;
     
     idelay_master_calibrate <= calibrate_reg.calibrate_master;
     idelay_slave_calibrate  <= calibrate_reg.calibrate_slave;

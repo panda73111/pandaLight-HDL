@@ -28,21 +28,26 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS
     ------ TMDS channel encoder ------
     ----------------------------------
     
-    type encoders_data_in_type is array(0 to 2) of std_ulogic_vector(7 downto 0);
-    type encoders_channel_out_type is array(0 to 2) of std_ulogic_vector(1 downto 0);
+    type
+        decoders_data_out_type is
+        array(0 to 2) of std_ulogic_vector(7 downto 0);
+    
+    type
+        deoders_channel_in_type is
+        array(0 to 2) of std_ulogic_vector(1 downto 0);
     
     -- Inputs
-    signal encoders_pix_clk         : std_ulogic := '0';
-    signal encoders_pix_clk_x2      : std_ulogic := '0';
-    signal encoders_pix_clk_x10     : std_ulogic := '0';
-    signal encoders_rst             : std_ulogic := '0';
-    signal encoders_clk_locked      : std_ulogic := '0';
-    signal encoders_serdesstrobe    : std_ulogic := '0';
-    signal encoders_data_in         : encoders_data_in_type := (others => x"00");
-    signal encoders_encoding        : std_ulogic_vector(2 downto 0) := "000";
+    signal decoders_pix_clk         : std_ulogic := '0';
+    signal decoders_pix_clk_x2      : std_ulogic := '0';
+    signal decoders_pix_clk_x10     : std_ulogic := '0';
+    signal decoders_rst             : std_ulogic := '0';
+    signal decoders_clk_locked      : std_ulogic := '0';
+    signal decoders_serdesstrobe    : std_ulogic := '0';
+    signal encoders_channel_in      : decoders_channel_in_type := (others => "00");
 
     -- Outputs
-    signal encoders_channel_out : encoders_channel_out_type := (others => "00");
+    signal decoders_data_out        : encoders_data_out_type := (others => x"00");
+    signal decoders_encoding        : std_ulogic_vector(2 downto 0) := "000";
     
     
     ------------------------------
@@ -75,43 +80,54 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
     
-    type encoders_deser_data_type is array(0 to 2) of std_ulogic_vector(9 downto 0);
-    type encoders_dec_vid_data_type is array(0 to 2) of std_ulogic_vector(7 downto 0);
-    signal encoders_deser_data      : encoders_deser_data_type := (others => (others => '0'));
-    signal encoders_dec_vid_data    : encoders_dec_vid_data_type := (others => (others => '0'));
+    type
+        decoders_deser_data_type is
+        array(0 to 2) of std_ulogic_vector(9 downto 0);
+    
+    type
+        decoders_enc_vid_data_type is
+        array(0 to 2) of std_ulogic_vector(7 downto 0);
+    
+    signal decoders_deser_data
+        : decoders_deser_data_type
+        := (others => (others => '0'));
+        
+    signal decoders_enc_vid_data
+        : decoders_enc_vid_data_type
+        := (others => (others => '0'));
 
 BEGIN
     
-    encoders_pix_clk        <= clk_man_clk_out0;
-    encoders_pix_clk_x2     <= clk_man_clk_out1;
-    encoders_pix_clk_x10    <= clk_man_ioclk_out;
-    encoders_rst            <= g_rst;
-    encoders_clk_locked     <= clk_man_ioclk_locked;
-    encoders_serdesstrobe   <= clk_man_serdesstrobe;
+    decoders_pix_clk        <= clk_man_clk_out0;
+    decoders_pix_clk_x2     <= clk_man_clk_out1;
+    decoders_pix_clk_x10    <= clk_man_ioclk_out;
+    decoders_rst            <= g_rst;
+    decoders_clk_locked     <= clk_man_ioclk_locked;
+    decoders_serdesstrobe   <= clk_man_serdesstrobe;
     
-    TMDS_CHANNEL_ENCODERS_gen : for i in 0 to 2 generate
-        TMDS_CHANNEL_ENCODER_inst : entity work.TMDS_CHANNEL_ENCODER
+    TMDS_CHANNEL_DECODERS_gen : for i in 0 to 2 generate
+        TMDS_CHANNEL_DECODER_inst : entity work.TMDS_CHANNEL_DECODER
             generic map (
                 CHANNEL_NUM => i
             )
             port map (
-                PIX_CLK         => encoders_pix_clk,
-                PIX_CLK_X2      => encoders_pix_clk_x2,
-                PIX_CLK_X10     => encoders_pix_clk_x10,
-                RST             => encoders_rst,
-                CLK_LOCKED      => encoders_clk_locked,
-                SERDESSTROBE    => encoders_serdesstrobe,
-                DATA_IN         => encoders_data_in(i),
-                ENCODING        => encoders_encoding,
+                PIX_CLK         => decoders_pix_clk,
+                PIX_CLK_X2      => decoders_pix_clk_x2,
+                PIX_CLK_X10     => decoders_pix_clk_x10,
+                RST             => decoders_rst,
+                CLK_LOCKED      => decoders_clk_locked,
+                SERDESSTROBE    => decoders_serdesstrobe,
+                CHANNEL_IN_P    => decoders_channel_in(i)(0),
+                CHANNEL_IN_N    => decoders_channel_in(i)(1)
                 
-                CHANNEL_OUT_P   => encoders_channel_out(i)(0),
-                CHANNEL_OUT_N   => encoders_channel_out(i)(1)
+                DATA_OUT        => decoders_data_out(i),
+                ENCODING        => decoders_encoding,
             );
     end generate;
     
     clk_man_clk_in  <= g_clk;
     
-    OSERDES_CLK_MAN_inst : entity work.OSERDES2_CLK_MAN
+    ISERDES_CLK_MAN_inst : entity work.ISERDES2_CLK_MAN
         generic map (
             CLK_IN_PERIOD   => g_clk_period_real,
             MULTIPLIER      => pix_clk_mult * 10,
@@ -151,64 +167,8 @@ BEGIN
 
         -- insert stimulus here
         
-        wait until clk_man_ioclk_locked = '1' and rising_edge(g_clk);
-        
-        encoders_encoding   <= "010";
-        for i in -255 to 255 loop
-            wait until rising_edge(encoders_pix_clk);
-            for ch_i in 0 to 2 loop
-                encoders_data_in(ch_i)  <= std_ulogic_vector(to_unsigned(abs i, 8));
-            end loop;
-        end loop;
         
         wait;
     end process;
-    
-    ch_deser_procs_gen : for i in 0 to 2 generate
-        deser_proc : process
-            variable temp_data      : std_ulogic_vector(9 downto 0) := (others => '0');
-            variable temp_dec_data  : std_ulogic_vector(7 downto 0) := (others => '0');
-        begin
-            
-            wait until falling_edge(encoders_serdesstrobe);
-            wait until rising_edge(encoders_pix_clk_x10);
-            
-            loop
-                for bit_i in 0 to 9 loop
-                    wait until rising_edge(encoders_pix_clk_x10);
-                    temp_data(bit_i)    := encoders_channel_out(i)(0);
-                end loop;
-                
-                encoders_deser_data(i)  <= temp_data;
-                
-                if temp_data(9) = '1' then
-                    temp_data(7 downto 0)   := not temp_data(7 downto 0);
-                end if;
-                
-                temp_dec_data(0)    := temp_data(0);
-                if temp_data(8) = '1' then
-                    temp_dec_data(1)    := temp_data(1) xor temp_data(0);
-                    temp_dec_data(2)    := temp_data(2) xor temp_data(1);
-                    temp_dec_data(3)    := temp_data(3) xor temp_data(2);
-                    temp_dec_data(4)    := temp_data(4) xor temp_data(3);
-                    temp_dec_data(5)    := temp_data(5) xor temp_data(4);
-                    temp_dec_data(6)    := temp_data(6) xor temp_data(5);
-                    temp_dec_data(7)    := temp_data(7) xor temp_data(6);
-                else
-                    temp_dec_data(1)    := temp_data(1) xnor temp_data(0);
-                    temp_dec_data(2)    := temp_data(2) xnor temp_data(1);
-                    temp_dec_data(3)    := temp_data(3) xnor temp_data(2);
-                    temp_dec_data(4)    := temp_data(4) xnor temp_data(3);
-                    temp_dec_data(5)    := temp_data(5) xnor temp_data(4);
-                    temp_dec_data(6)    := temp_data(6) xnor temp_data(5);
-                    temp_dec_data(7)    := temp_data(7) xnor temp_data(6);
-                end if;
-                
-                encoders_dec_vid_data(i)    <= temp_dec_data;
-                
-            end loop;
-            
-        end process;
-    end generate;
 
 END;
