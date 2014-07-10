@@ -95,7 +95,9 @@ begin
     idelay_master_calibrate <= calibrate_reg.calibrate_master;
     idelay_slave_calibrate  <= calibrate_reg.calibrate_slave;
     
-    IDELAY_master_inst : IDELAY
+    idelay_rst  <= delay_reg.rst;
+    
+    IDELAY_master_inst : IODELAY2
         generic map (
             DATA_RATE           => "SDR",
             IDELAY_VALUE        => 0,
@@ -126,7 +128,7 @@ begin
             BUSY        => open
         );
     
-    IDELAY_slave_inst : IDELAY
+    IDELAY_slave_inst : IODELAY2
         generic map (
             DATA_RATE               => "SDR",
             IDELAY_VALUE            => 0,
@@ -230,11 +232,9 @@ begin
         next_delay_reg  <= r;
     end process;
   
-    calibration_stm_sync_proc : process(RST, PIX_CLK_X2)
+    calibration_stm_sync_proc : process(PIX_CLK_X2)
     begin
-        if RST = '1' then
-            delay_reg   <= delay_reg_type_def;
-        elsif rising_edge(PIX_CLK_X2) then
+        if rising_edge(PIX_CLK_X2) then
             delay_reg   <= next_delay_reg;
         end if;
     end process;
