@@ -19,8 +19,8 @@ library work;
 use work.txt_util.all;
 use work.help_funcs.all;
 
-ENTITY TMDS_CHANNEL_ENCODER_tb IS
-END TMDS_CHANNEL_ENCODER_tb;
+ENTITY TMDS_CHANNEL_DECODER_tb IS
+END TMDS_CHANNEL_DECODER_tb;
 
 ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS 
     
@@ -33,7 +33,7 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS
         array(0 to 2) of std_ulogic_vector(7 downto 0);
     
     type
-        deoders_channel_in_type is
+        decoders_channel_in_type is
         array(0 to 2) of std_ulogic_vector(1 downto 0);
     
     -- Inputs
@@ -43,10 +43,10 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS
     signal decoders_rst             : std_ulogic := '0';
     signal decoders_clk_locked      : std_ulogic := '0';
     signal decoders_serdesstrobe    : std_ulogic := '0';
-    signal encoders_channel_in      : decoders_channel_in_type := (others => "00");
+    signal decoders_channel_in      : decoders_channel_in_type := (others => "00");
 
     -- Outputs
-    signal decoders_data_out        : encoders_data_out_type := (others => x"00");
+    signal decoders_data_out        : decoders_data_out_type := (others => x"00");
     signal decoders_encoding        : std_ulogic_vector(2 downto 0) := "000";
     
     
@@ -118,10 +118,10 @@ BEGIN
                 CLK_LOCKED      => decoders_clk_locked,
                 SERDESSTROBE    => decoders_serdesstrobe,
                 CHANNEL_IN_P    => decoders_channel_in(i)(0),
-                CHANNEL_IN_N    => decoders_channel_in(i)(1)
+                CHANNEL_IN_N    => decoders_channel_in(i)(1),
                 
                 DATA_OUT        => decoders_data_out(i),
-                ENCODING        => decoders_encoding,
+                ENCODING        => decoders_encoding
             );
     end generate;
     
@@ -135,8 +135,7 @@ BEGIN
             DIVISOR0        => 10, -- pixel clock
             DIVISOR1        => 5,  -- serdes clock = pixel clock * 2
             DIVISOR2        => 1,  -- bit clock
-            DATA_CLK_SELECT => 1,  -- clock out 1
-            IO_CLK_SELECT   => 2   -- clock out 2
+            DATA_CLK_SELECT => 1   -- clock out 1
         )
         port map (
             CLK_IN          => clk_man_clk_in,

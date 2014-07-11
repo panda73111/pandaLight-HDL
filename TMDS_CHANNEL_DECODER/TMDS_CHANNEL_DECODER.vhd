@@ -9,7 +9,7 @@
 -- Revision 0.01 - File Created
 -- Additional Comments: 
 --
-----------------------------------------------------------------------------------
+-----------------CHANNEL_NUM : natural range 0 to 2-----------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -18,6 +18,7 @@ use UNISIM.VComponents.all;
 
 entity TMDS_CHANNEL_DECODER is
     generic (
+        CHANNEL_NUM     : natural range 0 to 2;
         SIM_TAP_DELAY   : integer range 20 to 100 := 50
     );
     port (
@@ -36,15 +37,21 @@ end TMDS_CHANNEL_DECODER;
 
 architecture rtl of TMDS_CHANNEL_DECODER is
     
-    signal channel_in   : std_ulogic := '0';
-    signal bitslip      : std_ulogic := '0';
-    signal busy         : std_ulogic := '0';
+    signal channel_in           : std_ulogic := '0';
+    signal bitslip              : std_ulogic := '0';
+    signal idelay_incdec        : std_ulogic := '0';
+    signal master_d, slave_d    : std_ulogic := '0';
+    signal iserdes_d_valid      : std_ulogic := '0';
     
     signal gearbox_data_select  : std_ulogic := '0';
     signal gearbox_x2_data      : std_ulogic_vector(4 downto 0) := (others => '0');
     signal gearbox_x1_data      : std_ulogic_vector(9 downto 0) := (others => '0');
     
 begin
+    
+    -----------------------------
+    --- entity instantiations ---
+    -----------------------------
     
     IBUFDS_inst : IBUFDS
         generic map (
@@ -61,14 +68,40 @@ begin
             SIM_TAP_DELAY   => SIM_TAP_DELAY
         )
         port map (
-            PIX_CLK     => PIX_CLK,
+            PIX_CLK_X10 => PIX_CLK_X10,
             PIX_CLK_X2  => PIX_CLK_X2,
             RST         => RST,
             
-            CHANNEL_IN  => channel_in,
-            BUSY        => busy
+            SERDESSTROBE    => SERDESSTROBE,
+            CHANNEL_IN      => channel_in,
+            INCDEC          => idelay_incdec,
+            DIN_VALID       => iserdes_d_valid,
+            
+            MASTER_DOUT => master_d,
+            SLAVE_DOUT  => slave_d
         );
-        
+    
+    TMDS_CHANNEL_ISERDES_inst : entity work.TMDS_CHANNEL_ISERDES
+        port map (
+            PIX_CLK_X10 => PIX_CLK_X10,
+            PIX_CLK_X2  => PIX_CLK_X2,
+            RST         => RST,
+            
+            MASTER_DIN      => master_d,
+            SLAVE_DIN       => slave_d,
+            SERDESSTROBE    => SERDESSTROBE,
+            BITSLIP         => bitslip,
+            
+            INCDEC      => idelay_incdec,
+            DOUT        => gearbox_x2_data,
+            DOUT_VALID  => iserdes_d_valid
+        );
+    
+    
+    -----------------------
+    --- 5 to 10 gearbox ---
+    -----------------------
+    
     gearbox_proc : process(PIX_CLK_X2)
     begin
         if rising_edge(PIX_CLK_X2) then
