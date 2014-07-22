@@ -28,7 +28,6 @@ entity TMDS_CHANNEL_IDELAY is
         SERDESSTROBE    : in std_ulogic;
         CHANNEL_IN      : in std_ulogic;
         INCDEC          : in std_ulogic;
-        DIN_VALID       : in std_ulogic;
         
         MASTER_DOUT : out std_ulogic := '0';
         SLAVE_DOUT  : out std_ulogic := '0'
@@ -294,7 +293,7 @@ begin
                     pd_counter      <= "10000";
                     inc_set         <= true;
                 end if;
-            elsif DIN_VALID='1' then
+            else
                 -- increment filter
                 idelay_clk_en   <= '0';
                 if INCDEC='1' and pd_counter/="11111" then
@@ -303,8 +302,6 @@ begin
                     -- decrement filter
                     pd_counter  <= pd_counter-1;
                 end if;
-            else
-                idelay_clk_en   <= '0';
             end if;
         end if;
     end process;

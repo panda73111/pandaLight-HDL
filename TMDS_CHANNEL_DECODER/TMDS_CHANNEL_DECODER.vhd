@@ -42,12 +42,22 @@ architecture rtl of TMDS_CHANNEL_DECODER is
     signal idelay_incdec        : std_ulogic := '0';
     signal master_d, slave_d    : std_ulogic := '0';
     signal iserdes_d_valid      : std_ulogic := '0';
+    signal synced               : std_ulogic := '0';
     
     signal gearbox_data_select  : std_ulogic := '0';
     signal gearbox_x2_data      : std_ulogic_vector(4 downto 0) := (others => '0');
     signal gearbox_x1_data      : std_ulogic_vector(9 downto 0) := (others => '0');
     
+    signal resync   : std_ulogic := '0';
+    
 begin
+    
+    ---------------------
+    --- static routes ---
+    ---------------------
+    
+    resync  <= RST or not iserdes_d_valid;
+    
     
     -----------------------------
     --- entity instantiations ---
@@ -61,24 +71,6 @@ begin
             O   => channel_in,
             I   => CHANNEL_IN_P,
             IB  => CHANNEL_IN_N
-        );
-    
-    TMDS_CHANNEL_DELAY_inst : entity work.TMDS_CHANNEL_IDELAY
-        generic map (
-            SIM_TAP_DELAY   => SIM_TAP_DELAY
-        )
-        port map (
-            PIX_CLK_X10 => PIX_CLK_X10,
-            PIX_CLK_X2  => PIX_CLK_X2,
-            RST         => RST,
-            
-            SERDESSTROBE    => SERDESSTROBE,
-            CHANNEL_IN      => channel_in,
-            INCDEC          => idelay_incdec,
-            DIN_VALID       => iserdes_d_valid,
-            
-            MASTER_DOUT => master_d,
-            SLAVE_DOUT  => slave_d
         );
     
     TMDS_CHANNEL_ISERDES_inst : entity work.TMDS_CHANNEL_ISERDES
@@ -95,6 +87,35 @@ begin
             INCDEC      => idelay_incdec,
             DOUT        => gearbox_x2_data,
             DOUT_VALID  => iserdes_d_valid
+        );
+    
+    TMDS_CHANNEL_DELAY_inst : entity work.TMDS_CHANNEL_IDELAY
+        generic map (
+            SIM_TAP_DELAY   => SIM_TAP_DELAY
+        )
+        port map (
+            PIX_CLK_X10 => PIX_CLK_X10,
+            PIX_CLK_X2  => PIX_CLK_X2,
+            RST         => resync,
+            
+            SERDESSTROBE    => SERDESSTROBE,
+            CHANNEL_IN      => channel_in,
+            INCDEC          => idelay_incdec,
+            
+            MASTER_DOUT => master_d,
+            SLAVE_DOUT  => slave_d
+        );
+    
+    TMDS_CHANNEL_BITSYNC_inst : entity work.TMDS_CHANNEL_BITSYNC
+        port map (
+            PIX_CLK_X2  => PIX_CLK_X2,
+            PIX_CLK     => PIX_CLK,
+            RST         => resync,
+            
+            DIN         => gearbox_x2_data,
+            
+            BITSLIP     => bitslip,
+            SYNCED      => synced
         );
     
     
