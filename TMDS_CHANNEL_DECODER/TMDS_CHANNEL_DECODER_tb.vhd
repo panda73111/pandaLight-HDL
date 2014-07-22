@@ -36,6 +36,9 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS
         decoders_channel_in_type is
         array(0 to 2) of std_ulogic_vector(1 downto 0);
     
+    type decoders_data_valid_type is
+        array(0 to 2) of std_ulogic;
+    
     -- Inputs
     signal decoders_pix_clk         : std_ulogic := '0';
     signal decoders_pix_clk_x2      : std_ulogic := '0';
@@ -47,7 +50,7 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS
 
     -- Outputs
     signal decoders_data_out        : decoders_data_out_type := (others => x"00");
-    signal decoders_encoding        : std_ulogic_vector(2 downto 0) := "000";
+    signal decoders_data_valid      : decoders_data_valid_type := (others => '0');
     
     
     ------------------------------
@@ -121,7 +124,7 @@ BEGIN
                 CHANNEL_IN_N    => decoders_channel_in(i)(1),
                 
                 DATA_OUT        => decoders_data_out(i),
-                ENCODING        => decoders_encoding
+                DATA_OUT_VALID  => decoders_data_valid(i)
             );
     end generate;
     

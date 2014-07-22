@@ -26,12 +26,14 @@ entity TMDS_CHANNEL_DECODER is
         PIX_CLK_X2      : in std_ulogic;
         PIX_CLK_X10     : in std_ulogic;
         RST             : in std_ulogic;
+        
         CLK_LOCKED      : in std_ulogic;
         SERDESSTROBE    : in std_ulogic;
         CHANNEL_IN_P    : in std_ulogic;
         CHANNEL_IN_N    : in std_ulogic;
+        
         DATA_OUT        : out std_ulogic_vector(7 downto 0) := (others => '0');
-        ENCODING        : out std_ulogic_vector(2 downto 0)
+        DATA_OUT_VALID  : out std_ulogic := '0'
     );
 end TMDS_CHANNEL_DECODER;
 
@@ -56,8 +58,9 @@ begin
     --- static routes ---
     ---------------------
     
-    resync  <= RST or not iserdes_d_valid;
-    
+    resync          <= RST or not iserdes_d_valid;
+    DATA_OUT        <= gearbox_x1_data;
+    DATA_OUT_VALID  <= synced;
     
     -----------------------------
     --- entity instantiations ---

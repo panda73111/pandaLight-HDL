@@ -54,10 +54,7 @@ architecture rtl of TMDS_CHANNEL_BITSYNC is
     end record;
     
     constant ctrl_tokens    : tokens_type := (
-        "1101010100",
-        "0010101011",
-        "0101010100",
-        "1010101011"
+        "1101010100", "0010101011", "0101010100", "1010101011"
         );
         
     constant reg_type_def   : reg_type := (
@@ -79,6 +76,7 @@ begin
     ---------------------
     
     BITSLIP <= '1' when cur_reg.state=SHIFT else '0';
+    SYNCED  <= '1' when cur_reg.state=FINISHED else '0';
     
     new_tok_detected    <= tok_detected and not tok_detected_q;
     
