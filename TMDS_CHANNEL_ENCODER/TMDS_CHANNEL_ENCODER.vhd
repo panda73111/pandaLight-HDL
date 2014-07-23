@@ -58,11 +58,7 @@ architecture rtl of TMDS_CHANNEL_ENCODER is
     signal din_enc_disp         : signed(3 downto 0) := (others => '0'); 
     signal total_disp           : signed(3 downto 0) := (others => '0');
     
-    function terc4
-    (
-        din : unsigned(3 downto 0)
-    )
-        return unsigned
+    function terc4 (din : unsigned(3 downto 0)) return unsigned
     is
         type terc4_table_type is array(0 to 15) of unsigned(9 downto 0);
         constant terc4_table    : terc4_table_type := (

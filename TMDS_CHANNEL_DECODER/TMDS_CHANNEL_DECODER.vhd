@@ -32,7 +32,7 @@ entity TMDS_CHANNEL_DECODER is
         CHANNEL_IN_P    : in std_ulogic;
         CHANNEL_IN_N    : in std_ulogic;
         
-        DATA_OUT        : out std_ulogic_vector(7 downto 0) := (others => '0');
+        DATA_OUT        : out std_ulogic_vector(9 downto 0) := (others => '0');
         DATA_OUT_VALID  : out std_ulogic := '0'
     );
 end TMDS_CHANNEL_DECODER;
@@ -115,7 +115,7 @@ begin
             PIX_CLK     => PIX_CLK,
             RST         => resync,
             
-            DIN         => gearbox_x2_data,
+            DIN         => gearbox_x1_data,
             
             BITSLIP     => bitslip,
             SYNCED      => synced

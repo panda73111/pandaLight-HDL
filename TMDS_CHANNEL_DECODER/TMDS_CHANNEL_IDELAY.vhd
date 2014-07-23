@@ -87,7 +87,7 @@ architecture rtl of TMDS_CHANNEL_IDELAY is
     signal idelay_slave_cal     : std_ulogic := '0';
     signal idelay_slave_busy    : std_ulogic := '0';
     
-    signal pd_counter   : unsigned(5 downto 0) := "00000";
+    signal pd_counter   : unsigned(4 downto 0) := "00000";
     signal inc_set      : boolean := false;
     
 begin
@@ -246,7 +246,7 @@ begin
         end case;
         
         if RST = '1' then
-            next_cal_reg    <= cal_reg_type_def;
+            r   := cal_reg_type_def;
         end if;
         
         next_cal_reg    <= r;

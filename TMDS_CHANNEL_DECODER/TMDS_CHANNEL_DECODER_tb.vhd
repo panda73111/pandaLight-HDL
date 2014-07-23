@@ -28,16 +28,9 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS
     ------ TMDS channel encoder ------
     ----------------------------------
     
-    type
-        decoders_data_out_type is
-        array(0 to 2) of std_ulogic_vector(7 downto 0);
-    
-    type
-        decoders_channel_in_type is
-        array(0 to 2) of std_ulogic_vector(1 downto 0);
-    
-    type decoders_data_valid_type is
-        array(0 to 2) of std_ulogic;
+    type decoders_data_type is
+        array(0 to 2) of
+        std_ulogic_vector(9 downto 0);
     
     -- Inputs
     signal decoders_pix_clk         : std_ulogic := '0';
@@ -46,11 +39,11 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS
     signal decoders_rst             : std_ulogic := '0';
     signal decoders_clk_locked      : std_ulogic := '0';
     signal decoders_serdesstrobe    : std_ulogic := '0';
-    signal decoders_channel_in      : decoders_channel_in_type := (others => "00");
+    signal decoders_channel_in      : std_ulogic_vector(2 downto 0) := "000";
 
     -- Outputs
-    signal decoders_data_out        : decoders_data_out_type := (others => x"00");
-    signal decoders_data_valid      : decoders_data_valid_type := (others => '0');
+    signal decoders_data_out        : decoders_data_type := (others => (others => '0'));
+    signal decoders_data_valid      : std_ulogic_vector(2 downto 0) := "000";
     
     
     ------------------------------
@@ -71,42 +64,45 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS
     signal clk_man_ioclk_locked : std_ulogic := '0';
     signal clk_man_serdesstrobe : std_ulogic := '0';
     
-    
-    -- Clock period definitions
-    constant g_clk_period       : time := 10 ns; -- 100 MHz
-    constant g_clk_period_real  : real := real(g_clk_period / 1 ps) / real(1 ns / 1 ps);
-    
-    -- 720p: 75 MHz pixel clock = 100 MHz * 3 / 4
-    constant pix_clk_mult   : natural := 3;
-    constant pix_clk_div    : natural := 4;
-    
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
     
-    type
-        decoders_deser_data_type is
-        array(0 to 2) of std_ulogic_vector(9 downto 0);
+    signal decoders_channel_in_n    : std_ulogic_vector(2 downto 0) := "111";
     
-    type
-        decoders_enc_vid_data_type is
-        array(0 to 2) of std_ulogic_vector(7 downto 0);
+    type decoders_dec_data_type is
+        array(0 to 2) of
+        std_ulogic_vector(9 downto 0);
     
-    signal decoders_deser_data
-        : decoders_deser_data_type
+    type decoders_enc_data_type is
+        array(0 to 2) of
+        std_ulogic_vector(7 downto 0);
+    
+    signal decoders_dec_data
+        : decoders_dec_data_type
         := (others => (others => '0'));
         
-    signal decoders_enc_vid_data
-        : decoders_enc_vid_data_type
+    signal decoders_enc_data
+        : decoders_enc_data_type
         := (others => (others => '0'));
+    
+    signal pix_clk_period   : time := 1 us;
+    
+    type decoders_channel_phases_type is
+        array(0 to 2) of
+        real range 0.0 to 360.0;
+    
+    signal decoders_channel_phases  : decoders_channel_phases_type := (others => 0.0);
+    signal decoders_channel_in_del  : std_ulogic_vector(2 downto 0) := "000";
 
 BEGIN
     
-    decoders_pix_clk        <= clk_man_clk_out0;
+    decoders_pix_clk        <= clk_man_clk_out2;
     decoders_pix_clk_x2     <= clk_man_clk_out1;
     decoders_pix_clk_x10    <= clk_man_ioclk_out;
     decoders_rst            <= g_rst;
     decoders_clk_locked     <= clk_man_ioclk_locked;
     decoders_serdesstrobe   <= clk_man_serdesstrobe;
+    decoders_channel_in_n   <= not decoders_channel_in;
     
     TMDS_CHANNEL_DECODERS_gen : for i in 0 to 2 generate
         TMDS_CHANNEL_DECODER_inst : entity work.TMDS_CHANNEL_DECODER
@@ -120,8 +116,8 @@ BEGIN
                 RST             => decoders_rst,
                 CLK_LOCKED      => decoders_clk_locked,
                 SERDESSTROBE    => decoders_serdesstrobe,
-                CHANNEL_IN_P    => decoders_channel_in(i)(0),
-                CHANNEL_IN_N    => decoders_channel_in(i)(1),
+                CHANNEL_IN_P    => decoders_channel_in(i),
+                CHANNEL_IN_N    => decoders_channel_in_n(i),
                 
                 DATA_OUT        => decoders_data_out(i),
                 DATA_OUT_VALID  => decoders_data_valid(i)
@@ -132,13 +128,13 @@ BEGIN
     
     ISERDES_CLK_MAN_inst : entity work.ISERDES2_CLK_MAN
         generic map (
-            CLK_IN_PERIOD   => g_clk_period_real,
-            MULTIPLIER      => pix_clk_mult * 10,
-            PREDIVISOR      => pix_clk_div,
-            DIVISOR0        => 10, -- pixel clock
-            DIVISOR1        => 5,  -- serdes clock = pixel clock * 2
-            DIVISOR2        => 1,  -- bit clock
-            DATA_CLK_SELECT => 1   -- clock out 1
+            MULTIPLIER      => 10,
+            CLK_IN_PERIOD   => 13.0, -- only for testing
+            DIVISOR0        => 1,    -- pixel clock
+            DIVISOR1        => 5,    -- serdes clock = pixel clock * 2
+            DIVISOR2        => 10,   -- bit clock
+            DATA_CLK_SELECT => 1,    -- clock out 1
+            IO_CLK_SELECT   => 0     -- clock out 0
         )
         port map (
             CLK_IN          => clk_man_clk_in,
@@ -153,22 +149,120 @@ BEGIN
             SERDESSTROBE    => clk_man_serdesstrobe
         );
     
+    g_clk   <= not g_clk after pix_clk_period / 2;
     
-    g_clk   <= not g_clk after g_clk_period / 2;
-
+    decoders_channel_delay_gen : for i in 0 to 2 generate
+        
+        decoders_channel_in(i)  <=
+            decoders_channel_in_del(i) after
+            decoders_channel_phases(i) / 360.0 * pix_clk_period;
+        
+    end generate;
+    
     -- Stimulus process
     stim_proc: process
+        
+        constant width  : natural := 1280;
+        constant height : natural := 720;
+        
+        constant data_island_gb : std_ulogic_vector(9 downto 0) := "0100110011";
+        
+        function ctrl (din : std_ulogic_vector) return std_ulogic_vector
+        is
+            type ctrl_enc_table_type is array(0 to 3) of std_ulogic_vector(9 downto 0);    
+            -- two to ten bit encoding lookup table
+            constant ctrl_enc_table : ctrl_enc_table_type := (
+                "1101010100", "0010101011", "0101010100", "1010101011"
+                );
+        begin
+            return ctrl_enc_table(int(din));
+        end function;
+        
+        function terc4 (din : std_ulogic_vector) return std_ulogic_vector
+        is
+            type terc4_table_type is array(0 to 15) of std_ulogic_vector(9 downto 0);
+            -- terc4 encoding lookup table
+            constant terc4_table    : terc4_table_type := (
+                "1010011100", "1001100011", "1011100100", "1011100010",
+                "0101110001", "0100011110", "0110001110", "0100111100",
+                "1011001100", "0100111001", "0110011100", "1011000110",
+                "1010001110", "1001110001", "0101100011", "1011000011"
+            );
+        begin
+            return terc4_table(int(din));
+        end function;
+        
+        procedure shift_out (variable pkt : in decoders_data_type) is
+        begin
+            for bit_i in 0 to 9 loop
+                -- shift out LSB first
+                for ch_i in 0 to 2 loop
+                    decoders_channel_in_del(ch_i)  <= pkt(ch_i)(bit_i);
+                end loop;
+                wait for pix_clk_period / 10;
+            end loop;
+        end procedure;
+        
+        variable packet : decoders_data_type;
+        
     begin		
         -- hold reset state for 100 ns.
         g_rst   <= '1';
         wait for 100 ns;
         g_rst   <= '0';
 
-        wait for g_clk_period*10;
-        wait until rising_edge(g_clk);
+        wait for 200 ns;
 
         -- insert stimulus here
         
+        pix_clk_period              <= 13 ns; -- 75 MHz
+        decoders_channel_phases(0)  <= 10.0;
+        decoders_channel_phases(1)  <= 70.0;
+        decoders_channel_phases(2)  <= 25.0;
+        
+        wait for pix_clk_period;
+        wait until rising_edge(g_clk);
+        
+        -- beginning of frame
+        -- control period, HSYNC=1, VSYNC=1
+        packet(0)   := ctrl("11");
+        packet(1)   := ctrl("00");
+        packet(2)   := ctrl("00");
+        for pkt_i in 0 to 3 loop
+            shift_out(packet);
+        end loop;
+        
+        -- preamble
+        packet(1)   := ctrl("10");
+        packet(2)   := ctrl("10");
+        for pkt_i in 0 to 7 loop
+            shift_out(packet);
+        end loop;
+        
+        -- one null packet
+        -- data island leading guard band
+        packet(0)   := terc4("1111");
+        packet(1)   := data_island_gb;
+        packet(2)   := data_island_gb;
+        shift_out(packet);
+        shift_out(packet);
+        
+        -- packet header and body
+        packet(0)   := terc4("0011");
+        packet(1)   := terc4("0000");
+        packet(2)   := terc4("0000");
+        shift_out(packet);
+        packet(0)   := terc4("1011");
+        for pkt_i in 0 to 23 loop
+            shift_out(packet);
+        end loop;
+        
+        -- data island trailing guard band
+        packet(0)   := terc4("1111");
+        packet(1)   := data_island_gb;
+        packet(2)   := data_island_gb;
+        shift_out(packet);
+        shift_out(packet);
         
         wait;
     end process;
