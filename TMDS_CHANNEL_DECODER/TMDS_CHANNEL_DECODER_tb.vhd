@@ -165,7 +165,12 @@ BEGIN
         constant width  : natural := 1280;
         constant height : natural := 720;
         
-        constant data_island_gb : std_ulogic_vector(9 downto 0) := "0100110011";
+        constant data_island_gb : decoders_data_type := (
+            "0000000000", "0100110011", "0100110011"
+            );
+        constant video_island_gb : decoders_data_type := (
+            "1011001100", "0100110011", "1011001100"
+            );
         
         function ctrl (din : std_ulogic_vector) return std_ulogic_vector
         is
@@ -192,18 +197,39 @@ BEGIN
             return terc4_table(int(din));
         end function;
         
-        procedure shift_out (variable pkt : in decoders_data_type) is
+        procedure shift_out (constant ch0, ch1, ch2 : in std_ulogic_vector) is
         begin
+            report str(ch0) & " | " & str(ch1) & " | " & str(ch2);
             for bit_i in 0 to 9 loop
                 -- shift out LSB first
-                for ch_i in 0 to 2 loop
-                    decoders_channel_in_del(ch_i)  <= pkt(ch_i)(bit_i);
-                end loop;
+                decoders_channel_in_del(0)  <= ch0(bit_i);
+                decoders_channel_in_del(1)  <= ch1(bit_i);
+                decoders_channel_in_del(2)  <= ch2(bit_i);
                 wait for pix_clk_period / 10;
             end loop;
         end procedure;
         
+        procedure shift_out (constant ch0, ch1, ch2 : in std_ulogic_vector; n : natural) is
+        begin
+            for i in 1 to n loop
+                shift_out(ch0, ch1, ch2);
+            end loop;
+        end procedure;
+        
+        procedure shift_out (variable pkt : in decoders_data_type) is
+        begin
+            shift_out(pkt(0), pkt(1), pkt(2));
+        end procedure;
+        
+        procedure shift_out (variable pkt : in decoders_data_type; n : natural) is
+        begin
+            for i in 1 to n loop
+                shift_out(pkt);
+            end loop;
+        end procedure;
+        
         variable packet : decoders_data_type;
+        variable vsync  : std_ulogic;
         
     begin		
         -- hold reset state for 100 ns.
@@ -223,48 +249,88 @@ BEGIN
         wait for pix_clk_period;
         wait until rising_edge(g_clk);
         
-        -- beginning of frame
-        -- control period, HSYNC=1, VSYNC=1
-        packet(0)   := ctrl("11");
-        packet(1)   := ctrl("00");
-        packet(2)   := ctrl("00");
-        for pkt_i in 0 to 3 loop
-            shift_out(packet);
+        while true loop
+            
+            for total_y in 1 to 750 loop
+                
+                vsync   := '0';
+                if total_y > 5 then
+                    vsync   := '1';
+                end if;
+                
+                -- control period, hsync=1
+                shift_out(ctrl(vsync & '1'), ctrl("00"), ctrl("00"), 4);
+                
+                -- one null packet
+                
+                -- preamble
+                shift_out(ctrl(vsync & '1'), ctrl("10"), ctrl("10"), 8);
+                -- data island leading guard band
+                packet      := data_island_gb;
+                packet(0)   := terc4("11" & vsync & '1');
+                shift_out(packet);
+                shift_out(packet);
+                
+                -- packet header and body
+                packet(0)   := terc4("00" & vsync & '1');
+                packet(1)   := terc4("0000");
+                packet(2)   := terc4("0000");
+                shift_out(packet);
+                packet(0)   := terc4("10" & vsync & '1');
+                for pkt_i in 1 to 31 loop
+                    shift_out(packet);
+                end loop;
+                
+                -- data island trailing guard band
+                packet      := data_island_gb;
+                packet(0)   := terc4("11" & vsync & '1');
+                shift_out(packet);
+                shift_out(packet);
+                
+                -- control period, hblank
+                shift_out(ctrl(vsync & '1'), ctrl("00"), ctrl("00"), 162);
+                
+                if total_y > 30 then
+                    
+                    -- video data
+                    
+                    -- preamble
+                    shift_out(ctrl(vsync & '1'), ctrl("10"), ctrl("10"), 8);
+                    -- video island leading guard band
+                    packet  := video_island_gb;
+                    shift_out(packet);
+                    shift_out(packet);
+                    
+                    -- 1280 TMDS encoded black pixels
+                    for i in 1 to 256 loop
+                        shift_out("1111111111", "1111111111", "1111111111");
+                        shift_out("0100000000", "0100000000", "0100000000");
+                        shift_out("1111111111", "1111111111", "1111111111");
+                        shift_out("0100000000", "0100000000", "0100000000");
+                        shift_out("0100000000", "0100000000", "0100000000");
+                    end loop;
+                    
+                    -- video island trailing guard band
+                    packet  := video_island_gb;
+                    shift_out(packet);
+                    shift_out(packet);
+                    
+                else
+                    
+                    -- control period, vblank
+                    shift_out(ctrl(vsync & '1'), ctrl("00"), ctrl("00"), 1292);
+                    
+                end if;
+                
+                -- control period, rest of hblank
+                shift_out(ctrl(vsync & '1'), ctrl("00"), ctrl("00"), 110);
+                -- hsync=0
+                shift_out(ctrl(vsync & '0'), ctrl("00"), ctrl("00"), 40);
+                
+            end loop;
+            
         end loop;
         
-        -- preamble
-        packet(1)   := ctrl("10");
-        packet(2)   := ctrl("10");
-        for pkt_i in 0 to 7 loop
-            shift_out(packet);
-        end loop;
-        
-        -- one null packet
-        -- data island leading guard band
-        packet(0)   := terc4("1111");
-        packet(1)   := data_island_gb;
-        packet(2)   := data_island_gb;
-        shift_out(packet);
-        shift_out(packet);
-        
-        -- packet header and body
-        packet(0)   := terc4("0011");
-        packet(1)   := terc4("0000");
-        packet(2)   := terc4("0000");
-        shift_out(packet);
-        packet(0)   := terc4("1011");
-        for pkt_i in 0 to 23 loop
-            shift_out(packet);
-        end loop;
-        
-        -- data island trailing guard band
-        packet(0)   := terc4("1111");
-        packet(1)   := data_island_gb;
-        packet(2)   := data_island_gb;
-        shift_out(packet);
-        shift_out(packet);
-        
-        wait;
     end process;
 
 END;

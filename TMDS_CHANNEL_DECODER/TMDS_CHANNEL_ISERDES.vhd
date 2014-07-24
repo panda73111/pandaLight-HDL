@@ -29,9 +29,9 @@ entity TMDS_CHANNEL_ISERDES is
         SERDESSTROBE    : in std_ulogic;
         BITSLIP         : in std_ulogic;
         
-        INCDEC      : out std_ulogic;
-        DOUT        : out std_ulogic_vector(4 downto 0) := "00000";
-        DOUT_VALID  : out std_ulogic := '0'
+        INCDEC          : out std_ulogic := '0';
+        INCDEC_VALID    : out std_ulogic := '0';
+        DOUT            : out std_ulogic_vector(4 downto 0) := "00000"
     );
 end TMDS_CHANNEL_ISERDES;
 
@@ -70,7 +70,7 @@ begin
             DFB         => open,
             CFB0        => open,
             CFB1        => open,
-            VALID       => DOUT_VALID,
+            VALID       => INCDEC_VALID,
             INCDEC      => INCDEC,
             SHIFTOUT    => cascade
         );

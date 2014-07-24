@@ -67,6 +67,8 @@ architecture rtl of TMDS_CHANNEL_BITSYNC is
     signal tok_detected_q   : boolean := false;
     signal new_tok_detected : boolean := false;
     
+    signal bitslip_x2, bitslip_x2_q    : std_ulogic := '0';
+    
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     
 begin
@@ -75,7 +77,7 @@ begin
     --- static routes ---
     ---------------------
     
-    BITSLIP <= '1' when cur_reg.state=SHIFT else '0';
+    BITSLIP <= bitslip_x2 and not bitslip_x2_q;
     SYNCED  <= '1' when cur_reg.state=FINISHED else '0';
     
     new_tok_detected    <= tok_detected and not tok_detected_q;
@@ -97,6 +99,16 @@ begin
         end if;
     end process;
     
+    bitslip_sync_proc : process(PIX_CLK_X2)
+    begin
+        if rising_edge(PIX_CLK_X2) then
+            bitslip_x2  <= '0';
+            if cur_reg.state=SHIFT then
+                bitslip_x2  <= '1';
+            end if;
+            bitslip_x2_q    <= bitslip_x2;
+        end if;
+    end process;
     
     -------------------------------------
     --- synchronisation state machine ---

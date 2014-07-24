@@ -43,24 +43,14 @@ architecture rtl of TMDS_CHANNEL_DECODER is
     signal bitslip              : std_ulogic := '0';
     signal idelay_incdec        : std_ulogic := '0';
     signal master_d, slave_d    : std_ulogic := '0';
-    signal iserdes_d_valid      : std_ulogic := '0';
+    signal incdec_valid         : std_ulogic := '0';
     signal synced               : std_ulogic := '0';
     
     signal gearbox_data_select  : std_ulogic := '0';
     signal gearbox_x2_data      : std_ulogic_vector(4 downto 0) := (others => '0');
     signal gearbox_x1_data      : std_ulogic_vector(9 downto 0) := (others => '0');
     
-    signal resync   : std_ulogic := '0';
-    
 begin
-    
-    ---------------------
-    --- static routes ---
-    ---------------------
-    
-    resync          <= RST or not iserdes_d_valid;
-    DATA_OUT        <= gearbox_x1_data;
-    DATA_OUT_VALID  <= synced;
     
     -----------------------------
     --- entity instantiations ---
@@ -87,9 +77,9 @@ begin
             SERDESSTROBE    => SERDESSTROBE,
             BITSLIP         => bitslip,
             
-            INCDEC      => idelay_incdec,
-            DOUT        => gearbox_x2_data,
-            DOUT_VALID  => iserdes_d_valid
+            DOUT            => gearbox_x2_data,
+            INCDEC          => idelay_incdec,
+            INCDEC_VALID    => incdec_valid
         );
     
     TMDS_CHANNEL_DELAY_inst : entity work.TMDS_CHANNEL_IDELAY
@@ -99,11 +89,12 @@ begin
         port map (
             PIX_CLK_X10 => PIX_CLK_X10,
             PIX_CLK_X2  => PIX_CLK_X2,
-            RST         => resync,
+            RST         => RST,
             
             SERDESSTROBE    => SERDESSTROBE,
             CHANNEL_IN      => channel_in,
             INCDEC          => idelay_incdec,
+            INCDEC_VALID    => incdec_valid,
             
             MASTER_DOUT => master_d,
             SLAVE_DOUT  => slave_d
@@ -113,7 +104,7 @@ begin
         port map (
             PIX_CLK_X2  => PIX_CLK_X2,
             PIX_CLK     => PIX_CLK,
-            RST         => resync,
+            RST         => RST,
             
             DIN         => gearbox_x1_data,
             
@@ -121,6 +112,18 @@ begin
             SYNCED      => synced
         );
     
+    
+    -----------------
+    --- processes ---
+    -----------------
+    
+    data_sync_proc : process(PIX_CLK)
+    begin
+        if rising_edge(PIX_CLK) then
+            DATA_OUT        <= gearbox_x1_data;
+            DATA_OUT_VALID  <= synced;
+        end if;
+    end process;
     
     -----------------------
     --- 5 to 10 gearbox ---
