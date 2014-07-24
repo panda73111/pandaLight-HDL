@@ -157,7 +157,8 @@ BEGIN
         for i in -255 to 255 loop
             wait until rising_edge(encoders_pix_clk);
             for ch_i in 0 to 2 loop
-                encoders_data_in(ch_i)  <= std_ulogic_vector(to_unsigned(abs i, 8));
+--                encoders_data_in(ch_i)  <= std_ulogic_vector(to_unsigned(abs i, 8));
+                encoders_data_in(ch_i)  <= x"00";
             end loop;
         end loop;
         

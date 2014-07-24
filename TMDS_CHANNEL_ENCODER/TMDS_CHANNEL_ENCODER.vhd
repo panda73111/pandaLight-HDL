@@ -196,10 +196,10 @@ begin
     begin
         if din_ones_cnt > 4 or (din_ones_cnt = 4 and DATA_IN(0) = '0') then
             -- use xored data
-            din_enc <= din_xor;
+            din_enc <= din_xnor;
         else
             -- use xnored data
-            din_enc <= din_xnor;
+            din_enc <= din_xor;
         end if;
     end process;
     
