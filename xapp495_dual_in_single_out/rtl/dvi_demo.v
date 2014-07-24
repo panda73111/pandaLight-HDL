@@ -61,8 +61,6 @@ module dvi_demo (
 
   output wire [3:0] TX0_TMDS,
   output wire [3:0] TX0_TMDSB,
-  output wire [3:0] TX1_TMDS,
-  output wire [3:0] TX1_TMDSB,
 
   input  wire SW,
 
