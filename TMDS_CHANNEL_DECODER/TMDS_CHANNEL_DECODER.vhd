@@ -9,7 +9,7 @@
 -- Revision 0.01 - File Created
 -- Additional Comments: 
 --
------------------CHANNEL_NUM : natural range 0 to 2-----------------------------------------------------------------
+----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -48,7 +48,9 @@ architecture rtl of TMDS_CHANNEL_DECODER is
     
     signal gearbox_data_select  : std_ulogic := '0';
     signal gearbox_x2_data      : std_ulogic_vector(4 downto 0) := (others => '0');
+    signal gearbox_x2_data_q    : std_ulogic_vector(4 downto 0) := (others => '0');
     signal gearbox_x1_data      : std_ulogic_vector(9 downto 0) := (others => '0');
+    signal flip_gear            : std_ulogic := '0';
     
 begin
     
@@ -109,6 +111,7 @@ begin
             DIN         => gearbox_x1_data,
             
             BITSLIP     => bitslip,
+            FLIP_GEAR   => flip_gear,
             SYNCED      => synced
         );
     
@@ -125,6 +128,7 @@ begin
         end if;
     end process;
     
+    
     -----------------------
     --- 5 to 10 gearbox ---
     -----------------------
@@ -132,11 +136,10 @@ begin
     gearbox_proc : process(PIX_CLK_X2)
     begin
         if rising_edge(PIX_CLK_X2) then
-            -- less significant 5 bits first
-            if gearbox_data_select = '0' then
-                gearbox_x1_data(4 downto 0) <= gearbox_x2_data;
-            else
-                gearbox_x1_data(9 downto 5) <= gearbox_x2_data;
+            -- concat previous five bits with the current ones
+            gearbox_x2_data_q   <= gearbox_x2_data;
+            if gearbox_data_select/=flip_gear then
+                gearbox_x1_data <= gearbox_x2_data & gearbox_x2_data_q;
             end if;
             gearbox_data_select <= not gearbox_data_select;
         end if;

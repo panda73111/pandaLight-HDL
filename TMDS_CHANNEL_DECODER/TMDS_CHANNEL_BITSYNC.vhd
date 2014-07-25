@@ -29,8 +29,9 @@ entity TMDS_CHANNEL_BITSYNC is
         
         DIN : in std_ulogic_vector(9 downto 0);
         
-        BITSLIP : out std_ulogic := '0';
-        SYNCED  : out std_ulogic := '0'
+        BITSLIP     : out std_ulogic := '0';
+        FLIP_GEAR   : out std_ulogic := '0';
+        SYNCED      : out std_ulogic := '0'
     );
 end TMDS_CHANNEL_BITSYNC;
 
@@ -51,6 +52,7 @@ architecture rtl of TMDS_CHANNEL_BITSYNC is
         state           : state_type;
         search_timer    : unsigned(SEARCH_TIMER_BITS-1 downto 0);
         tok_cnt         : unsigned(3 downto 0);
+        bitslip_cnt     : unsigned(3 downto 0);
     end record;
     
     constant ctrl_tokens    : tokens_type := (
@@ -60,7 +62,8 @@ architecture rtl of TMDS_CHANNEL_BITSYNC is
     constant reg_type_def   : reg_type := (
         state           => SEARCH,
         search_timer    => (others => '0'),
-        tok_cnt         => "0000"
+        tok_cnt         => "0000",
+        bitslip_cnt     => "0000"
         );
     
     signal tok_detected     : boolean := false;
@@ -77,8 +80,10 @@ begin
     --- static routes ---
     ---------------------
     
-    BITSLIP <= bitslip_x2 and not bitslip_x2_q;
-    SYNCED  <= '1' when cur_reg.state=FINISHED else '0';
+    -- FLIP_GEAR: issued bitslip between four and eight times
+    FLIP_GEAR   <= cur_reg.bitslip_cnt(3);
+    BITSLIP     <= bitslip_x2 and not bitslip_x2_q;
+    SYNCED      <= '1' when cur_reg.state=FINISHED else '0';
     
     new_tok_detected    <= tok_detected and not tok_detected_q;
     
@@ -135,6 +140,7 @@ begin
             
             when SHIFT =>
                 r.search_timer  := (others => '0');
+                r.bitslip_cnt   := cr.bitslip_cnt+1;
                 r.state         := SEARCH;
             
             when FOUND_TOKEN =>

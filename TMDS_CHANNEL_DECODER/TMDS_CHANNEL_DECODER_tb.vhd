@@ -154,7 +154,7 @@ BEGIN
     decoders_channel_delay_gen : for i in 0 to 2 generate
         
         decoders_channel_in(i)  <=
-            decoders_channel_in_del(i) after
+            transport decoders_channel_in_del(i) after
             decoders_channel_phases(i) / 360.0 * pix_clk_period;
         
     end generate;
@@ -199,7 +199,7 @@ BEGIN
         
         procedure shift_out (constant ch0, ch1, ch2 : in std_ulogic_vector) is
         begin
-            report str(ch0) & " | " & str(ch1) & " | " & str(ch2);
+            report hstr(ch0) & " | " & hstr(ch1) & " | " & hstr(ch2);
             for bit_i in 0 to 9 loop
                 -- shift out LSB first
                 decoders_channel_in_del(0)  <= ch0(bit_i);
@@ -231,7 +231,19 @@ BEGIN
         variable packet : decoders_data_type;
         variable vsync  : std_ulogic;
         
-    begin		
+    begin
+        report hstr("1");
+        report hstr("11");
+        report hstr("111");
+        report hstr("1111");
+        report hstr("11111");
+        report hstr("111111");
+        report hstr("1111111");
+        report hstr("11111111");
+        report hstr("111111111");
+        report hstr("1111111111");
+        report hstr("11111111111");
+        report hstr("111111111111");
         -- hold reset state for 100 ns.
         g_rst   <= '1';
         wait for 100 ns;
