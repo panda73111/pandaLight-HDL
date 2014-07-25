@@ -46,7 +46,7 @@ ARCHITECTURE rtl OF DVI_DEMO_tb IS
     signal dvi_tx0_tmdsb    : std_ulogic_vector(3 downto 0) := "0000";
     signal dvi_led          : std_ulogic_vector(7 downto 0) := x"00";
     
-    signal pix_clk_period   : time := 1 us;
+    signal pix_clk_period   : time := 0 ns;
     
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
@@ -55,6 +55,7 @@ ARCHITECTURE rtl OF DVI_DEMO_tb IS
         array(0 to 2) of
         real range 0.0 to 360.0;
     
+    signal dvi_rx0_clk_en   : boolean := false;
     signal dvi_rx0_phases   : dvi_phases_type := (others => 0.0);
     signal dvi_rx0_tmds_del : std_ulogic_vector(2 downto 0) := "000";
 
@@ -65,14 +66,17 @@ BEGIN
     dvi_rx0_tmdsb   <= not dvi_rx0_tmds;
     dvi_rx1_tmdsb   <= not dvi_rx1_tmds;
     
-    dvi_rx0_tmds(3) <= not dvi_rx0_tmds(3) after pix_clk_period / 2;
-    g_clk           <= not g_clk after 5 ns;
+    dvi_rx0_tmds(3) <=
+        '0' when not dvi_rx0_clk_en else
+            not dvi_rx0_tmds(3) after pix_clk_period / 2;
     
-    dvi_rx_channel_delay_gen : for i in 0 to 2 generate
+    g_clk   <= not g_clk after 5 ns;
+    
+    tmds_del_gen : for i in 0 to 2 generate
         
         dvi_rx0_tmds(i) <=
-            dvi_rx0_tmds_del(i) after
-            dvi_rx0_phases(i) / 360.0 * pix_clk_period;
+                transport dvi_rx0_tmds_del(i) after
+                dvi_rx0_phases(i) / 360.0 * pix_clk_period;
         
     end generate;
     
@@ -176,8 +180,9 @@ BEGIN
         
         pix_clk_period      <= 13 ns; -- 75 MHz
         dvi_rx0_phases(0)   <= 10.0;
-        dvi_rx0_phases(1)   <= 70.0;
+        dvi_rx0_phases(1)   <= 40.0;
         dvi_rx0_phases(2)   <= 25.0;
+        dvi_rx0_clk_en      <= true;
         
         wait for pix_clk_period;
         wait until rising_edge(g_clk);
