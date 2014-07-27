@@ -232,18 +232,6 @@ BEGIN
         variable vsync  : std_ulogic;
         
     begin
-        report hstr("1");
-        report hstr("11");
-        report hstr("111");
-        report hstr("1111");
-        report hstr("11111");
-        report hstr("111111");
-        report hstr("1111111");
-        report hstr("11111111");
-        report hstr("111111111");
-        report hstr("1111111111");
-        report hstr("11111111111");
-        report hstr("111111111111");
         -- hold reset state for 100 ns.
         g_rst   <= '1';
         wait for 100 ns;
