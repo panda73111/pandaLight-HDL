@@ -7,7 +7,7 @@
 -- Tool versions: Xilinx ISE 14.7
 -- Description:
 --   Component that extracts a variable number of averaged pixel groups
---   from an incoming video stream for the purpose of sending these colors
+--   from an incoming video stream for the purpose of sending these colours
 --   to a LED stripe around a TV
 -- Revision: 0
 -- Revision 0.01 - File Created
@@ -20,8 +20,8 @@
 --     FRAME_SIZE_BITS : Number of bits for each dimension of the incoming video frame
 --     LED_CNT_BITS    : Number of bits for the number of all LEDs
 --     LED_SIZE_BITS   : Number of bits for each dimension of the pixel area per LED
---     LED_OFFS_BITS    : Number of bits for the padding pixel count per side
---     LED_STEP_BITS   : Number of bits for the pixel count LED center to LED center
+--     LED_OFFS_BITS   : Number of bits for the padding pixel count per side
+--     LED_STEP_BITS   : Number of bits for the pixel count LED centre to LED centre
 --     R_BITS          : Number of bits for the 'red' value in both frame and LED data
 --     G_BITS          : Number of bits for the 'green' value in both frame and LED data
 --     B_BITS          : Number of bits for the 'blue' value in both frame and LED data
@@ -30,24 +30,18 @@
 --     RST : active high reset, aborts and resets calculation until released
 --     
 --     HOR_LED_CNT     : number of LEDs at each top and bottom side of the TV screen
+--     VER_LED_CNT     : number of LEDs at each left and right side of the TV screen
+--     
 --     HOR_LED_WIDTH   : width of one LED area of each of these horizontal LEDs
 --     HOR_LED_HEIGHT  : height of one LED area of each of these horizontal LEDs
---     VER_LED_CNT     : number of LEDs at each left and right side of the TV screen
+--     HOR_LED_STEP    : pixels between two horizontal LEDs, centre to centre
+--     HOR_LED_PAD     : gap between the top border and the the horizontal LEDs
+--     HOR_LED_OFFS    : gap between the left border and the the first horizontal LED
 --     VER_LED_WIDTH   : width of one LED area of each of these vertical LEDs
 --     VER_LED_HEIGHT  : height of one LED area of each of these vertical LEDs
---     
---     LED_PAD_TOP_LEFT        : spacing pixel count between left frame edge and top LEDs
---     LED_PAD_TOP_TOP         : spacing pixel count between top frame edge and top LEDs
---     LED_PAD_RIGHT_TOP       : spacing pixel count between top frame edge and right LEDs
---     LED_PAD_RIGHT_RIGHT     : spacing pixel count between right frame edge and right LEDs
---     LED_PAD_BOTTOM_LEFT     : spacing pixel count between left frame edge and bottom LEDs
---     LED_PAD_BOTTOM_BOTTOM   : spacing pixel count between bottom frame edge and bottom LEDs
---     LED_PAD_LEFT_TOP        : spacing pixel count between top frame edge and left LEDs
---     LED_PAD_LEFT_LEFT       : spacing pixel count between left frame edge and left LEDs
---     LED_STEP_TOP            : number of pixels from a top LED to the next one, center to center
---     LED_STEP_RIGHT          : number of pixels from a right LED to the next one, center to center
---     LED_STEP_BOTTOM         : number of pixels from a bottom LED to the next one, center to center
---     LED_STEP_LEFT           : number of pixels from a left LED to the next one, center to center
+--     VER_LED_STEP    : pixels between two vertical LEDs, centre to centre
+--     VER_LED_PAD     : gap between the left border and the the vertical LEDs
+--     VER_LED_OFFS    : gap between the top border and the the first vertical LED
 --     
 --     FRAME_VSYNC : active high vertical sync of the incoming frame data
 --     FRAME_HSYNC : active high horizontal sync of the incoming frame data
@@ -59,11 +53,12 @@
 --     FRAME_G : the 'green' value of the current pixel
 --     FRAME_B : the 'blue' value of the current pixel
 --     
---     LED_VALID   : 
---     LED_NUM     : 
---     LED_R       : 
---     LED_G       : 
---     LED_B       : 
+--     LED_VSYNC   : high for all LEDs of one frame
+--     LED_VALID   : high while the LED colour components are valid
+--     LED_NUM     : number of the current LED, from the first top left LED clockwise
+--     LED_R       : red LED component
+--     LED_G       : green LED component
+--     LED_B       : blue LED component
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.std_logic_1164.ALL;
