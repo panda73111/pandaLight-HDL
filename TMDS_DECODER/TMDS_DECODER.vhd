@@ -63,6 +63,7 @@ architecture rtl of TMDS_DECODER is
         hsync           : std_ulogic;
         vsync           : std_ulogic;
         rgb             : std_ulogic_vector(23 downto 0);
+        rgb_valid       : std_ulogic;
         aux_data_header : std_ulogic;
         aux_data        : std_ulogic_vector(7 downto 0);
         aux_data_valid  : std_ulogic;
@@ -73,6 +74,7 @@ architecture rtl of TMDS_DECODER is
         hsync           => '0',
         vsync           => '0',
         rgb             => (others => '0'),
+        rgb_valid       => '0',
         aux_data_header => '0',
         aux_data        => x"00",
         aux_data_valid  => '0'
@@ -159,6 +161,8 @@ architecture rtl of TMDS_DECODER is
 begin
     
     RGB             <= cur_reg.rgb;
+    HSYNC           <= cur_reg.hsync and cur_reg.rgb_valid;
+    VSYNC           <= cur_reg.vsync;
     AUX_DATA        <= cur_reg.aux_data & cur_reg.aux_data_header;
     AUX_DATA_VALID  <= cur_reg.aux_data_valid;
     
@@ -185,19 +189,6 @@ begin
             );
         
     end generate;
-    
-    frame_sync_proc : process(RST, PIX_CLK)
-    begin
-        if RST='1' then
-            VSYNC   <= '0';
-            HSYNC   <= '0';
-        elsif rising_edge(PIX_CLK) then
-            if next_reg.state=VIDEO_DATA then
-                VSYNC   <= cur_reg.vsync;
-                HSYNC   <= cur_reg.hsync;
-            end if;
-        end if;
-    end process;
     
     stm_proc : process(RST, cur_reg, chs_data, chs_data_valid)
         alias cr    : reg_type is cur_reg;
@@ -226,7 +217,7 @@ begin
                 t2      := de_ctrl(chs_data(0));
                 r.vsync := t2(1);
                 r.hsync := t2(0);
-                if chs_data(1 to 2)=("0100110011", "0100110011") then
+                if chs_data(1)="0100110011" and chs_data(2)="0100110011" then
                     -- data island leading guard band
                     r.state := DATA_PACKET_LGB;
                 end if;
@@ -239,12 +230,14 @@ begin
                 r.state := VIDEO_DATA;
             
             when VIDEO_DATA =>
+                r.rgb_valid         := '1';
                 t24(23 downto 16)   := tmds10to8(chs_data(2));
                 t24(15 downto 8)    := tmds10to8(chs_data(1));
                 t24(7 downto 0)     := tmds10to8(chs_data(0));
                 r.rgb               := t24;
                 if chs_data=("1011001100", "0100110011", "1011001100") then
                     -- video data trailing guard band
+                    r.rgb_valid := '0';
                     r.state     := VIDEO_DATA_TGB;
                 end if;
             
@@ -258,9 +251,9 @@ begin
                 r.aux_data_valid        := '1';
                 t4                      := de_terc4(chs_data(0));
                 r.aux_data_header       := t4(2);
-                r.aux_data(7 downto 4)  := de_terc4(chs_data(1));
-                r.aux_data(3 downto 0)  := de_terc4(chs_data(0));
-                if chs_data(1 to 2)=("0100110011", "0100110011") then
+                r.aux_data(7 downto 4)  := de_terc4(chs_data(2));
+                r.aux_data(3 downto 0)  := de_terc4(chs_data(1));
+                if chs_data(1)="0100110011" and chs_data(2)="0100110011" then
                     -- data island trailing guard band
                     r.aux_data_valid    := '0';
                     r.state             := DATA_PACKET_TGB;

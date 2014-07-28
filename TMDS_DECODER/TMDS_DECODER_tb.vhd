@@ -320,6 +320,7 @@ BEGIN
                 
             end loop;
             
+            report "NONE. Test finished" severity failure;
         end loop;
         
     end process;
