@@ -39,6 +39,7 @@ end TMDS_CHANNEL_DECODER;
 
 architecture rtl of TMDS_CHANNEL_DECODER is
     
+    signal rst_iserdes          : std_ulogic := '0';
     signal channel_in           : std_ulogic := '0';
     signal bitslip              : std_ulogic := '0';
     signal idelay_incdec        : std_ulogic := '0';
@@ -53,6 +54,13 @@ architecture rtl of TMDS_CHANNEL_DECODER is
     signal flip_gear            : std_ulogic := '0';
     
 begin
+    
+    ---------------------
+    --- static routes ---
+    ---------------------
+    
+    rst_iserdes <= RST or not CLK_LOCKED;
+    
     
     -----------------------------
     --- entity instantiations ---
@@ -72,7 +80,7 @@ begin
         port map (
             PIX_CLK_X10 => PIX_CLK_X10,
             PIX_CLK_X2  => PIX_CLK_X2,
-            RST         => RST,
+            RST         => rst_iserdes,
             
             MASTER_DIN      => master_d,
             SLAVE_DIN       => slave_d,
@@ -93,7 +101,6 @@ begin
             PIX_CLK_X2  => PIX_CLK_X2,
             RST         => RST,
             
-            SERDESSTROBE    => SERDESSTROBE,
             CHANNEL_IN      => channel_in,
             INCDEC          => idelay_incdec,
             INCDEC_VALID    => incdec_valid,

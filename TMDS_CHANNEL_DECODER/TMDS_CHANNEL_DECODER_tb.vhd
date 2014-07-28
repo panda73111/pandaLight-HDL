@@ -25,7 +25,7 @@ END TMDS_CHANNEL_DECODER_tb;
 ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS 
     
     ----------------------------------
-    ------ TMDS channel encoder ------
+    ------ TMDS channel decoder ------
     ----------------------------------
     
     type decoders_data_type is
@@ -168,7 +168,7 @@ BEGIN
         constant data_island_gb : decoders_data_type := (
             "0000000000", "0100110011", "0100110011"
             );
-        constant video_island_gb : decoders_data_type := (
+        constant video_data_gb : decoders_data_type := (
             "1011001100", "0100110011", "1011001100"
             );
         
@@ -199,9 +199,9 @@ BEGIN
         
         procedure shift_out (constant ch0, ch1, ch2 : in std_ulogic_vector) is
         begin
-            report hstr(ch0) & " | " & hstr(ch1) & " | " & hstr(ch2);
-            for bit_i in 0 to 9 loop
-                -- shift out LSB first
+            --report hstr(ch0) & " | " & hstr(ch1) & " | " & hstr(ch2);
+            -- shift out LSB first
+            for bit_i in ch0'reverse_range loop
                 decoders_channel_in_del(0)  <= ch0(bit_i);
                 decoders_channel_in_del(1)  <= ch1(bit_i);
                 decoders_channel_in_del(2)  <= ch2(bit_i);
@@ -246,8 +246,11 @@ BEGIN
         decoders_channel_phases(1)  <= 70.0;
         decoders_channel_phases(2)  <= 25.0;
         
-        wait for pix_clk_period;
-        wait until rising_edge(g_clk);
+        -- send some noise
+        wait for 0.7 * pix_clk_period;
+        shift_out("10101110", "11001010", "00101010", 10);
+--        wait for pix_clk_period;
+--        wait until rising_edge(g_clk);
         
         while true loop
             
@@ -296,8 +299,8 @@ BEGIN
                     
                     -- preamble
                     shift_out(ctrl(vsync & '1'), ctrl("10"), ctrl("10"), 8);
-                    -- video island leading guard band
-                    packet  := video_island_gb;
+                    -- video data leading guard band
+                    packet  := video_data_gb;
                     shift_out(packet);
                     shift_out(packet);
                     
@@ -310,8 +313,8 @@ BEGIN
                         shift_out("0100000000", "0100000000", "0100000000");
                     end loop;
                     
-                    -- video island trailing guard band
-                    packet  := video_island_gb;
+                    -- video data trailing guard band
+                    packet  := video_data_gb;
                     shift_out(packet);
                     shift_out(packet);
                     

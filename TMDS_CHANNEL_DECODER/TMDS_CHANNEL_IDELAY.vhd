@@ -25,7 +25,6 @@ entity TMDS_CHANNEL_IDELAY is
         PIX_CLK_X2  : in std_ulogic;
         RST         : in std_ulogic;
         
-        SERDESSTROBE    : in std_ulogic;
         CHANNEL_IN      : in std_ulogic;
         INCDEC          : in std_ulogic;
         INCDEC_VALID    : in std_ulogic;
@@ -176,7 +175,7 @@ begin
     ------ calibration state machine ------
     ---------------------------------------
     
-    calibration_stm_proc : process(RST, cal_reg)
+    calibration_stm_proc : process(RST, cal_reg, idelay_slave_busy)
         alias cr    : cal_reg_type is cal_reg;
         variable r  : cal_reg_type := cal_reg_type_def;
     begin
@@ -253,9 +252,11 @@ begin
         next_cal_reg    <= r;
     end process;
   
-    calibration_stm_sync_proc : process(PIX_CLK_X2)
+    calibration_stm_sync_proc : process(RST, PIX_CLK_X2)
     begin
-        if rising_edge(PIX_CLK_X2) then
+        if RST='1' then
+            cal_reg <= cal_reg_type_def;
+        elsif rising_edge(PIX_CLK_X2) then
             cal_reg <= next_cal_reg;
         end if;
     end process;

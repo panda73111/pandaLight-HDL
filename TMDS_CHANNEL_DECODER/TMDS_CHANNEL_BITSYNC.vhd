@@ -80,8 +80,8 @@ begin
     --- static routes ---
     ---------------------
     
-    -- FLIP_GEAR: issued bitslip between four and eight times
-    FLIP_GEAR   <= cur_reg.bitslip_cnt(3);
+    -- FLIP_GEAR: issued bitslip between five and ten times
+    FLIP_GEAR   <= '1' when cur_reg.bitslip_cnt>=5 else '0';
     BITSLIP     <= bitslip_x2 and not bitslip_x2_q;
     SYNCED      <= '1' when cur_reg.state=FINISHED else '0';
     
@@ -141,6 +141,9 @@ begin
             when SHIFT =>
                 r.search_timer  := (others => '0');
                 r.bitslip_cnt   := cr.bitslip_cnt+1;
+                if cr.bitslip_cnt=9 then
+                    r.bitslip_cnt   := (others => '0');
+                end if;
                 r.state         := SEARCH;
             
             when FOUND_TOKEN =>
@@ -166,9 +169,11 @@ begin
         next_reg    <= r;
     end process;
     
-    sync_stm_proc : process(PIX_CLK)
+    sync_stm_proc : process(RST, PIX_CLK)
     begin
-        if rising_edge(PIX_CLK) then
+        if RST='1' then
+            cur_reg <= reg_type_def;
+        elsif rising_edge(PIX_CLK) then
             cur_reg <= next_reg;
         end if;
     end process;
