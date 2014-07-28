@@ -79,6 +79,7 @@ architecture rtl of TMDS_CHANNEL_IDELAY is
     signal idelay_rst           : std_ulogic := '0';
     signal idelay_inc           : std_ulogic := '0';
     signal idelay_clk_en        : std_ulogic := '0';
+    signal idelay_clk_en_q      : std_ulogic := '0';
     
     signal idelay_master_do     : std_ulogic := '0';
     signal idelay_master_cal    : std_ulogic := '0';
@@ -86,9 +87,13 @@ architecture rtl of TMDS_CHANNEL_IDELAY is
     signal idelay_slave_do      : std_ulogic := '0';
     signal idelay_slave_cal     : std_ulogic := '0';
     signal idelay_slave_busy    : std_ulogic := '0';
+    signal idelay_slave_busy_q  : std_ulogic := '0';
     
     signal pd_counter   : unsigned(4 downto 0) := "00000";
     signal inc_set      : boolean := false;
+    
+    signal incdec_valid_q   : std_ulogic := '0';
+    signal incdec_q         : std_ulogic := '0';
     
 begin
     
@@ -135,7 +140,7 @@ begin
             CLK         => PIX_CLK_X2,         -- Fabric clock (GCLK) for control signals
             CAL         => idelay_master_cal,
             INC         => idelay_inc,
-            CE          => idelay_clk_en,
+            CE          => idelay_clk_en_q,
             RST         => idelay_rst,
             BUSY        => open
         );
@@ -166,7 +171,7 @@ begin
             CLK         => PIX_CLK_X2,
             CAL         => idelay_slave_cal,
             INC         => idelay_inc,
-            CE          => idelay_clk_en,
+            CE          => idelay_clk_en_q,
             RST         => idelay_rst,
             BUSY        => idelay_slave_busy
         );
@@ -270,37 +275,39 @@ begin
         alias cr    : cal_reg_type is cal_reg;
     begin
         if RST = '1' then
-            idelay_clk_en   <= '0';
-            inc_set         <= false;
-            pd_counter      <= "00000";
+            idelay_clk_en       <= '0';
+            inc_set             <= false;
+            pd_counter          <= "00000";
         elsif rising_edge(PIX_CLK_X2) then
+            incdec_q            <= INCDEC;
+            incdec_valid_q      <= INCDEC_VALID;
+            idelay_slave_busy_q <= idelay_slave_busy;
+            idelay_clk_en_q     <= idelay_clk_en;
             if cr.state=WAIT_FOR_READY then
                 inc_set <= false;
             end if;
-            if cr.state/=IDLE or idelay_slave_busy = '1' then
+            if cr.state/=IDLE or idelay_slave_busy_q='1' then
                 -- reset filter if state machine issues a cal command or unit is busy
                 idelay_clk_en   <= '0';
-                pd_counter      <= "00000";
-            elsif not inc_set then
-                if pd_counter="11111" then
-                    -- filter has reached positive max, increment the tap count
-                    idelay_inc      <= '1';
-                    idelay_clk_en   <= '1';
-                    pd_counter      <= "10000";
-                    inc_set         <= true;
-                elsif pd_counter="00000" then
-                    -- filter has reached negative max, decrement the tap count
-                    idelay_inc      <= '0';
-                    idelay_clk_en   <= '1';
-                    pd_counter      <= "10000";
-                    inc_set         <= true;
-                end if;
-            elsif INCDEC_VALID='1' then
-                -- increment filter
+                pd_counter      <= "10000";
+            elsif pd_counter="11111" and not inc_set then
+                -- filter has reached positive max, increment the tap count
+                idelay_inc      <= '1';
+                idelay_clk_en   <= '1';
+                pd_counter      <= "10000";
+                inc_set         <= true;
+            elsif pd_counter="00000" and not inc_set then
+                -- filter has reached negative max, decrement the tap count
+                idelay_inc      <= '0';
+                idelay_clk_en   <= '1';
+                pd_counter      <= "10000";
+                inc_set         <= true;
+            elsif incdec_valid_q='1' then
                 idelay_clk_en   <= '0';
-                if INCDEC='1' and pd_counter/="11111" then
+                if incdec_q='1' and pd_counter/="11111" then
+                    -- increment filter
                     pd_counter  <= pd_counter+1;
-                elsif INCDEC='0' and pd_counter/="00000" then
+                elsif incdec_q='0' and pd_counter/="00000" then
                     -- decrement filter
                     pd_counter  <= pd_counter-1;
                 end if;
