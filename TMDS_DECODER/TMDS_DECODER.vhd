@@ -169,9 +169,6 @@ begin
     TMDS_CHANNEL_DECODERs_gen : for i in 0 to 2 generate
         
         TMDS_CHANNEL_DECODER_inst : entity work.TMDS_CHANNEL_DECODER
-            generic map (
-                CHANNEL_NUM => i
-            )
             port map (
                 PIX_CLK     => PIX_CLK,
                 PIX_CLK_X2  => PIX_CLK_X2,

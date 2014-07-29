@@ -116,9 +116,9 @@ BEGIN
         generic map (
             MULTIPLIER      => 10,
             CLK_IN_PERIOD   => 13.0, -- only for testing
-            DIVISOR0        => 1,    -- pixel clock
+            DIVISOR0        => 1,    -- bit clock
             DIVISOR1        => 5,    -- serdes clock = pixel clock * 2
-            DIVISOR2        => 10,   -- bit clock
+            DIVISOR2        => 10,   -- pixel clock
             DATA_CLK_SELECT => 1,    -- clock out 1
             IO_CLK_SELECT   => 0     -- clock out 0
         )

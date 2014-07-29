@@ -18,7 +18,6 @@ use UNISIM.VComponents.all;
 
 entity TMDS_CHANNEL_DECODER is
     generic (
-        CHANNEL_NUM     : natural range 0 to 2;
         SIM_TAP_DELAY   : integer range 20 to 100 := 50
     );
     port (
