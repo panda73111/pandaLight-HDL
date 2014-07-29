@@ -209,7 +209,7 @@ begin
             led_offs    <= x"00";
             frame_height    <= x"0000";
         elsif rising_edge(CLK) then
-            if CFG_WR_EN='1' then
+            if CFG_WR_EN='1' and FRAME_VSYNC='0' then
                 case CFG_ADDR is
                     when "0000" => led_cnt                  <= CFG_DATA;
                     when "0001" => led_width                <= CFG_DATA;

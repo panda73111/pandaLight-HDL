@@ -142,7 +142,7 @@ architecture rtl of VER_SCANNER is
     signal frame_rgb            : std_ulogic_vector(RGB_BITS-1 downto 0);
     
     -- configuration registers
-    signal led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
+--    signal led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
     signal led_width    : std_ulogic_vector(7 downto 0) := x"00";
     signal led_height   : std_ulogic_vector(7 downto 0) := x"00";
     signal led_step     : std_ulogic_vector(7 downto 0) := x"00";
@@ -205,7 +205,7 @@ begin
     cfg_proc : process(RST, CLK)
     begin
         if RST='1' then
-            led_cnt     <= x"00";
+--            led_cnt     <= x"00";
             led_width   <= x"00";
             led_height  <= x"00";
             led_step    <= x"00";
@@ -213,9 +213,9 @@ begin
             led_offs    <= x"00";
             frame_width <= x"0000";
         elsif rising_edge(CLK) then
-            if CFG_WR_EN='1' then
+            if CFG_WR_EN='1' and FRAME_VSYNC='0' then
                 case CFG_ADDR is
-                    when "0110" => led_cnt                  <= CFG_DATA;
+--                    when "0110" => led_cnt                  <= CFG_DATA;
                     when "0111" => led_width                <= CFG_DATA;
                     when "1000" => led_height               <= CFG_DATA;
                     when "1001" => led_step                 <= CFG_DATA;
