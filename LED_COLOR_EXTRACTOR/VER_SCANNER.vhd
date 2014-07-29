@@ -28,12 +28,6 @@ use work.help_funcs.all;
 
 entity VER_SCANNER is
     generic (
-        FRAME_SIZE_BITS : natural := 11;
-        LED_CNT_BITS    : natural := 7;
-        LED_SIZE_BITS   : natural := 7;
-        LED_PAD_BITS    : natural := 7;
-        LED_OFFS_BITS   : natural := 7;
-        LED_STEP_BITS   : natural := 7;
         R_BITS          : natural range 1 to 12 := 8;
         G_BITS          : natural range 1 to 12 := 8;
         B_BITS          : natural range 1 to 12 := 8
@@ -42,27 +36,22 @@ entity VER_SCANNER is
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
-        LED_WIDTH   : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
-        LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
-        LED_STEP    : in std_ulogic_vector(LED_STEP_BITS-1 downto 0);
-        
-        LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
-        LED_OFFS    : in std_ulogic_vector(LED_OFFS_BITS-1 downto 0);
+        CFG_ADDR    : in std_ulogic_vector(3 downto 0);
+        CFG_WR_EN   : in std_ulogic;
+        CFG_DATA    : in std_ulogic_vector(7 downto 0);
         
         FRAME_VSYNC : in std_ulogic;
         FRAME_HSYNC : in std_ulogic;
         
-        FRAME_X : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
-        FRAME_Y : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
-        
-        FRAME_WIDTH : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
+        FRAME_X : in std_ulogic_vector(15 downto 0);
+        FRAME_Y : in std_ulogic_vector(15 downto 0);
         
         FRAME_R : in std_ulogic_vector(R_BITS-1 downto 0);
         FRAME_G : in std_ulogic_vector(G_BITS-1 downto 0);
         FRAME_B : in std_ulogic_vector(B_BITS-1 downto 0);
         
         LED_VALID   : out std_ulogic := '0';
-        LED_NUM     : out std_ulogic_vector(LED_CNT_BITS-1 downto 0) := (others => '0');
+        LED_NUM     : out std_ulogic_vector(7 downto 0) := (others => '0');
         LED_SIDE    : out std_ulogic := '0';
         LED_COLOR   : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0')
     );
@@ -94,11 +83,11 @@ architecture rtl of VER_SCANNER is
     
     type inner_coords_type is
         array(0 to 1) of
-        unsigned(LED_SIZE_BITS-1 downto 0);
+        unsigned(7 downto 0);
     
     type led_pos_type is
         array(0 to 1) of
-        unsigned(FRAME_SIZE_BITS-1 downto 0);
+        unsigned(15 downto 0);
     
     type leds_pos_type is
         array(0 to 1) of
@@ -124,8 +113,8 @@ architecture rtl of VER_SCANNER is
         inner_coords        : inner_coords_type;
         led_pos             : led_pos_type;
         led_valid           : std_ulogic;
-        led_num             : std_ulogic_vector(LED_CNT_BITS-1 downto 0);
-        led_color           : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
+        led_num             : std_ulogic_vector(7 downto 0);
+        led_color           : std_ulogic_vector(RGB_BITS-1 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -142,15 +131,25 @@ architecture rtl of VER_SCANNER is
         led_color           => (others => '0')
     );
     
-    signal next_inner_y         : unsigned(LED_SIZE_BITS-1 downto 0) := (others => '0');
+    signal next_inner_y         : unsigned(7 downto 0) := (others => '0');
     signal first_leds_pos       : leds_pos_type;
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal overlaps             : boolean := false;
-    signal abs_overlap          : unsigned(LED_SIZE_BITS-1 downto 0) := (others => '0');
+    signal abs_overlap          : unsigned(7 downto 0) := (others => '0');
     signal led_buf              : led_buf_type;
     signal buf_do               : std_ulogic_vector(RGB_BITS-1 downto 0);
     signal ov_buf_do            : std_ulogic_vector(RGB_BITS-1 downto 0);
     signal frame_rgb            : std_ulogic_vector(RGB_BITS-1 downto 0);
+    
+    -- configuration registers
+    signal led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
+    signal led_width    : std_ulogic_vector(7 downto 0) := x"00";
+    signal led_height   : std_ulogic_vector(7 downto 0) := x"00";
+    signal led_step     : std_ulogic_vector(7 downto 0) := x"00";
+    signal led_pad      : std_ulogic_vector(7 downto 0) := x"00";
+    signal led_offs     : std_ulogic_vector(7 downto 0) := x"00";
+    
+    signal frame_width  : std_ulogic_vector(15 downto 0) := x"0000";
     
     function led_arith_mean(vl, vr : std_ulogic_vector) return std_ulogic_vector is
         variable rl, rr : std_ulogic_vector(R_BITS-1 downto 0);
@@ -184,24 +183,51 @@ begin
     frame_rgb   <= FRAME_R & FRAME_G & FRAME_B;
     
     -- the position of the first left/right LED
-    first_leds_pos(L)(X)    <= resize(uns(LED_PAD), FRAME_SIZE_BITS);
-    first_leds_pos(L)(Y)    <= resize(uns(LED_OFFS), FRAME_SIZE_BITS);
-    first_leds_pos(R)(X)    <= uns(FRAME_WIDTH-LED_WIDTH-LED_PAD);
-    first_leds_pos(R)(Y)    <= resize(uns(LED_OFFS), FRAME_SIZE_BITS);
+    first_leds_pos(L)(X)    <= resize(uns(led_pad), 16);
+    first_leds_pos(L)(Y)    <= resize(uns(led_offs), 16);
+    first_leds_pos(R)(X)    <= uns(frame_width-led_width-led_pad);
+    first_leds_pos(R)(Y)    <= resize(uns(led_offs), 16);
     
     -- in case of overlapping LEDs, the position of the next LED's pixel area is needed
-    next_inner_y    <= cur_reg.inner_coords(Y)-uns(LED_STEP);
+    next_inner_y    <= cur_reg.inner_coords(Y)-uns(led_step);
     
     -- is there any overlap?
-    overlaps    <= LED_STEP<LED_HEIGHT;
+    overlaps    <= led_step<led_height;
     
     -- the amount of overlapping pixels (in one dimension)
-    abs_overlap <= uns(LED_HEIGHT-LED_STEP);
+    abs_overlap <= uns(led_height-led_step);
     
     
     -----------------
     --- processes ---
     -----------------
+    
+    cfg_proc : process(RST, CLK)
+    begin
+        if RST='1' then
+            led_cnt     <= x"00";
+            led_width   <= x"00";
+            led_height  <= x"00";
+            led_step    <= x"00";
+            led_pad     <= x"00";
+            led_offs    <= x"00";
+            frame_width <= x"0000";
+        elsif rising_edge(CLK) then
+            if CFG_WR_EN='1' then
+                case CFG_ADDR is
+                    when "0110" => led_cnt                  <= CFG_DATA;
+                    when "0111" => led_width                <= CFG_DATA;
+                    when "1000" => led_height               <= CFG_DATA;
+                    when "1001" => led_step                 <= CFG_DATA;
+                    when "1010" => led_pad                  <= CFG_DATA;
+                    when "1011" => led_offs                 <= CFG_DATA;
+                    when "1100" => frame_width(15 downto 8) <= CFG_DATA;
+                    when "1101" => frame_width(7 downto 0)  <= CFG_DATA;
+                    when others => null;
+                end case;
+            end if;
+        end if;
+    end process;
     
     -- ensure block RAM usage
     led_buf_proc : process(CLK)
@@ -244,7 +270,7 @@ begin
             
             when FIRST_LED_FIRST_PIXEL =>
                 tr.led_pos          := first_leds_pos(cr.side);
-                tr.inner_coords(X)  := uns(1, LED_SIZE_BITS);
+                tr.inner_coords(X)  := x"01";
                 tr.inner_coords(Y)  := (others => '0');
                 tr.buf_di           := frame_rgb;
                 if
@@ -257,7 +283,7 @@ begin
                 end if;
             
             when LEFT_BORDER_PIXEL =>
-                tr.inner_coords(X)  := uns(1, LED_SIZE_BITS);
+                tr.inner_coords(X)  := x"01";
                 tr.buf_di           := frame_rgb;
                 if
                     overlaps and
@@ -360,9 +386,11 @@ begin
         next_reg    <= tr;
     end process;
     
-    stm_sync_proc : process(CLK)
+    stm_sync_proc : process(RST, CLK)
     begin
-        if rising_edge(CLK) then
+        if RST='1' then
+            cur_reg <= reg_type_def;
+        elsif rising_edge(CLK) then
             cur_reg <= next_reg;
         end if;
     end process;

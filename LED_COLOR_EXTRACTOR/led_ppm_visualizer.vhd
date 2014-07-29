@@ -29,39 +29,23 @@ entity led_ppm_visualizer is
         FRAMES_TO_SAVE      : natural;
         STOP_SIM            : boolean;
         WHITESPACE_CHAR     : character := character'val(13);
-        FRAME_SIZE_BITS     : natural := 11;
-        LED_CNT_BITS        : natural := 7;
-        LED_SIZE_BITS       : natural := 7;
-        LED_PAD_BITS        : natural := 7;
-        LED_OFFS_BITS       : natural := 7;
-        LED_STEP_BITS       : natural := 7;
-        R_BITS              : natural range 1 to 16 := 8;
-        G_BITS              : natural range 1 to 16 := 8;
-        B_BITS              : natural range 1 to 16 := 8
+        MAX_WIDTH           : natural := 1920;
+        MAX_HEIGHT          : natural := 1080;
+        R_BITS              : natural range 1 to 12 := 8;
+        G_BITS              : natural range 1 to 12 := 8;
+        B_BITS              : natural range 1 to 12 := 8
     );
     port (
         CLK : in std_ulogic;
+        RST : in std_ulogic;
         
-        HOR_LED_CNT     : in std_ulogic_vector(LED_CNT_BITS-1 downto 0);
-        VER_LED_CNT     : in std_ulogic_vector(LED_CNT_BITS-1 downto 0);
-        
-        HOR_LED_WIDTH   : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
-        HOR_LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
-        HOR_LED_STEP    : in std_ulogic_vector(LED_STEP_BITS-1 downto 0);
-        HOR_LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
-        HOR_LED_OFFS    : in std_ulogic_vector(LED_OFFS_BITS-1 downto 0);
-        VER_LED_WIDTH   : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
-        VER_LED_HEIGHT  : in std_ulogic_vector(LED_SIZE_BITS-1 downto 0);
-        VER_LED_STEP    : in std_ulogic_vector(LED_STEP_BITS-1 downto 0);
-        VER_LED_PAD     : in std_ulogic_vector(LED_PAD_BITS-1 downto 0);
-        VER_LED_OFFS    : in std_ulogic_vector(LED_OFFS_BITS-1 downto 0);
-        
-        FRAME_WIDTH     : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
-        FRAME_HEIGHT    : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
+        CFG_ADDR    : in std_ulogic_vector(3 downto 0);
+        CFG_WR_EN   : in std_ulogic;
+        CFG_DATA    : in std_ulogic_vector(7 downto 0);
         
         LED_VSYNC   : in std_ulogic;
         LED_VALID   : in std_ulogic;
-        LED_NUM     : in std_ulogic_vector(LED_CNT_BITS-1 downto 0);
+        LED_NUM     : in std_ulogic_vector(7 downto 0);
         LED_R       : in std_ulogic_vector(R_BITS-1 downto 0);
         LED_G       : in std_ulogic_vector(G_BITS-1 downto 0);
         LED_B       : in std_ulogic_vector(B_BITS-1 downto 0)
@@ -69,17 +53,35 @@ entity led_ppm_visualizer is
 end led_ppm_visualizer;
 
 architecture rtl of led_ppm_visualizer is
-    constant maxval : natural := (2**(max(R_BITS, max(G_BITS, B_BITS))))-1;
+    constant MAXVAL     : natural := (2**(max(R_BITS, max(G_BITS, B_BITS))))-1;
+    constant RGB_BITS   : natural := R_BITS+G_BITS+B_BITS;
+    
+    -- configuration registers
+    signal hor_led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
+    signal hor_led_width    : std_ulogic_vector(7 downto 0) := x"00";
+    signal hor_led_height   : std_ulogic_vector(7 downto 0) := x"00";
+    signal hor_led_step     : std_ulogic_vector(7 downto 0) := x"00";
+    signal hor_led_pad      : std_ulogic_vector(7 downto 0) := x"00";
+    signal hor_led_offs     : std_ulogic_vector(7 downto 0) := x"00";
+    signal ver_led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
+    signal ver_led_width    : std_ulogic_vector(7 downto 0) := x"00";
+    signal ver_led_height   : std_ulogic_vector(7 downto 0) := x"00";
+    signal ver_led_step     : std_ulogic_vector(7 downto 0) := x"00";
+    signal ver_led_pad      : std_ulogic_vector(7 downto 0) := x"00";
+    signal ver_led_offs     : std_ulogic_vector(7 downto 0) := x"00";
+    
+    signal frame_width      : std_ulogic_vector(15 downto 0) := x"0000";
+    signal frame_height     : std_ulogic_vector(15 downto 0) := x"0000";
     
     type char_file is file of character;
     type data_type is (BYTE, HWORD, WORD);
     
     type frame_col_type is
-        array(0 to (2**FRAME_SIZE_BITS)-1) of
-        std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
+        array(0 to MAX_HEIGHT-1) of
+        std_ulogic_vector(RGB_BITS-1 downto 0);
     
     type frame_buf_type is
-        array(0 to (2**FRAME_SIZE_BITS)-1) of
+        array(0 to MAX_WIDTH-1) of
         frame_col_type;
     
     function to_char (v : std_ulogic_vector) return character is
@@ -120,18 +122,62 @@ architecture rtl of led_ppm_visualizer is
     end file_write;
 begin
     
+    cfg_proc : process(RST, CLK)
+    begin
+        if RST='1' then
+            hor_led_cnt     <= x"00";
+            hor_led_width   <= x"00";
+            hor_led_height  <= x"00";
+            hor_led_step    <= x"00";
+            hor_led_pad     <= x"00";
+            hor_led_offs    <= x"00";
+            ver_led_cnt     <= x"00";
+            ver_led_width   <= x"00";
+            ver_led_height  <= x"00";
+            ver_led_step    <= x"00";
+            ver_led_pad     <= x"00";
+            ver_led_offs    <= x"00";
+            frame_width     <= x"0000";
+            frame_height    <= x"0000";
+        elsif rising_edge(CLK) then
+            if CFG_WR_EN='1' then
+                case CFG_ADDR is
+                    when "0000" => hor_led_cnt                  <= CFG_DATA;
+                    when "0001" => hor_led_width                <= CFG_DATA;
+                    when "0010" => hor_led_height               <= CFG_DATA;
+                    when "0011" => hor_led_step                 <= CFG_DATA;
+                    when "0100" => hor_led_pad                  <= CFG_DATA;
+                    when "0101" => hor_led_offs                 <= CFG_DATA;
+                    when "0110" => ver_led_cnt                  <= CFG_DATA;
+                    when "0111" => ver_led_width                <= CFG_DATA;
+                    when "1000" => ver_led_height               <= CFG_DATA;
+                    when "1001" => ver_led_step                 <= CFG_DATA;
+                    when "1010" => ver_led_pad                  <= CFG_DATA;
+                    when "1011" => ver_led_offs                 <= CFG_DATA;
+                    when "1100" => frame_width(15 downto 8)     <= CFG_DATA;
+                    when "1101" => frame_width(7 downto 0)      <= CFG_DATA;
+                    when "1110" => frame_height(15 downto 8)    <= CFG_DATA;
+                    when "1111" => frame_height(7 downto 0)     <= CFG_DATA;
+                    when others => null;
+                end case;
+            end if;
+        end if;
+    end process;
+    
     write_file_proc : process
         file img_file       : char_file;
         variable filename   : string(1 to FILENAME_BASE'length+6);
         variable file_index : integer := 0;
         variable frame_buf  : frame_buf_type;
-        variable pixel      : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
+        variable pixel      : std_ulogic_vector(RGB_BITS-1 downto 0);
         variable r          : std_ulogic_vector(R_BITS-1 downto 0);
         variable g          : std_ulogic_vector(G_BITS-1 downto 0);
         variable b          : std_ulogic_vector(B_BITS-1 downto 0);
-        variable led_start_x, led_start_y   : natural range 0 to (2**FRAME_SIZE_BITS)-1;
-        variable led_end_x, led_end_y       : natural range 0 to (2**FRAME_SIZE_BITS)-1;
-        variable side_led_index             : natural range 0 to (2**LED_CNT_BITS)-1;
+        variable led_start_x    : natural range 0 to MAX_WIDTH-1;
+        variable led_end_x      : natural range 0 to MAX_WIDTH-1;
+        variable led_start_y    : natural range 0 to MAX_HEIGHT-1;
+        variable led_end_y      : natural range 0 to MAX_HEIGHT-1;
+        variable side_led_index : natural range 0 to 255;
     begin
         while file_index/=frames_to_save loop
             filename    := FILENAME_BASE & integer'image(file_index) & ".ppm";
@@ -142,41 +188,41 @@ begin
             while LED_VSYNC='1' loop
                 wait until rising_edge(CLK);
                 if LED_VALID='1' then
-                    if LED_NUM<HOR_LED_CNT then
+                    if LED_NUM<hor_led_cnt then
                         
                         -- top side
                         side_led_index  := int(LED_NUM);
-                        led_start_x     := int(HOR_LED_OFFS+(HOR_LED_STEP*side_led_index));
-                        led_end_x       := led_start_x+int(HOR_LED_WIDTH);
-                        led_start_y     := int(HOR_LED_PAD);
-                        led_end_y       := led_start_y+int(HOR_LED_HEIGHT);
+                        led_start_x     := int(hor_led_offs+(hor_led_step*side_led_index));
+                        led_end_x       := led_start_x+int(hor_led_width);
+                        led_start_y     := int(hor_led_pad);
+                        led_end_y       := led_start_y+int(hor_led_height);
                         
-                    elsif LED_NUM<HOR_LED_CNT+VER_LED_CNT then
+                    elsif LED_NUM<hor_led_cnt+ver_led_cnt then
                         
                         -- right side
-                        side_led_index  := int(LED_NUM-HOR_LED_CNT);
-                        led_start_x     := int(FRAME_WIDTH-VER_LED_PAD-VER_LED_WIDTH);
-                        led_end_x       := led_start_x+int(VER_LED_WIDTH);
-                        led_start_y     := int(VER_LED_OFFS+(resize(uns(VER_LED_STEP), FRAME_SIZE_BITS)*side_led_index));
-                        led_end_y       := led_start_y+int(VER_LED_HEIGHT);
+                        side_led_index  := int(LED_NUM-hor_led_cnt);
+                        led_start_x     := int(frame_width-ver_led_pad-ver_led_width);
+                        led_end_x       := led_start_x+int(ver_led_width);
+                        led_start_y     := int(ver_led_offs+(resize(uns(ver_led_step), 16)*side_led_index));
+                        led_end_y       := led_start_y+int(ver_led_height);
                         
-                    elsif LED_NUM<(HOR_LED_CNT*2)+VER_LED_CNT then
+                    elsif LED_NUM<(hor_led_cnt*2)+ver_led_cnt then
                         
                         -- bottom side
-                        side_led_index  := int(HOR_LED_CNT-1-(LED_NUM-HOR_LED_CNT-VER_LED_CNT));
-                        led_start_x     := int(HOR_LED_OFFS+(HOR_LED_STEP*side_led_index));
-                        led_end_x       := led_start_x+int(HOR_LED_WIDTH);
-                        led_start_y     := int(FRAME_HEIGHT-HOR_LED_PAD-HOR_LED_HEIGHT);
-                        led_end_y       := led_start_y+int(HOR_LED_HEIGHT);
+                        side_led_index  := int(hor_led_cnt-1-(LED_NUM-hor_led_cnt-ver_led_cnt));
+                        led_start_x     := int(hor_led_offs+(hor_led_step*side_led_index));
+                        led_end_x       := led_start_x+int(hor_led_width);
+                        led_start_y     := int(frame_height-hor_led_pad-hor_led_height);
+                        led_end_y       := led_start_y+int(hor_led_height);
                         
                     else
                         
                         -- left side
-                        side_led_index  := int(VER_LED_CNT-1-(LED_NUM-(HOR_LED_CNT*2)-VER_LED_CNT));
-                        led_start_x     := int(VER_LED_PAD);
-                        led_end_x       := led_start_x+int(VER_LED_WIDTH);
-                        led_start_y     := int(VER_LED_OFFS+(resize(uns(VER_LED_STEP), FRAME_SIZE_BITS)*side_led_index));
-                        led_end_y       := led_start_y+int(VER_LED_HEIGHT);
+                        side_led_index  := int(ver_led_cnt-1-(LED_NUM-(hor_led_cnt*2)-ver_led_cnt));
+                        led_start_x     := int(ver_led_pad);
+                        led_end_x       := led_start_x+int(ver_led_width);
+                        led_start_y     := int(ver_led_offs+(resize(uns(ver_led_step), 16)*side_led_index));
+                        led_end_y       := led_start_y+int(ver_led_height);
                         
                     end if;
                     
@@ -196,11 +242,11 @@ begin
             -- write the file header
             file_write(img_file, "P6");                   -- magic number
             file_write(img_file, WHITESPACE_CHAR);
-            file_write(img_file, str(int(FRAME_WIDTH)));  -- width
+            file_write(img_file, str(int(frame_width)));  -- width
             file_write(img_file, WHITESPACE_CHAR);
-            file_write(img_file, str(int(FRAME_HEIGHT))); -- height
+            file_write(img_file, str(int(frame_height))); -- height
             file_write(img_file, WHITESPACE_CHAR);
-            file_write(img_file, str(maxval));            -- Maxval
+            file_write(img_file, str(MAXVAL));            -- Maxval
             file_write(img_file, WHITESPACE_CHAR);
             
             for y in 0 to int(FRAME_HEIGHT-1) loop
