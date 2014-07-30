@@ -12,7 +12,7 @@
 -- Revision 0.01 - File Created
 -- Additional Comments:
 --   Generic:
---     CLK_IN_PERIOD : clock period of CLK in nano seconds
+--     CLK_IN_PERIOD : clock period of CLK in nanoseconds
 --     READ_ADDR     : 8bit read address of the DDC receiver, usually 0xA1
 --     WRITE_ADDR    : 8bit write address of the DDC receiver, usually 0xA0
 --     SEG_P_ADDR    : 8bit write address of the segment pointer, usually 0x30

@@ -109,6 +109,7 @@ architecture rtl of PANDA_LIGHT is
     signal microblaze_txd           : std_logic := '0';
     signal microblaze_gpo1          : std_logic_vector(31 downto 0) := (others => '0');
     signal microblaze_gpo2          : std_logic_vector(31 downto 0) := (others => '0');
+    signal microblaze_gpo3          : std_logic_vector(31 downto 0) := (others => '0');
     signal microblaze_gpi1_int      : std_logic := '0';
     signal microblaze_gpi2_int      : std_logic := '0';
     
@@ -167,6 +168,30 @@ architecture rtl of PANDA_LIGHT is
     signal rx0_aux_data         : std_ulogic_vector(8 downto 0) := (others => '0');
     signal rx0_aux_data_valid   : std_ulogic := '0';
     
+    
+    ----------------------------
+    --- LED colour extractor ---
+    ----------------------------
+    
+    -- Inputs
+    signal ledex_clk    : std_ulogic := '0';
+    signal ledex_rst    : std_ulogic := '0';
+    
+    signal ledex_cfg_addr   : std_ulogic_vector(3 downto 0) := "0000";
+    signal ledex_cfg_wr_en  : std_ulogic := '0';
+    signal ledex_cfg_data   : std_ulogic_vector(7 downto 0) := x"00";
+    
+    signal ledex_frame_vsync    : std_ulogic := '0';
+    signal ledex_frame_hsync    : std_ulogic := '0';
+    
+    signal ledex_frame_rgb  : std_ulogic_vector(23 downto 0) := x"000000";
+    
+    -- Outputs
+    signal ledex_led_vsync  : std_ulogic := '0';
+    signal ledex_led_valid  : std_ulogic := '0';  
+    signal ledex_led_num    : std_ulogic_vector(7 downto 0) := x"00";
+    signal ledex_led_rgb    : std_ulogic_vector(23 downto 0) := x"000000";
+    
 begin
     
     ------------------------------
@@ -204,63 +229,6 @@ begin
     RX0_SDA <= '0' when e_ddc_edid_sda_out = '0' else 'Z';
     RX0_SCL <= '0' when e_ddc_edid_scl_out = '0' else 'Z';
     
-    rx0_pix_clk         <= rxclk_clk_out2;
-    rx0_pix_clk_x2      <= rxclk_clk_out1;
-    rx0_pix_clk_x10     <= rxclk_ioclk_out;
-    rx0_clk_locked      <= rxclk_ioclk_locked;
-    rx0_serdesstrobe    <= rxclk_serdesstrobe;
-    
-    rx0_ch_in_p         <= RX0_CHANNELS_IN_P;
-    rx0_ch_in_n         <= RX0_CHANNELS_IN_N;
-    
-    ----------------------------------
-    --- HDMI ISerDes clock manager ---
-    ----------------------------------
-    
-    ISERDES2_CLK_MAN_inst : entity work.ISERDES2_CLK_MAN
-        generic map (
-            MULTIPLIER      => 10,
-            CLK_IN_PERIOD   => 13.0, -- only for testing
-            DIVISOR0        => 1,    -- bit clock
-            DIVISOR1        => 5,    -- serdes clock = pixel clock * 2
-            DIVISOR2        => 10,   -- pixel clock
-            DATA_CLK_SELECT => 1,    -- clock out 1
-            IO_CLK_SELECT   => 0     -- clock out 0
-        )
-        port map (
-            CLK_IN          => rxclk_clk_in,
-            CLK_OUT0        => rxclk_clk_out0,
-            CLK_OUT1        => rxclk_clk_out1,
-            CLK_OUT2        => rxclk_clk_out2,
-            IOCLK_OUT       => rxclk_ioclk_out,
-            IOCLK_LOCKED    => rxclk_ioclk_locked,
-            SERDESSTROBE    => rxclk_serdesstrobe
-        );
-    
-    
-    --------------------
-    --- HDMI Decoder ---
-    --------------------
-    
-    TMDS_DECODER_inst : entity work.TMDS_DECODER
-        port map (
-            PIX_CLK         => rx0_pix_clk,
-            PIX_CLK_X2      => rx0_pix_clk_x2,
-            PIX_CLK_X10     => rx0_pix_clk_x10,
-            RST             => rx0_rst,
-            
-            CLK_LOCKED      => rx0_clk_locked,
-            SERDESSTROBE    => rx0_serdesstrobe,
-            
-            CHANNELS_IN_P   => rx0_ch_in_p,
-            CHANNELS_IN_N   => rx0_ch_in_n,
-            
-            VSYNC           => rx0_vsync,
-            HSYNC           => rx0_hsync,
-            RGB             => rx0_rgb,
-            AUX_DATA        => rx0_aux_data,
-            AUX_DATA_VALID  => rx0_aux_data_valid
-        );
     
     -----------------------------------
     ------ E-DDC (E-)EDID Master ------
@@ -325,6 +293,7 @@ begin
             UART_Tx         => microblaze_txd,
             GPO1            => microblaze_gpo1,
             GPO2            => microblaze_gpo2,
+            GPO3            => microblaze_gpo3,
             GPI1            => microblaze_gpi1,
             GPI2            => microblaze_gpi2,
             GPI1_Interrupt  => microblaze_gpi1_int,
@@ -356,5 +325,101 @@ begin
             DATA_OUT    => edid_ram_data_out
         );
     
+    
+    ----------------------------------
+    --- HDMI ISerDes clock manager ---
+    ----------------------------------
+    
+    ISERDES2_CLK_MAN_inst : entity work.ISERDES2_CLK_MAN
+        generic map (
+            MULTIPLIER      => 10,
+            CLK_IN_PERIOD   => 13.0, -- only for testing
+            DIVISOR0        => 1,    -- bit clock
+            DIVISOR1        => 5,    -- serdes clock = pixel clock * 2
+            DIVISOR2        => 10,   -- pixel clock
+            DATA_CLK_SELECT => 1,    -- clock out 1
+            IO_CLK_SELECT   => 0     -- clock out 0
+        )
+        port map (
+            CLK_IN          => rxclk_clk_in,
+            CLK_OUT0        => rxclk_clk_out0,
+            CLK_OUT1        => rxclk_clk_out1,
+            CLK_OUT2        => rxclk_clk_out2,
+            IOCLK_OUT       => rxclk_ioclk_out,
+            IOCLK_LOCKED    => rxclk_ioclk_locked,
+            SERDESSTROBE    => rxclk_serdesstrobe
+        );
+    
+    
+    --------------------
+    --- HDMI Decoder ---
+    --------------------
+    
+    rx0_pix_clk         <= rxclk_clk_out2;
+    rx0_pix_clk_x2      <= rxclk_clk_out1;
+    rx0_pix_clk_x10     <= rxclk_ioclk_out;
+    rx0_rst             <= not RX0_DET;
+    rx0_clk_locked      <= rxclk_ioclk_locked;
+    rx0_serdesstrobe    <= rxclk_serdesstrobe;
+    
+    rx0_ch_in_p         <= RX0_CHANNELS_IN_P;
+    rx0_ch_in_n         <= RX0_CHANNELS_IN_N;
+    
+    TMDS_DECODER_inst : entity work.TMDS_DECODER
+        port map (
+            PIX_CLK         => rx0_pix_clk,
+            PIX_CLK_X2      => rx0_pix_clk_x2,
+            PIX_CLK_X10     => rx0_pix_clk_x10,
+            RST             => rx0_rst,
+            
+            CLK_LOCKED      => rx0_clk_locked,
+            SERDESSTROBE    => rx0_serdesstrobe,
+            
+            CHANNELS_IN_P   => rx0_ch_in_p,
+            CHANNELS_IN_N   => rx0_ch_in_n,
+            
+            VSYNC           => rx0_vsync,
+            HSYNC           => rx0_hsync,
+            RGB             => rx0_rgb,
+            AUX_DATA        => rx0_aux_data,
+            AUX_DATA_VALID  => rx0_aux_data_valid
+        );
+    
+    
+    ---------------------------
+    --- LED color extractor ---
+    ---------------------------
+    
+    ledex_clk   <= rx0_pix_clk;
+    ledex_rst   <= rx0_rst;
+    
+    ledex_cfg_addr  <= microblaze_gpo3(11 downto 8);
+    ledex_cfg_wr_en <= microblaze_gpo3(16);
+    ledex_cfg_data  <= microblaze_gpo3(7 downto 0);
+    
+    ledex_frame_vsync   <= rx0_vsync;
+    ledex_frame_hsync   <= rx0_hsync;
+    
+    ledex_frame_rgb <= rx0_rgb;
+    
+    LED_COLOR_EXTRACTOR_inst : entity work.LED_COLOR_EXTRACTOR
+        port map (
+            CLK => ledex_clk,
+            RST => ledex_rst,
+            
+            CFG_ADDR    => ledex_cfg_addr,
+            CFG_WR_EN   => ledex_cfg_wr_en,
+            CFG_DATA    => ledex_cfg_data,
+            
+            FRAME_VSYNC => ledex_frame_vsync,
+            FRAME_HSYNC => ledex_frame_hsync,
+            
+            FRAME_RGB   => ledex_frame_rgb,
+            
+            LED_VSYNC   => ledex_led_vsync,
+            LED_VALID   => ledex_led_valid,
+            LED_NUM     => ledex_led_num,
+            LED_RGB     => ledex_led_rgb
+        );
 end rtl;
 
