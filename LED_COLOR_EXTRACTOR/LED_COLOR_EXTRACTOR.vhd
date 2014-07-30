@@ -24,19 +24,15 @@
 --     CFG_WR_EN    : active high write enable of the configuration data
 --     CFG_DATA     : configuration data to be written
 --     
---     FRAME_VSYNC : active high vertical sync of the incoming frame data
---     FRAME_HSYNC : active high horizontal sync of the incoming frame data
+--     FRAME_VSYNC  : active high vertical sync of the incoming frame data
+--     FRAME_HSYNC  : active high horizontal sync of the incoming frame data
 --     
---     FRAME_R : the 'red' value of the current pixel
---     FRAME_G : the 'green' value of the current pixel
---     FRAME_B : the 'blue' value of the current pixel
+--     FRAME_RGB    : the RGB value of the current pixel
 --     
---     LED_VSYNC   : high for all LEDs of one frame
---     LED_VALID   : high while the LED colour components are valid
---     LED_NUM     : number of the current LED, from the first top left LED clockwise
---     LED_R       : red LED component
---     LED_G       : green LED component
---     LED_B       : blue LED component
+--     LED_VSYNC    : high for all LEDs of one frame
+--     LED_VALID    : high while the LED colour components are valid
+--     LED_NUM      : number of the current LED, from the first top left LED clockwise
+--     LED_RGB      : LED RGB color
 --   
 --   These configuration registers can only be set while FRAME_VSYNC is low and are reset
 --   to zero when RST is high, using the CFG_* inputs:
@@ -82,16 +78,12 @@ entity LED_COLOR_EXTRACTOR is
         FRAME_VSYNC : in std_ulogic;
         FRAME_HSYNC : in std_ulogic;
         
-        FRAME_R : in std_ulogic_vector(R_BITS-1 downto 0);
-        FRAME_G : in std_ulogic_vector(G_BITS-1 downto 0);
-        FRAME_B : in std_ulogic_vector(B_BITS-1 downto 0);
+        FRAME_RGB   : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
         LED_VSYNC   : out std_ulogic := '0';
         LED_VALID   : out std_ulogic := '0';
         LED_NUM     : out std_ulogic_vector(7 downto 0) := (others => '0');
-        LED_R       : out std_ulogic_vector(R_BITS-1 downto 0) := (others => '0');
-        LED_G       : out std_ulogic_vector(G_BITS-1 downto 0) := (others => '0');
-        LED_B       : out std_ulogic_vector(B_BITS-1 downto 0) := (others => '0')
+        LED_RGB     : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0')
     );
 end LED_COLOR_EXTRACTOR;
 
@@ -127,7 +119,7 @@ architecture rtl of LED_COLOR_EXTRACTOR is
         array(0 to 1) of
         boolean;
     
-    type leds_color_type is
+    type leds_rgb_type is
         array(0 to 1) of
         std_ulogic_vector(RGB_BITS-1 downto 0);
     
@@ -139,7 +131,7 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     signal frame_x, frame_y : unsigned(15 downto 0) := (others => '0');
     signal leds_valid       : std_ulogic_vector(0 to 1) := (others => '0');
     signal leds_side        : std_ulogic_vector(0 to 1) := (others => '0');
-    signal leds_color       : leds_color_type := (others => (others => '0'));
+    signal leds_rgb         : leds_rgb_type := (others => (others => '0'));
     signal ver_queued   : boolean := false;
     
     signal
@@ -208,9 +200,9 @@ begin
     
     hor_scanner_inst : entity work.hor_scanner
         generic map (
-            R_BITS          => R_BITS,
-            G_BITS          => G_BITS,
-            B_BITS          => B_BITS
+            R_BITS  => R_BITS,
+            G_BITS  => G_BITS,
+            B_BITS  => B_BITS
         )
         port map (
             CLK => clk,
@@ -226,21 +218,19 @@ begin
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
             
-            FRAME_R => frame_r,
-            FRAME_G => frame_g,
-            FRAME_B => frame_b,
+            FRAME_RGB   => FRAME_RGB,
             
             LED_VALID   => leds_valid(HOR),
             LED_NUM     => leds_num(HOR),
             LED_SIDE    => leds_side(HOR),
-            LED_COLOR   => leds_color(HOR)
+            LED_RGB     => leds_rgb(HOR)
         );
     
     ver_scanner_inst : entity work.ver_scanner
         generic map (
-            R_BITS          => R_BITS,
-            G_BITS          => G_BITS,
-            B_BITS          => B_BITS
+            R_BITS  => R_BITS,
+            G_BITS  => G_BITS,
+            B_BITS  => B_BITS
         )
         port map (
             CLK => clk,
@@ -256,14 +246,12 @@ begin
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
             
-            FRAME_R => frame_r,
-            FRAME_G => frame_g,
-            FRAME_B => frame_b,
+            FRAME_RGB   => FRAME_RGB,
             
             LED_VALID   => leds_valid(VER),
             LED_NUM     => leds_num(VER),
             LED_SIDE    => leds_side(VER),
-            LED_COLOR   => leds_color(VER)
+            LED_RGB     => leds_rgb(VER)
         );
     
     led_output_proc : process(RST, CLK)
@@ -302,9 +290,7 @@ begin
                             LED_NUM <= hor_led_cnt+leds_num(VER);
                         end if;
                     end if;
-                    LED_R       <= leds_color(dim)(RGB_BITS-1 downto G_BITS+B_BITS);
-                    LED_G       <= leds_color(dim)(G_BITS+B_BITS-1 downto B_BITS);
-                    LED_B       <= leds_color(dim)(B_BITS-1 downto 0);
+                    LED_RGB     <= leds_rgb(dim)(RGB_BITS-1 downto 0);
                     LED_VALID   <= '1';
                     if dim=VER then
                         ver_queued  <= false;

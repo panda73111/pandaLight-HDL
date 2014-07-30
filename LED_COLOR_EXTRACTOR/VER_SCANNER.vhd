@@ -46,14 +46,12 @@ entity VER_SCANNER is
         FRAME_X : in std_ulogic_vector(15 downto 0);
         FRAME_Y : in std_ulogic_vector(15 downto 0);
         
-        FRAME_R : in std_ulogic_vector(R_BITS-1 downto 0);
-        FRAME_G : in std_ulogic_vector(G_BITS-1 downto 0);
-        FRAME_B : in std_ulogic_vector(B_BITS-1 downto 0);
+        FRAME_RGB   : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
         LED_VALID   : out std_ulogic := '0';
         LED_NUM     : out std_ulogic_vector(7 downto 0) := (others => '0');
         LED_SIDE    : out std_ulogic := '0';
-        LED_COLOR   : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0')
+        LED_RGB     : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0')
     );
 end VER_SCANNER;
 
@@ -104,31 +102,31 @@ architecture rtl of VER_SCANNER is
     );
     
     type reg_type is record
-        state               : state_type;
-        side                : natural range L to R;
-        buf_p               : natural range 0 to 1;
-        buf_di              : std_ulogic_vector(RGB_BITS-1 downto 0);
-        ov_buf_di           : std_ulogic_vector(RGB_BITS-1 downto 0);
-        buf_wr_en           : std_ulogic;
-        inner_coords        : inner_coords_type;
-        led_pos             : led_pos_type;
-        led_valid           : std_ulogic;
-        led_num             : std_ulogic_vector(7 downto 0);
-        led_color           : std_ulogic_vector(RGB_BITS-1 downto 0);
+        state           : state_type;
+        side            : natural range L to R;
+        buf_p           : natural range 0 to 1;
+        buf_di          : std_ulogic_vector(RGB_BITS-1 downto 0);
+        ov_buf_di       : std_ulogic_vector(RGB_BITS-1 downto 0);
+        buf_wr_en       : std_ulogic;
+        inner_coords    : inner_coords_type;
+        led_pos         : led_pos_type;
+        led_valid       : std_ulogic;
+        led_num         : std_ulogic_vector(7 downto 0);
+        led_rgb         : std_ulogic_vector(RGB_BITS-1 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
-        state               => FIRST_LED_FIRST_PIXEL,
-        side                => L,
-        buf_p               => 0,
-        buf_di              => (others => '0'),
-        ov_buf_di           => (others => '0'),
-        buf_wr_en           => '0',
-        inner_coords        => (others => (others => '0')),
-        led_pos             => (others => (others => '0')),
-        led_valid           => '0',
-        led_num             => (others => '0'),
-        led_color           => (others => '0')
+        state           => FIRST_LED_FIRST_PIXEL,
+        side            => L,
+        buf_p           => 0,
+        buf_di          => (others => '0'),
+        ov_buf_di       => (others => '0'),
+        buf_wr_en       => '0',
+        inner_coords    => (others => (others => '0')),
+        led_pos         => (others => (others => '0')),
+        led_valid       => '0',
+        led_num         => (others => '0'),
+        led_rgb         => (others => '0')
     );
     
     signal next_inner_y         : unsigned(7 downto 0) := (others => '0');
@@ -139,7 +137,6 @@ architecture rtl of VER_SCANNER is
     signal led_buf              : led_buf_type;
     signal buf_do               : std_ulogic_vector(RGB_BITS-1 downto 0);
     signal ov_buf_do            : std_ulogic_vector(RGB_BITS-1 downto 0);
-    signal frame_rgb            : std_ulogic_vector(RGB_BITS-1 downto 0);
     
     -- configuration registers
 --    signal led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
@@ -178,9 +175,7 @@ begin
     LED_VALID   <= cur_reg.led_valid;
     LED_NUM     <= cur_reg.led_num;
     LED_SIDE    <= '0' when cur_reg.side=L else '1';
-    LED_COLOR   <= cur_reg.led_color;
-    
-    frame_rgb   <= FRAME_R & FRAME_G & FRAME_B;
+    LED_RGB     <= cur_reg.led_rgb;
     
     -- the position of the first left/right LED
     first_leds_pos(L)(X)    <= resize(uns(led_pad), 16);
@@ -253,7 +248,7 @@ begin
     end process;
     
     stm_proc : process(RST, cur_reg, FRAME_WIDTH, FRAME_VSYNC, FRAME_HSYNC, FRAME_X, FRAME_Y,
-        LED_WIDTH, LED_HEIGHT, LED_STEP, LED_OFFS, frame_rgb, buf_do, ov_buf_do, overlaps,
+        LED_WIDTH, LED_HEIGHT, LED_STEP, LED_OFFS, FRAME_RGB, buf_do, ov_buf_do, overlaps,
         abs_overlap, next_inner_y, first_leds_pos
     )
         alias cr        : reg_type is cur_reg; -- current registers
@@ -264,7 +259,7 @@ begin
         tr.led_valid    := '0';
         tr.buf_wr_en    := '0';
         
-        tr.ov_buf_di    := led_arith_mean(frame_rgb, ov_buf_do);
+        tr.ov_buf_di    := led_arith_mean(FRAME_RGB, ov_buf_do);
         
         case cr.state is
             
@@ -272,7 +267,7 @@ begin
                 tr.led_pos          := first_leds_pos(cr.side);
                 tr.inner_coords(X)  := x"01";
                 tr.inner_coords(Y)  := (others => '0');
-                tr.buf_di           := frame_rgb;
+                tr.buf_di           := FRAME_RGB;
                 if
                     FRAME_HSYNC='1' and
                     FRAME_X=stdulv(first_leds_pos(cr.side)(X)) and
@@ -284,7 +279,7 @@ begin
             
             when LEFT_BORDER_PIXEL =>
                 tr.inner_coords(X)  := x"01";
-                tr.buf_di           := frame_rgb;
+                tr.buf_di           := FRAME_RGB;
                 if
                     overlaps and
                     cr.led_num/=0 and
@@ -292,12 +287,12 @@ begin
                 then
                     -- not the first LED and there's an overlap,
                     -- use the buffered color average for the first pixel
-                    tr.buf_di   := led_arith_mean(frame_rgb, ov_buf_do);
+                    tr.buf_di   := led_arith_mean(FRAME_RGB, ov_buf_do);
                 end if;
                 if next_inner_y=0 then
                     -- first pixel of the following LED,
                     -- reset the buffer with the current color
-                    tr.ov_buf_di    := frame_rgb;
+                    tr.ov_buf_di    := FRAME_RGB;
                 end if;
                 if
                     FRAME_HSYNC='1' and
@@ -309,14 +304,14 @@ begin
                 end if;
             
             when MAIN_PIXEL =>
-                tr.buf_di   := led_arith_mean(frame_rgb, buf_do);
+                tr.buf_di   := led_arith_mean(FRAME_RGB, buf_do);
                 if
                     cr.led_num/=0 and
                     overlaps
                 then
                     -- not the first LED and there's an overlap,
                     -- use the buffered color average
-                    tr.buf_di   := led_arith_mean(frame_rgb, ov_buf_do);
+                    tr.buf_di   := led_arith_mean(FRAME_RGB, ov_buf_do);
                 end if;
                 if FRAME_HSYNC='1' then
                     tr.buf_wr_en        := '1';
@@ -331,7 +326,7 @@ begin
             
             when RIGHT_BORDER_PIXEL =>
                 tr.inner_coords(X)  := (others => '0');
-                tr.buf_di           := led_arith_mean(frame_rgb, buf_do);
+                tr.buf_di           := led_arith_mean(FRAME_RGB, buf_do);
                 if FRAME_HSYNC='1' then
                     tr.buf_wr_en    := '1';
                     tr.state        := SIDE_SWITCH;
@@ -359,7 +354,7 @@ begin
                 if FRAME_HSYNC='1' then
                     -- give out the LED color
                     tr.led_valid    := '1';
-                    tr.led_color    := led_arith_mean(frame_rgb, buf_do);
+                    tr.led_rgb      := led_arith_mean(FRAME_RGB, buf_do);
                     
                     tr.state         := SIDE_SWITCH;
                     if cr.side=R then

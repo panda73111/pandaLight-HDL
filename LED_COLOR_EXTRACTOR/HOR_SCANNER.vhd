@@ -40,14 +40,12 @@ entity HOR_SCANNER is
         FRAME_X : in std_ulogic_vector(15 downto 0);
         FRAME_Y : in std_ulogic_vector(15 downto 0);
         
-        FRAME_R : in std_ulogic_vector(R_BITS-1 downto 0);
-        FRAME_G : in std_ulogic_vector(G_BITS-1 downto 0);
-        FRAME_B : in std_ulogic_vector(B_BITS-1 downto 0);
+        FRAME_RGB   : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
         LED_VALID   : out std_ulogic := '0';
         LED_NUM     : out std_ulogic_vector(7 downto 0) := x"00";
         LED_SIDE    : out std_ulogic := '0';
-        LED_COLOR   : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0')
+        LED_RGB     : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0')
     );
 end HOR_SCANNER;
 
@@ -98,33 +96,33 @@ architecture rtl of HOR_SCANNER is
     );
     
     type reg_type is record
-        state               : state_type;
-        side                : natural range T to B;
-        buf_p               : natural range 0 to 255;
-        buf_di              : std_ulogic_vector(RGB_BITS-1 downto 0);
-        buf_ov_di           : std_ulogic_vector(RGB_BITS-1 downto 0);
-        buf_wr_en           : std_ulogic;
-        buf_ov_wr_en        : std_ulogic;
-        inner_coords        : inner_coords_type;
-        led_pos             : led_pos_type;
-        led_valid           : std_ulogic;
-        led_num             : std_ulogic_vector(7 downto 0);
-        led_color           : std_ulogic_vector(RGB_BITS-1 downto 0);
+        state           : state_type;
+        side            : natural range T to B;
+        buf_p           : natural range 0 to 255;
+        buf_di          : std_ulogic_vector(RGB_BITS-1 downto 0);
+        buf_ov_di       : std_ulogic_vector(RGB_BITS-1 downto 0);
+        buf_wr_en       : std_ulogic;
+        buf_ov_wr_en    : std_ulogic;
+        inner_coords    : inner_coords_type;
+        led_pos         : led_pos_type;
+        led_valid       : std_ulogic;
+        led_num         : std_ulogic_vector(7 downto 0);
+        led_rgb         : std_ulogic_vector(RGB_BITS-1 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
-        state               => FIRST_LED_FIRST_PIXEL,
-        side                => T,
-        buf_p               => 0,
-        buf_di              => (others => '0'),
-        buf_ov_di           => (others => '0'),
-        buf_wr_en           => '0',
-        buf_ov_wr_en        => '0',
-        inner_coords        => (others => (others => '0')),
-        led_pos             => (others => (others => '0')),
-        led_valid           => '0',
-        led_num             => (others => '0'),
-        led_color           => (others => '0')
+        state           => FIRST_LED_FIRST_PIXEL,
+        side            => T,
+        buf_p           => 0,
+        buf_di          => (others => '0'),
+        buf_ov_di       => (others => '0'),
+        buf_wr_en       => '0',
+        buf_ov_wr_en    => '0',
+        inner_coords    => (others => (others => '0')),
+        led_pos         => (others => (others => '0')),
+        led_valid       => '0',
+        led_num         => (others => '0'),
+        led_rgb         => (others => '0')
     );
     
     signal next_inner_x         : unsigned(7 downto 0) := x"00";
@@ -135,7 +133,6 @@ architecture rtl of HOR_SCANNER is
     signal led_buf              : led_buf_type;
     signal buf_do               : std_ulogic_vector(RGB_BITS-1 downto 0);
     signal buf_ov_do            : std_ulogic_vector(RGB_BITS-1 downto 0);
-    signal frame_rgb            : std_ulogic_vector(RGB_BITS-1 downto 0);
     
     -- configuration registers
     signal led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
@@ -174,9 +171,7 @@ begin
     LED_VALID   <= cur_reg.led_valid;
     LED_NUM     <= cur_reg.led_num;
     LED_SIDE    <= '0' when cur_reg.side=T else '1';
-    LED_COLOR   <= cur_reg.led_color;
-    
-    frame_rgb   <= FRAME_R & FRAME_G & FRAME_B;
+    LED_RGB     <= cur_reg.led_rgb;
     
     -- the position of the first top/bottom LED
     first_leds_pos(T)(X)    <= resize(uns(led_offs), 16);
@@ -256,7 +251,7 @@ begin
     end process;
     
     stm_proc : process(RST, cur_reg, frame_height, FRAME_VSYNC, FRAME_HSYNC, FRAME_X, FRAME_Y,
-        led_cnt, led_width, led_height, led_step, led_offs, frame_rgb, buf_do, buf_ov_do,
+        led_cnt, led_width, led_height, led_step, led_offs, FRAME_RGB, buf_do, buf_ov_do,
         overlaps, abs_overlap, next_inner_x, first_leds_pos
     )
         alias cr        : reg_type is cur_reg;
@@ -275,7 +270,7 @@ begin
                 r.led_pos           := first_leds_pos(cr.side);
                 r.inner_coords(X)   := x"01";
                 r.inner_coords(Y)   := (others => '0');
-                r.buf_di            := frame_rgb;
+                r.buf_di            := FRAME_RGB;
                 if
                     FRAME_HSYNC='1' and
                     FRAME_X=stdulv(first_leds_pos(cr.side)(X)) and
@@ -287,7 +282,7 @@ begin
             
             when LEFT_BORDER_PIXEL =>
                 r.inner_coords(X)   := x"01";
-                r.buf_di            := frame_rgb;
+                r.buf_di            := FRAME_RGB;
                 r.buf_ov_wr_en      := '0';
                 if
                     FRAME_HSYNC='1' and
@@ -298,7 +293,7 @@ begin
                 end if;
             
             when MAIN_PIXEL =>
-                r.buf_di    := led_arith_mean(frame_rgb, buf_do);
+                r.buf_di    := led_arith_mean(FRAME_RGB, buf_do);
                 if FRAME_HSYNC='1' then
                     r.buf_wr_en         := '1';
                     r.inner_coords(X)   := cr.inner_coords(X)+1;
@@ -316,7 +311,7 @@ begin
             
             when RIGHT_BORDER_PIXEL =>
                 r.inner_coords(X)   := (others => '0');
-                r.buf_di            := led_arith_mean(frame_rgb, buf_do);
+                r.buf_di            := led_arith_mean(FRAME_RGB, buf_do);
                 if overlaps then
                     r.inner_coords(X)   := abs_overlap;
                 end if;
@@ -355,7 +350,7 @@ begin
                 if FRAME_HSYNC='1' then
                     -- give out the LED color
                     r.led_valid     := '1';
-                    r.led_color     := led_arith_mean(frame_rgb, buf_do);
+                    r.led_rgb       := led_arith_mean(FRAME_RGB, buf_do);
                     r.led_num       := stdulv(cr.buf_p, 8);
                     
                     r.led_pos(X)    := uns(cr.led_pos(X)+led_step);
@@ -378,14 +373,14 @@ begin
         
         -- in case there's an overlap,
         -- buffer the average color for the next LED
-        r.buf_ov_di := led_arith_mean(frame_rgb, buf_ov_do);
+        r.buf_ov_di := led_arith_mean(FRAME_RGB, buf_ov_do);
         if
             next_inner_x=0 and
             cr.inner_coords(Y)=0
         then
             -- first pixel of the following LED,
             -- reset the buffer with the current color
-            r.buf_ov_di := frame_rgb;
+            r.buf_ov_di := FRAME_RGB;
         end if;
         
         if RST='1' or FRAME_VSYNC='0' then
