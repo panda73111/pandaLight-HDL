@@ -51,34 +51,37 @@ architecture rtl of LED_CONTROL is
     signal ws2801_start     : std_ulogic := '0';
     signal ws2801_leds_clk  : std_ulogic := '0';
     signal ws2801_leds_data : std_ulogic := '0';
+    signal ws2801_rgb_rd_en : std_ulogic := '0';
     
     signal ws2811_rst       : std_ulogic := '0';
     signal ws2811_start     : std_ulogic := '0';
     signal ws2811_leds_clk  : std_ulogic := '0';
     signal ws2811_leds_data : std_ulogic := '0';
+    signal ws2811_rgb_rd_en : std_ulogic := '0';
     
     signal fifo_rd_en   : std_ulogic := '0';
     signal fifo_dout    : std_ulogic_vector(23 downto 0) := x"000000";
-    signal fifo_rd_ack  : std_ulogic := '0';
     signal fifo_empty   : std_ulogic := '0';
     
 begin
     
     with MODE select LEDS_CLK <=
         ws2801_leds_clk when "0",
-        ws2811_leds_clk when "1";
+        ws2811_leds_clk when others;
     
     with MODE select LEDS_DATA <=
         ws2801_leds_data when "0",
-        ws2811_leds_data when "1";
+        ws2811_leds_data when others;
     
     ws2801_rst  <= '1' when MODE/="0" else '0';
     ws2811_rst  <= '1' when MODE/="1" else '0';
     
-    ws2801_start    <= '1' when frame_end='1' and MODE/="0" else '0';
-    ws2811_start    <= '1' when frame_end='1' and MODE/="1" else '0';
+    ws2801_start    <= '1' when frame_end='1' and MODE="0" else '0';
+    ws2811_start    <= '1' when frame_end='1' and MODE="1" else '0';
     
     frame_end   <= not VSYNC and vsync_q;
+    
+    fifo_rd_en  <= ws2801_rgb_rd_en or ws2811_rgb_rd_en;
     
     FIFO_inst : entity work.ASYNC_FIFO
         generic map (
@@ -94,7 +97,6 @@ begin
             WR_EN   => RGB_WR_EN,
             
             DOUT    => fifo_dout,
-            RD_ACK  => fifo_rd_ack,
             EMPTY   => fifo_empty
         );
     
@@ -108,11 +110,11 @@ begin
             CLK => CLK,
             RST => ws2801_rst,
             
-            START       => VSYNC,
+            START       => ws2801_start,
             STOP        => fifo_empty,
             RGB         => fifo_dout,
             
-            RGB_RD_EN   => fifo_rd_ack,
+            RGB_RD_EN   => ws2801_rgb_rd_en,
             LEDS_CLK    => ws2801_leds_clk,
             LEDS_DATA   => ws2801_leds_data
         );
@@ -126,11 +128,11 @@ begin
             CLK => CLK,
             RST => ws2811_rst,
             
-            START       => VSYNC,
+            START       => ws2811_start,
             STOP        => fifo_empty,
             RGB         => fifo_dout,
             
-            RGB_RD_EN   => fifo_rd_ack,
+            RGB_RD_EN   => ws2811_rgb_rd_en,
             LEDS_CLK    => ws2811_leds_clk,
             LEDS_DATA   => ws2811_leds_data
         );
