@@ -55,7 +55,6 @@ architecture rtl of LED_CONTROL is
     
     signal ws2811_rst       : std_ulogic := '0';
     signal ws2811_start     : std_ulogic := '0';
-    signal ws2811_leds_clk  : std_ulogic := '0';
     signal ws2811_leds_data : std_ulogic := '0';
     signal ws2811_rgb_rd_en : std_ulogic := '0';
     
@@ -65,9 +64,7 @@ architecture rtl of LED_CONTROL is
     
 begin
     
-    with MODE select LEDS_CLK <=
-        ws2801_leds_clk when "0",
-        ws2811_leds_clk when others;
+    LEDS_CLK    <= ws2801_leds_clk;
     
     with MODE select LEDS_DATA <=
         ws2801_leds_data when "0",
@@ -133,7 +130,6 @@ begin
             RGB         => fifo_dout,
             
             RGB_RD_EN   => ws2811_rgb_rd_en,
-            LEDS_CLK    => ws2811_leds_clk,
             LEDS_DATA   => ws2811_leds_data
         );
     

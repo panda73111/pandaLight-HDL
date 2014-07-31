@@ -84,31 +84,36 @@ BEGIN
 
         -- set 100 test colors
         
-        -- WS2801
-        mode    <= "0";
-        vsync   <= '1';
-        
-        r   := x"FF";
-        g   := x"00";
-        b   := x"7F";
-        
-        for i in 0 to 99 loop
+        for mode_i in 0 to 1 loop
             
-            rgb         <= r & g & b;
-            rgb_wr_en   <= '1';
+            mode    <= stdulv(mode_i, 1);
+            vsync   <= '1';
+            
+            r   := x"FF";
+            g   := x"00";
+            b   := x"7F";
+            
+            for i in 0 to 99 loop
+                
+                rgb         <= r & g & b;
+                rgb_wr_en   <= '1';
+                wait until rising_edge(clk);
+                rgb_wr_en   <= '0';
+                wait for clk_period*100;
+                
+                r   := r-1;
+                g   := g+1;
+                b   := b+1;
+                
+            end loop;
+            
+            vsync   <= '0';
+            wait for 100*24*2.5 us + 100*clk_period;
             wait until rising_edge(clk);
-            rgb_wr_en   <= '0';
-            wait for clk_period*100;
-            
-            r   := r-1;
-            g   := g+1;
-            b   := b+1;
-            
+        
         end loop;
         
-        vsync   <= '0';
-        
-        wait;
+        report "NONE. All tests successful, quitting" severity FAILURE;
     end process;
 
 END;

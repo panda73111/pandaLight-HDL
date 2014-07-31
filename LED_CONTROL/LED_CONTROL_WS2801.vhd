@@ -52,7 +52,9 @@ architecture rtl of LED_CONTROL_WS2801 is
         DEC_BIT_I,
         WAIT_FOR_CLK_SWITCH,
         SET_CLK,
-        CHECK_BIT_I
+        CHECK_BIT_I,
+        WAIT_FOR_LAST_SWITCH,
+        SET_LAST_CLK_LOW
         );
     
     type reg_type is record
@@ -105,7 +107,7 @@ begin
                 r.bit_i     := uns(23, 6);
                 r.state     := WAIT_FOR_DATA_SWITCH;
                 if STOP='1' then
-                    r.state := WAIT_FOR_START;
+                    r.state := WAIT_FOR_LAST_SWITCH;
                 end if;
             
             when WAIT_FOR_DATA_SWITCH =>
@@ -140,6 +142,15 @@ begin
                 if cr.bit_i(5)='1' then
                     r.state := GET_NEXT_RGB;
                 end if;
+            
+            when WAIT_FOR_LAST_SWITCH =>
+                if switch='1' then
+                    r.state := SET_LAST_CLK_LOW;
+                end if;
+                
+            when SET_LAST_CLK_LOW =>
+                r.leds_clk  := '0';
+                r.state     := WAIT_FOR_START;
             
         end case;
         
