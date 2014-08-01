@@ -17,6 +17,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 library UNISIM;
 use UNISIM.VComponents.all;
+use work.help_funcs.all;
 
 entity PANDA_LIGHT is
     port (
@@ -48,7 +49,10 @@ end PANDA_LIGHT;
 
 architecture rtl of PANDA_LIGHT is
     
-    constant g_clk_period   : real := 10.0; -- in nano seconds
+    constant G_CLK_PERIOD   : real := 10.0; -- in nano seconds
+    
+    -- 1 MHz, 100 LEDs: 2.9 ms latency, ~344 fps
+    constant WS2801_CLK_PERIOD  : real := 1000.0;
     
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
@@ -91,10 +95,12 @@ architecture rtl of PANDA_LIGHT is
             UART_Tx         : out std_logic;
             GPO1            : out std_logic_vector(31 downto 0);
             GPO2            : out std_logic_vector(31 downto 0);
+            GPO3            : out std_logic_vector(31 downto 0);
             GPI1            : in std_logic_vector(31 downto 0);
             GPI1_Interrupt  : out std_logic;
             GPI2            : in std_logic_vector(31 downto 0);
-            GPI2_Interrupt  : out std_logic
+            GPI2_Interrupt  : out std_logic;
+            INTC_IRQ        : out std_logic
         );
     end component;
     
@@ -134,7 +140,7 @@ architecture rtl of PANDA_LIGHT is
     ----------------------------------
     
     -- Inputs
-    signal rxckl_clk_in : std_ulogic := '0';
+    signal rxclk_clk_in : std_ulogic := '0';
     
     -- Outputs
     signal rxclk_clk_out0       : std_ulogic := '0';
@@ -192,6 +198,25 @@ architecture rtl of PANDA_LIGHT is
     signal ledex_led_num    : std_ulogic_vector(7 downto 0) := x"00";
     signal ledex_led_rgb    : std_ulogic_vector(23 downto 0) := x"000000";
     
+    
+    -------------------
+    --- LED control ---
+    -------------------
+    
+    -- Inputs
+    signal ledctrl_clk  : std_ulogic := '0';
+    signal ledctrl_rst  : std_ulogic := '0';
+    
+    signal ledctrl_mode : std_ulogic_vector(1 downto 0);
+    
+    signal ledctrl_vsync        : std_ulogic := '0';
+    signal ledctrl_rgb          : std_ulogic_vector(23 downto 0);
+    signal ledctrl_rgb_wr_en    : std_ulogic := '0';
+    
+    -- Outputs
+    signal ledctrl_leds_clk     : std_ulogic := '0';
+    signal ledctrl_leds_data    : std_ulogic := '0';
+    
 begin
     
     ------------------------------
@@ -200,8 +225,8 @@ begin
     
     CLKMAN_inst : entity work.CLKMAN
         generic map (
-            CLK_IN_PERIOD   => CLK_IN_PERIOD,
-            MULTIPLIER      => 2,
+            CLK_IN_PERIOD   => G_CLK_PERIOD,
+            MULTIPLIER      => 5,
             DIVISOR         => 1
         )
         port map (
@@ -217,6 +242,9 @@ begin
     
     USB_TXD <= microblaze_txd;
     USB_RTS <= microblaze_gpo1(0);
+    
+    LEDS_CLK    <= ledctrl_leds_clk;
+    LEDS_DATA   <= ledctrl_leds_data;
     
     g_rst   <= g_clk_stopped;
     
@@ -236,14 +264,14 @@ begin
     
     e_ddc_edid_clk          <= g_clk;
     e_ddc_edid_rst          <= g_rst;
-    e_ddc_edid_sda_in       <= HDMI_SDA;
-    e_ddc_edid_scl_in       <= HDMI_SCL;
-    e_ddc_edid_block_number <= std_ulogic_vector(microblaze_gpo2(7 downto 0));
-    e_ddc_edid_start        <= microblaze_gpo1(1);
+    e_ddc_edid_sda_in       <= RX0_SDA;
+    e_ddc_edid_scl_in       <= RX0_SCL;
+    e_ddc_edid_block_number <= stdulv(microblaze_gpo1(7 downto 0));
+    e_ddc_edid_start        <= microblaze_gpo1(8);
     
     DDC_EDID_MASTER_inst : entity work.DDC_EDID_MASTER
         generic map (
-            CLK_IN_PERIOD   => g_clk_period
+            CLK_IN_PERIOD   => G_CLK_PERIOD
         )
         port map (
             CLK => e_ddc_edid_clk,
@@ -281,9 +309,9 @@ begin
     microblaze_gpi1(1)              <= e_ddc_edid_busy;
     microblaze_gpi1(0)              <= USB_CTS;
     
-    microblaze_gpi2(31 downto 25)   <= (others => '0');
-    microblaze_gpi2(24 downto 8)    <= std_logic_vector(rx0_aux_data);
-    microblaze_gpi2(7 downto 0)     <= std_logic_vector(edid_ram_data_out);
+    microblaze_gpi2(31 downto 17)   <= (others => '0');
+    microblaze_gpi2(16 downto 8)    <= stdlv(rx0_aux_data);
+    microblaze_gpi2(7 downto 0)     <= stdlv(edid_ram_data_out);
     
     microblaze_inst : microblaze_mcs_v1_4
         port map (
@@ -295,9 +323,7 @@ begin
             GPO2            => microblaze_gpo2,
             GPO3            => microblaze_gpo3,
             GPI1            => microblaze_gpi1,
-            GPI2            => microblaze_gpi2,
-            GPI1_Interrupt  => microblaze_gpi1_int,
-            GPI2_Interrupt  => microblaze_gpi2_int
+            GPI2            => microblaze_gpi2
         );
     
     
@@ -306,7 +332,7 @@ begin
     ----------------------
     
     edid_ram_clk        <= g_clk;
-    edid_ram_rd_addr    <= std_ulogic_vector(microblaze_gpo2(14 downto 8));
+    edid_ram_rd_addr    <= stdulv(microblaze_gpo2(6 downto 0));
     edid_ram_wr_en      <= e_ddc_edid_data_out_valid;
     edid_ram_wr_addr    <= e_ddc_edid_byte_index;
     edid_ram_data_in    <= e_ddc_edid_data_out;
@@ -329,6 +355,16 @@ begin
     ----------------------------------
     --- HDMI ISerDes clock manager ---
     ----------------------------------
+    
+    rx0_IBUFDS_inst : IBUFDS
+        generic map (
+            DIFF_TERM   => false
+        )
+        port map (
+            I   => RX0_CHANNELS_IN_P(3),
+            IB  => RX0_CHANNELS_IN_N(3),
+            O   => rxclk_clk_in
+        );
     
     ISERDES2_CLK_MAN_inst : entity work.ISERDES2_CLK_MAN
         generic map (
@@ -362,8 +398,8 @@ begin
     rx0_clk_locked      <= rxclk_ioclk_locked;
     rx0_serdesstrobe    <= rxclk_serdesstrobe;
     
-    rx0_ch_in_p         <= RX0_CHANNELS_IN_P;
-    rx0_ch_in_n         <= RX0_CHANNELS_IN_N;
+    rx0_ch_in_p         <= RX0_CHANNELS_IN_P(2 downto 0);
+    rx0_ch_in_n         <= RX0_CHANNELS_IN_N(2 downto 0);
     
     TMDS_DECODER_inst : entity work.TMDS_DECODER
         port map (
@@ -393,9 +429,9 @@ begin
     ledex_clk   <= rx0_pix_clk;
     ledex_rst   <= rx0_rst;
     
-    ledex_cfg_addr  <= microblaze_gpo3(11 downto 8);
-    ledex_cfg_wr_en <= microblaze_gpo3(16);
-    ledex_cfg_data  <= microblaze_gpo3(7 downto 0);
+    ledex_cfg_addr  <= stdulv(microblaze_gpo3(11 downto 8));
+    ledex_cfg_wr_en <= stdul(microblaze_gpo3(16));
+    ledex_cfg_data  <= stdulv(microblaze_gpo3(7 downto 0));
     
     ledex_frame_vsync   <= rx0_vsync;
     ledex_frame_hsync   <= rx0_hsync;
@@ -421,5 +457,39 @@ begin
             LED_NUM     => ledex_led_num,
             LED_RGB     => ledex_led_rgb
         );
+    
+    
+    -------------------
+    --- LED control ---
+    -------------------
+    
+    ledctrl_clk <= rx0_pix_clk;
+    ledctrl_rst <= rx0_rst;
+    
+    ledctrl_mode    <= stdulv(microblaze_gpo3(18 downto 17));
+    
+    ledctrl_vsync       <= ledex_led_vsync;
+    ledctrl_rgb         <= ledex_led_rgb;
+    ledctrl_rgb_wr_en   <= ledex_led_valid;
+    
+    LED_CONTROL_inst : entity work.LED_CONTROL
+        generic map (
+            CLK_IN_PERIOD           => G_CLK_PERIOD,
+            WS2801_LEDS_CLK_PERIOD  => WS2801_CLK_PERIOD
+        )
+        port map (
+            CLK => ledctrl_clk,
+            RST => ledctrl_rst,
+            
+            MODE    => ledctrl_mode,
+            
+            VSYNC       => ledctrl_vsync,
+            RGB         => ledctrl_rgb,
+            RGB_WR_EN   => ledctrl_rgb_wr_en,
+            
+            LEDS_CLK    => ledctrl_leds_clk,
+            LEDS_DATA   => ledctrl_leds_data
+        );
+    
 end rtl;
 

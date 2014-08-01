@@ -198,7 +198,7 @@ begin
         end if;
     end process;
     
-    hor_scanner_inst : entity work.hor_scanner
+    HOR_SCANNER_inst : entity work.hor_scanner
         generic map (
             R_BITS  => R_BITS,
             G_BITS  => G_BITS,
@@ -226,7 +226,7 @@ begin
             LED_RGB     => leds_rgb(HOR)
         );
     
-    ver_scanner_inst : entity work.ver_scanner
+    VER_SCANNER_inst : entity work.ver_scanner
         generic map (
             R_BITS  => R_BITS,
             G_BITS  => G_BITS,
