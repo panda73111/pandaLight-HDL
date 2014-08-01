@@ -86,7 +86,7 @@ begin
     
     switch  <= '1' when cur_reg.tick_cnt=LEDS_CLK_TICKS-1 else '0';
     
-    process(cur_reg, START, STOP, RGB, switch)
+    process(RST, cur_reg, START, STOP, RGB, switch)
         alias cr is cur_reg;
         variable r  : reg_type;
     begin
@@ -103,11 +103,11 @@ begin
                 end if;
             
             when GET_NEXT_RGB =>
-                r.rgb_rd_en := '1';
-                r.bit_i     := uns(23, 6);
-                r.state     := WAIT_FOR_DATA_SWITCH;
-                if STOP='1' then
-                    r.state := WAIT_FOR_LAST_SWITCH;
+                r.bit_i := uns(23, 6);
+                r.state := WAIT_FOR_LAST_SWITCH;
+                if STOP='0' then
+                    r.rgb_rd_en := '1';
+                    r.state     := WAIT_FOR_DATA_SWITCH;
                 end if;
             
             when WAIT_FOR_DATA_SWITCH =>

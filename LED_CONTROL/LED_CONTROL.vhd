@@ -12,7 +12,8 @@
 -- Additional Comments: 
 --   Modes (to be extended):
 --    [0] = ws2801
---    [1] = ws2811
+--    [1] = ws2811, fast mode (800 kHz)
+--    [2] = ws2811, slow mode (400 kHz)
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -25,13 +26,13 @@ entity LED_CONTROL is
     generic (
         CLK_IN_PERIOD           : real;
         WS2801_LEDS_CLK_PERIOD  : real;
-        MAX_LED_CNT             : natural := 100
+        MAX_LED_CNT             : natural := 128
     );
     port (
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
-        MODE    : in std_ulogic_vector(0 downto 0);
+        MODE    : in std_ulogic_vector(1 downto 0);
         
         VSYNC       : in std_ulogic;
         RGB         : in std_ulogic_vector(23 downto 0);
@@ -55,6 +56,7 @@ architecture rtl of LED_CONTROL is
     
     signal ws2811_rst       : std_ulogic := '0';
     signal ws2811_start     : std_ulogic := '0';
+    signal ws2811_slow_mode : std_ulogic := '0';
     signal ws2811_leds_data : std_ulogic := '0';
     signal ws2811_rgb_rd_en : std_ulogic := '0';
     
@@ -67,18 +69,18 @@ begin
     LEDS_CLK    <= ws2801_leds_clk;
     
     with MODE select LEDS_DATA <=
-        ws2801_leds_data when "0",
+        ws2801_leds_data when "00",
         ws2811_leds_data when others;
     
-    ws2801_rst  <= '1' when MODE/="0" else '0';
-    ws2811_rst  <= '1' when MODE/="1" else '0';
+    ws2801_rst  <= '1' when MODE/="00" else '0';
+    ws2811_rst  <= '1' when MODE/="01" and MODE/="10" else '0';
     
-    ws2801_start    <= '1' when frame_end='1' and MODE="0" else '0';
-    ws2811_start    <= '1' when frame_end='1' and MODE="1" else '0';
+    ws2801_start    <= '1' when frame_end='1' and MODE="00" else '0';
+    ws2811_start    <= '1' when frame_end='1' and (MODE="01" or MODE="10") else '0';
     
-    frame_end   <= not VSYNC and vsync_q;
-    
-    fifo_rd_en  <= ws2801_rgb_rd_en or ws2811_rgb_rd_en;
+    ws2811_slow_mode    <= '1' when MODE="10" else '0';
+    frame_end           <= not VSYNC and vsync_q;
+    fifo_rd_en          <= ws2801_rgb_rd_en or ws2811_rgb_rd_en;
     
     FIFO_inst : entity work.ASYNC_FIFO
         generic map (
@@ -127,6 +129,7 @@ begin
             
             START       => ws2811_start,
             STOP        => fifo_empty,
+            SLOW_MODE   => ws2811_slow_mode,
             RGB         => fifo_dout,
             
             RGB_RD_EN   => ws2811_rgb_rd_en,

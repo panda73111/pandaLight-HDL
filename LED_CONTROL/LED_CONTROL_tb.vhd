@@ -33,7 +33,7 @@ ARCHITECTURE behavior OF LED_CONTROL_tb IS
     signal clk  : std_ulogic := '0';
     signal rst  : std_ulogic := '0';
     
-    signal mode         : std_ulogic_vector(0 downto 0) := (others => '0');
+    signal mode         : std_ulogic_vector(1 downto 0) := (others => '0');
     signal vsync        : std_ulogic := '0';
     signal rgb          : std_ulogic_vector(23 downto 0) := (others => '0');
     signal rgb_wr_en    : std_ulogic := '0';
@@ -84,9 +84,9 @@ BEGIN
 
         -- set 100 test colors
         
-        for mode_i in 0 to 1 loop
+        for mode_i in 0 to 2 loop
             
-            mode    <= stdulv(mode_i, 1);
+            mode    <= stdulv(mode_i, 2);
             vsync   <= '1';
             
             r   := x"FF";
