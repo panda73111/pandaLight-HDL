@@ -209,9 +209,9 @@ architecture rtl of PANDA_LIGHT is
     
     signal ledctrl_mode : std_ulogic_vector(1 downto 0);
     
-    signal ledctrl_vsync        : std_ulogic := '0';
-    signal ledctrl_rgb          : std_ulogic_vector(23 downto 0);
-    signal ledctrl_rgb_wr_en    : std_ulogic := '0';
+    signal ledctrl_led_vsync    : std_ulogic := '0';
+    signal ledctrl_led_rgb      : std_ulogic_vector(23 downto 0);
+    signal ledctrl_led_wr_en    : std_ulogic := '0';
     
     -- Outputs
     signal ledctrl_leds_clk     : std_ulogic := '0';
@@ -468,9 +468,9 @@ begin
     
     ledctrl_mode    <= stdulv(microblaze_gpo3(18 downto 17));
     
-    ledctrl_vsync       <= ledex_led_vsync;
-    ledctrl_rgb         <= ledex_led_rgb;
-    ledctrl_rgb_wr_en   <= ledex_led_valid;
+    ledctrl_led_vsync   <= ledex_led_vsync;
+    ledctrl_led_rgb     <= ledex_led_rgb;
+    ledctrl_led_wr_en   <= ledex_led_valid;
     
     LED_CONTROL_inst : entity work.LED_CONTROL
         generic map (
@@ -483,9 +483,9 @@ begin
             
             MODE    => ledctrl_mode,
             
-            VSYNC       => ledctrl_vsync,
-            RGB         => ledctrl_rgb,
-            RGB_WR_EN   => ledctrl_rgb_wr_en,
+            LED_VSYNC   => ledctrl_led_vsync,
+            LED_RGB     => ledctrl_led_rgb,
+            LED_WR_EN   => ledctrl_led_wr_en,
             
             LEDS_CLK    => ledctrl_leds_clk,
             LEDS_DATA   => ledctrl_leds_data
