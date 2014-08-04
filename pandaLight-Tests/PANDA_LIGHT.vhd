@@ -20,6 +20,10 @@ use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
 entity PANDA_LIGHT is
+    generic (
+        MAX_LED_COUNT       : natural := 100;
+        MAX_LED_BUFFER_SIZE : natural := 1024
+    );
     port (
         CLK20   : in std_ulogic;
         
@@ -93,12 +97,12 @@ architecture rtl of PANDA_LIGHT is
             Reset           : in std_logic;
             UART_Rx         : in std_logic;
             UART_Tx         : out std_logic;
-            GPO1            : out std_logic_vector(31 downto 0);
-            GPO2            : out std_logic_vector(31 downto 0);
-            GPO3            : out std_logic_vector(31 downto 0);
-            GPI1            : in std_logic_vector(31 downto 0);
+            GPO1            : out std_logic_vector(8 downto 0);
+            GPO2            : out std_logic_vector(6 downto 0);
+            GPO3            : out std_logic_vector(26 downto 0);
+            GPI1            : in std_logic_vector(4 downto 0);
             GPI1_Interrupt  : out std_logic;
-            GPI2            : in std_logic_vector(31 downto 0);
+            GPI2            : in std_logic_vector(16 downto 0);
             GPI2_Interrupt  : out std_logic;
             INTC_IRQ        : out std_logic
         );
@@ -108,14 +112,14 @@ architecture rtl of PANDA_LIGHT is
     signal microblaze_clk   : std_logic := '0';
     signal microblaze_rst   : std_logic := '0';
     signal microblaze_rxd   : std_logic := '0';
-    signal microblaze_gpi1  : std_logic_vector(31 downto 0) := (others => '0');
-    signal microblaze_gpi2  : std_logic_vector(31 downto 0) := (others => '0');
+    signal microblaze_gpi1  : std_logic_vector(4 downto 0) := (others => '0');
+    signal microblaze_gpi2  : std_logic_vector(16 downto 0) := (others => '0');
     
     -- Outputs
     signal microblaze_txd           : std_logic := '0';
-    signal microblaze_gpo1          : std_logic_vector(31 downto 0) := (others => '0');
-    signal microblaze_gpo2          : std_logic_vector(31 downto 0) := (others => '0');
-    signal microblaze_gpo3          : std_logic_vector(31 downto 0) := (others => '0');
+    signal microblaze_gpo1          : std_logic_vector(8 downto 0) := (others => '0');
+    signal microblaze_gpo2          : std_logic_vector(6 downto 0) := (others => '0');
+    signal microblaze_gpo3          : std_logic_vector(26 downto 0) := (others => '0');
     signal microblaze_gpi1_int      : std_logic := '0';
     signal microblaze_gpi2_int      : std_logic := '0';
     
@@ -195,7 +199,7 @@ architecture rtl of PANDA_LIGHT is
     -- Outputs
     signal ledex_led_vsync  : std_ulogic := '0';
     signal ledex_led_valid  : std_ulogic := '0';  
-    signal ledex_led_num    : std_ulogic_vector(7 downto 0) := x"00";
+--    signal ledex_led_num    : std_ulogic_vector(7 downto 0) := x"00";
     signal ledex_led_rgb    : std_ulogic_vector(23 downto 0) := x"000000";
     
     
@@ -209,13 +213,35 @@ architecture rtl of PANDA_LIGHT is
     
     signal ledctrl_mode : std_ulogic_vector(1 downto 0);
     
-    signal ledctrl_led_vsync    : std_ulogic := '0';
-    signal ledctrl_led_rgb      : std_ulogic_vector(23 downto 0);
-    signal ledctrl_led_wr_en    : std_ulogic := '0';
+    signal ledctrl_led_vsync        : std_ulogic := '0';
+    signal ledctrl_led_rgb          : std_ulogic_vector(23 downto 0);
+    signal ledctrl_led_rgb_wr_en    : std_ulogic := '0';
     
     -- Outputs
     signal ledctrl_leds_clk     : std_ulogic := '0';
     signal ledctrl_leds_data    : std_ulogic := '0';
+    
+    
+    ----------------------
+    --- LED correction ---
+    ----------------------
+    
+    -- Inputs
+    signal ledcorr_clk  : std_ulogic := '0';
+    signal ledcorr_rst  : std_ulogic := '0';
+    
+    signal ledcorr_cfg_addr     : std_ulogic_vector(1 downto 0) := "00";
+    signal ledcorr_cfg_wr_en    : std_ulogic := '0';
+    signal ledcorr_cfg_data     : std_ulogic_vector(7 downto 0) := x"00";
+    
+    signal ledcorr_led_vsync_in     : std_ulogic := '0';
+    signal ledcorr_led_rgb_in_wr_en : std_ulogic := '0';
+    signal ledcorr_led_rgb_in       : std_ulogic_vector(23 downto 0) := x"000000";
+    
+    -- Outputs
+    signal ledcorr_led_vsync_out        : std_ulogic := '0';
+    signal ledcorr_led_rgb_out_valid    : std_ulogic := '0';
+    signal ledcorr_led_rgb_out          : std_ulogic_vector(23 downto 0) := x"000000";
     
 begin
     
@@ -302,14 +328,12 @@ begin
     
     microblaze_rxd  <= USB_RXD;
     
-    microblaze_gpi1(31 downto 5)    <= (others => '0');
     microblaze_gpi1(4)              <= rx0_aux_data_valid;
     microblaze_gpi1(3)              <= rx0_det;
     microblaze_gpi1(2)              <= e_ddc_edid_transm_error;
     microblaze_gpi1(1)              <= e_ddc_edid_busy;
     microblaze_gpi1(0)              <= USB_CTS;
     
-    microblaze_gpi2(31 downto 17)   <= (others => '0');
     microblaze_gpi2(16 downto 8)    <= stdlv(rx0_aux_data);
     microblaze_gpi2(7 downto 0)     <= stdlv(edid_ram_data_out);
     
@@ -430,7 +454,7 @@ begin
     ledex_rst   <= rx0_rst;
     
     ledex_cfg_addr  <= stdulv(microblaze_gpo3(11 downto 8));
-    ledex_cfg_wr_en <= stdul(microblaze_gpo3(16));
+    ledex_cfg_wr_en <= stdul(microblaze_gpo3(12));
     ledex_cfg_data  <= stdulv(microblaze_gpo3(7 downto 0));
     
     ledex_frame_vsync   <= rx0_vsync;
@@ -454,7 +478,7 @@ begin
             
             LED_VSYNC   => ledex_led_vsync,
             LED_VALID   => ledex_led_valid,
-            LED_NUM     => ledex_led_num,
+--            LED_NUM     => ledex_led_num,
             LED_RGB     => ledex_led_rgb
         );
     
@@ -466,11 +490,11 @@ begin
     ledctrl_clk <= rx0_pix_clk;
     ledctrl_rst <= rx0_rst;
     
-    ledctrl_mode    <= stdulv(microblaze_gpo3(18 downto 17));
+    ledctrl_mode    <= stdulv(microblaze_gpo3(14 downto 13));
     
-    ledctrl_led_vsync   <= ledex_led_vsync;
-    ledctrl_led_rgb     <= ledex_led_rgb;
-    ledctrl_led_wr_en   <= ledex_led_valid;
+    ledctrl_led_vsync       <= ledcorr_led_vsync_out;
+    ledctrl_led_rgb         <= ledcorr_led_rgb_out;
+    ledctrl_led_rgb_wr_en   <= ledcorr_led_rgb_out_valid;
     
     LED_CONTROL_inst : entity work.LED_CONTROL
         generic map (
@@ -483,12 +507,50 @@ begin
             
             MODE    => ledctrl_mode,
             
-            LED_VSYNC   => ledctrl_led_vsync,
-            LED_RGB     => ledctrl_led_rgb,
-            LED_WR_EN   => ledctrl_led_wr_en,
+            LED_VSYNC       => ledctrl_led_vsync,
+            LED_RGB         => ledctrl_led_rgb,
+            LED_RGB_WR_EN   => ledctrl_led_rgb_wr_en,
             
             LEDS_CLK    => ledctrl_leds_clk,
             LEDS_DATA   => ledctrl_leds_data
+        );
+    
+    
+    ----------------------
+    --- LED correction ---
+    ----------------------
+    
+    ledcorr_clk <= rx0_pix_clk;
+    ledcorr_rst <= rx0_rst;
+    
+    ledcorr_cfg_addr    <= stdulv(microblaze_gpo3(25 downto 24));
+    ledcorr_cfg_wr_en   <= stdul(microblaze_gpo3(26));
+    ledcorr_cfg_data    <= stdulv(microblaze_gpo3(23 downto 16));
+    
+    ledcorr_led_vsync_in        <= ledex_led_vsync;
+    ledcorr_led_rgb_in_wr_en    <= ledex_led_valid;
+    ledcorr_led_rgb_in          <= ledex_led_rgb;
+    
+    LED_CORRECTION_inst : entity work.LED_CORRECTION
+        generic map (
+            MAX_LED_COUNT   => MAX_LED_COUNT,
+            MAX_BUFFER_SIZE => MAX_LED_BUFFER_SIZE
+        )
+        port map (
+            CLK => ledcorr_clk,
+            RST => ledcorr_rst,
+            
+            CFG_ADDR    => ledcorr_cfg_addr,
+            CFG_WR_EN   => ledcorr_cfg_wr_en,
+            CFG_DATA    => ledcorr_cfg_data,
+            
+            LED_VSYNC_IN        => ledcorr_led_vsync_in,
+            LED_RGB_IN_WR_EN    => ledcorr_led_rgb_in_wr_en,
+            LED_RGB_IN          => ledcorr_led_rgb_in,
+            
+            LED_VSYNC_OUT       => ledcorr_led_vsync_out,
+            LED_RGB_OUT_VALID   => ledcorr_led_rgb_out_valid,
+            LED_RGB_OUT         => ledcorr_led_rgb_out
         );
     
 end rtl;

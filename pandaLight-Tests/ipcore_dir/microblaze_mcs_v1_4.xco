@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Fri Aug  1 12:38:37 2014
+# Date: Mon Aug 04 18:52:46 2014
 #
 ##############################################################
 #
@@ -51,19 +51,19 @@ CSET fit4_interrupt=false
 CSET fit4_no_clocks=6216
 CSET freq=100.0
 CSET gpi1_interrupt=Both_Edges
-CSET gpi1_size=32
+CSET gpi1_size=5
 CSET gpi2_interrupt=None
-CSET gpi2_size=32
+CSET gpi2_size=17
 CSET gpi3_interrupt=None
 CSET gpi3_size=32
 CSET gpi4_interrupt=None
 CSET gpi4_size=32
 CSET gpo1_init=0x00000000
-CSET gpo1_size=32
+CSET gpo1_size=9
 CSET gpo2_init=0x00000000
-CSET gpo2_size=32
+CSET gpo2_size=7
 CSET gpo3_init=0x00000000
-CSET gpo3_size=32
+CSET gpo3_size=27
 CSET gpo4_init=0x00000000
 CSET gpo4_size=32
 CSET intc_intr_size=1
@@ -71,7 +71,7 @@ CSET intc_level_edge=0x0000
 CSET intc_positive=0xFFFF
 CSET intc_use_ext_intr=false
 CSET jtag_chain=USER1
-CSET memsize=32KB
+CSET memsize=64KB
 CSET microblaze_instance=microblaze_mcs_v1_4
 CSET path=microblaze_inst
 CSET pit1_interrupt=false
@@ -123,4 +123,4 @@ CSET use_uart_tx=true
 MISC pkg_timestamp=2012-11-21T08:11:43Z
 # END Extra information
 GENERATE
-# CRC: 68e6033c
+# CRC: e66ef90e

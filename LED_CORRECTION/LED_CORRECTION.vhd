@@ -21,8 +21,8 @@ use work.help_funcs.all;
 
 entity LED_CORRECTION is
     generic (
-        MAX_LED_COUNT   : natural := 100;
-        MAX_BUFFER_SIZE : natural := 1024
+        MAX_LED_COUNT   : natural;
+        MAX_BUFFER_SIZE : natural
     );
     port (
         CLK : in std_ulogic;
