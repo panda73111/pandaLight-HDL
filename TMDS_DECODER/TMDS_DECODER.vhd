@@ -29,8 +29,7 @@ entity TMDS_DECODER is
         CLK_LOCKED      : in std_ulogic;
         SERDESSTROBE    : in std_ulogic;
         
-        CHANNELS_IN_P   : in std_ulogic_vector(2 downto 0);
-        CHANNELS_IN_N   : in std_ulogic_vector(2 downto 0);
+        CHANNELS_IN     : in std_ulogic_vector(2 downto 0);
         
         VSYNC           : out std_ulogic := '0';
         HSYNC           : out std_ulogic := '0';
@@ -178,8 +177,7 @@ begin
                 CLK_LOCKED      => CLK_LOCKED,
                 SERDESSTROBE    => SERDESSTROBE,
                 
-                CHANNEL_IN_P    => CHANNELS_IN_P(i),
-                CHANNEL_IN_N    => CHANNELS_IN_N(i),
+                CHANNEL_IN  => CHANNELS_IN(i),
                 
                 DATA_OUT        => chs_data(i),
                 DATA_OUT_VALID  => chs_data_valid(i)

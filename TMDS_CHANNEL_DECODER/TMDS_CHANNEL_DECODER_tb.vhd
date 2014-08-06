@@ -67,8 +67,6 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
     
-    signal decoders_channel_in_n    : std_ulogic_vector(2 downto 0) := "111";
-    
     type decoders_dec_data_type is
         array(0 to 2) of
         std_ulogic_vector(9 downto 0);
@@ -102,13 +100,9 @@ BEGIN
     decoders_rst            <= g_rst;
     decoders_clk_locked     <= clk_man_ioclk_locked;
     decoders_serdesstrobe   <= clk_man_serdesstrobe;
-    decoders_channel_in_n   <= not decoders_channel_in;
     
     TMDS_CHANNEL_DECODERS_gen : for i in 0 to 2 generate
         TMDS_CHANNEL_DECODER_inst : entity work.TMDS_CHANNEL_DECODER
-            generic map (
-                CHANNEL_NUM => i
-            )
             port map (
                 PIX_CLK         => decoders_pix_clk,
                 PIX_CLK_X2      => decoders_pix_clk_x2,
@@ -116,8 +110,7 @@ BEGIN
                 RST             => decoders_rst,
                 CLK_LOCKED      => decoders_clk_locked,
                 SERDESSTROBE    => decoders_serdesstrobe,
-                CHANNEL_IN_P    => decoders_channel_in(i),
-                CHANNEL_IN_N    => decoders_channel_in_n(i),
+                CHANNEL_IN      => decoders_channel_in(i),
                 
                 DATA_OUT        => decoders_data_out(i),
                 DATA_OUT_VALID  => decoders_data_valid(i)

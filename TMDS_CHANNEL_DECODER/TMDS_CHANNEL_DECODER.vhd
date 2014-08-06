@@ -28,8 +28,7 @@ entity TMDS_CHANNEL_DECODER is
         
         CLK_LOCKED      : in std_ulogic;
         SERDESSTROBE    : in std_ulogic;
-        CHANNEL_IN_P    : in std_ulogic;
-        CHANNEL_IN_N    : in std_ulogic;
+        CHANNEL_IN      : in std_ulogic;
         
         DATA_OUT        : out std_ulogic_vector(9 downto 0) := (others => '0');
         DATA_OUT_VALID  : out std_ulogic := '0'
@@ -39,7 +38,6 @@ end TMDS_CHANNEL_DECODER;
 architecture rtl of TMDS_CHANNEL_DECODER is
     
     signal rst_iserdes          : std_ulogic := '0';
-    signal channel_in           : std_ulogic := '0';
     signal bitslip              : std_ulogic := '0';
     signal idelay_incdec        : std_ulogic := '0';
     signal master_d, slave_d    : std_ulogic := '0';
@@ -64,16 +62,6 @@ begin
     -----------------------------
     --- entity instantiations ---
     -----------------------------
-    
-    IBUFDS_inst : IBUFDS
-        generic map (
-            IOSTANDARD  => "TMDS_33"
-        )
-        port map (
-            O   => channel_in,
-            I   => CHANNEL_IN_P,
-            IB  => CHANNEL_IN_N
-        );
     
     TMDS_CHANNEL_ISERDES_inst : entity work.TMDS_CHANNEL_ISERDES
         port map (
@@ -100,7 +88,7 @@ begin
             PIX_CLK_X2  => PIX_CLK_X2,
             RST         => RST,
             
-            CHANNEL_IN      => channel_in,
+            CHANNEL_IN      => CHANNEL_IN,
             INCDEC          => idelay_incdec,
             INCDEC_VALID    => incdec_valid,
             

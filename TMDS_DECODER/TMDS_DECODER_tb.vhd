@@ -37,8 +37,7 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS
     signal decoder_clk_locked   : std_ulogic := '0';
     signal decoder_serdesstrobe : std_ulogic := '0';
     
-    signal decoder_channels_in_p    : std_ulogic_vector(2 downto 0) := "000";
-    signal decoder_channels_in_n    : std_ulogic_vector(2 downto 0) := "111";
+    signal decoder_channels_in  : std_ulogic_vector(2 downto 0) := "000";
 
     -- Outputs
     signal decoder_vsync            : std_ulogic := '0';
@@ -90,7 +89,6 @@ BEGIN
     decoder_rst             <= g_rst;
     decoder_clk_locked      <= clk_man_ioclk_locked;
     decoder_serdesstrobe    <= clk_man_serdesstrobe;
-    decoder_channels_in_n    <= not decoder_channels_in_p;
     
     TMDS_DECODER_inst : entity work.TMDS_DECODER
         port map (
@@ -100,8 +98,7 @@ BEGIN
             RST             => decoder_rst,
             CLK_LOCKED      => decoder_clk_locked,
             SERDESSTROBE    => decoder_serdesstrobe,
-            CHANNELS_IN_P   => decoder_channels_in_p,
-            CHANNELS_IN_N   => decoder_channels_in_n,
+            CHANNELS_IN     => decoder_channels_in,
             
             HSYNC           => decoder_hsync,
             VSYNC           => decoder_vsync,
@@ -139,7 +136,7 @@ BEGIN
     
     decoder_channels_delay_gen : for i in 0 to 2 generate
         
-        decoder_channels_in_p(i)  <=
+        decoder_channels_in(i)  <=
             transport decoder_channels_in_del(i) after
             decoder_channels_phases(i) / 360.0 * pix_clk_period;
         
