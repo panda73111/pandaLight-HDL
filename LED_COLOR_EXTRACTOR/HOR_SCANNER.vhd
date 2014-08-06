@@ -242,8 +242,8 @@ begin
             
             ov_p    := p+1 mod 256;
             if ov_wr_en='1' then
-                led_buf(ov_p)  <= ov_di;
-                ov_do               <= ov_di;
+                led_buf(ov_p)   <= ov_di;
+                ov_do           <= ov_di;
             else
                 ov_do   <= led_buf(ov_p);
             end if;

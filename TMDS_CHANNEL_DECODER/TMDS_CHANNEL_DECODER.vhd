@@ -30,6 +30,7 @@ entity TMDS_CHANNEL_DECODER is
         SERDESSTROBE    : in std_ulogic;
         CHANNEL_IN      : in std_ulogic;
         
+        DATA_OUT_X2     : out std_ulogic_vector(4 downto 0) := "0000";
         DATA_OUT        : out std_ulogic_vector(9 downto 0) := (others => '0');
         DATA_OUT_VALID  : out std_ulogic := '0'
     );
@@ -55,6 +56,8 @@ begin
     ---------------------
     --- static routes ---
     ---------------------
+    
+    DATA_OUT_X2 <= gearbox_x2_data;
     
     rst_iserdes <= RST or not CLK_LOCKED;
     

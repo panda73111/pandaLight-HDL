@@ -14,9 +14,6 @@
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
 entity TMDS_DECODER is
@@ -31,6 +28,9 @@ entity TMDS_DECODER is
         
         CHANNELS_IN     : in std_ulogic_vector(2 downto 0);
         
+        ENC_DATA        : out std_ulogic_vector(14 downto 0) := (others => '0');
+        ENC_DATA_VALID  : out std_ulogic := '0';
+        
         VSYNC           : out std_ulogic := '0';
         HSYNC           : out std_ulogic := '0';
         RGB             : out std_ulogic_vector(23 downto 0) := x"000000";
@@ -44,6 +44,10 @@ architecture rtl of TMDS_DECODER is
     type chs_data_type is
         array(0 to 2) of
         std_ulogic_vector(9 downto 0);
+    
+    type chs_data_x2_type is
+        array(0 to 2) of
+        std_ulogic_vector(4 downto 0);
     
     type state_type is (
         WAIT_FOR_SYNC,
@@ -80,6 +84,7 @@ architecture rtl of TMDS_DECODER is
         );
     
     signal chs_data         : chs_data_type := (others => (others => '0'));
+    signal chs_data_x2      : chs_data_x2_type := (others => "00000");
     signal chs_data_valid   : std_ulogic_vector(2 downto 0) := "000";
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -159,6 +164,9 @@ architecture rtl of TMDS_DECODER is
     
 begin
     
+    ENC_DATA        <= chs_data_x2(2) & chs_data_x2(1) & chs_data_x2(0);
+    ENC_DATA_VALID  <= '1' when chs_data_valid="111" else '0';
+    
     RGB             <= cur_reg.rgb;
     HSYNC           <= cur_reg.hsync and cur_reg.rgb_valid;
     VSYNC           <= cur_reg.vsync;
@@ -179,6 +187,7 @@ begin
                 
                 CHANNEL_IN  => CHANNELS_IN(i),
                 
+                DATA_OUT_X2     => chs_data_x2(i),
                 DATA_OUT        => chs_data(i),
                 DATA_OUT_VALID  => chs_data_valid(i)
             );

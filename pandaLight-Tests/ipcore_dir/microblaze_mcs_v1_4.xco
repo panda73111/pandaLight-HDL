@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Wed Aug  6 12:24:44 2014
+# Date: Wed Aug 06 21:57:40 2014
 #
 ##############################################################
 #
@@ -59,7 +59,7 @@ CSET gpi3_size=32
 CSET gpi4_interrupt=None
 CSET gpi4_size=32
 CSET gpo1_init=0x00000000
-CSET gpo1_size=10
+CSET gpo1_size=11
 CSET gpo2_init=0x00000000
 CSET gpo2_size=7
 CSET gpo3_init=0x00000000
@@ -71,7 +71,7 @@ CSET intc_level_edge=0x0000
 CSET intc_positive=0xFFFF
 CSET intc_use_ext_intr=false
 CSET jtag_chain=USER1
-CSET memsize=64KB
+CSET memsize=32KB
 CSET microblaze_instance=microblaze_mcs_v1_4
 CSET path=microblaze_inst
 CSET pit1_interrupt=false
@@ -123,4 +123,4 @@ CSET use_uart_tx=true
 MISC pkg_timestamp=2012-11-21T08:11:43Z
 # END Extra information
 GENERATE
-# CRC: 6500f414
+# CRC: 84e84d0e
