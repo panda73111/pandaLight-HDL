@@ -1,0 +1,63 @@
+START:Strategy:1:MapRunTime
+REMOTE_PID:17022
+RUNNING:17022:17026:MapRunTime:map:PANDA_LIGHT.ngd: -ol high -w  -p xc6slx9-tqg144-3 -o PANDA_LIGHT_map.ncd  :slhome:slsebastian:slGitHub:slVHDL:slpandaLight:dsHDL:slpandaLight:dsTests:slsmartxplorer_results:slrun1:slPANDA_LIGHT.pcf
+STATUS:MapRunTime:map:Score:None:lut:None:slice_reg:1,711 (14%):slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.10 secs 
+STATUS:MapRunTime:map:Score:None:lut:2,671 (46%):slice_reg:1,711 (14%):slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.10 secs 
+STATUS:MapRunTime:map:Score:None:lut:2,671 (46%):slice_reg:1,711 (14%):slice:1,013 (70%):bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.10 secs 
+STATUS:MapRunTime:map:Score:None:lut:2,671 (46%):slice_reg:1,711 (14%):slice:1,013 (70%):bram:19:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.10 secs 
+STATUS:MapRunTime:map:Score:None:lut:2,671 (46%):slice_reg:1,711 (14%):slice:1,013 (70%):bram:22:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.10 secs 
+STATUS:MapRunTime:map:Score:None:lut:2,671 (46%):slice_reg:1,711 (14%):slice:1,013 (70%):bram:22:dsp48:0 (0%):mult18x18:None:Power:None:wnsInfo:None:Time:70.10 secs 
+DONE:map:0
+RUNNING:17022:17039:MapRunTime:par:PANDA_LIGHT_map.ncd: -ol high  -w PANDA_LIGHT.ncd  :slhome:slsebastian:slGitHub:slVHDL:slpandaLight:dsHDL:slpandaLight:dsTests:slsmartxplorer_results:slrun1:slPANDA_LIGHT.pcf
+STATUS:MapRunTime:par:Score:None:lut:None:slice_reg:None:slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:-6.247ns:Time:160.18 secs 
+DONE:par:31
+START:Strategy:2:MapLogicOpt
+REMOTE_PID:17048
+RUNNING:17048:17052:MapLogicOpt:map:PANDA_LIGHT.ngd: -ol high -xe n -logic_opt on -t 2 -w  -p xc6slx9-tqg144-3 -o PANDA_LIGHT_map.ncd  :slhome:slsebastian:slGitHub:slVHDL:slpandaLight:dsHDL:slpandaLight:dsTests:slsmartxplorer_results:slrun2:slPANDA_LIGHT.pcf
+STATUS:MapLogicOpt:map:Score:None:lut:None:slice_reg:1,711 (14%):slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.10 secs 
+STATUS:MapLogicOpt:map:Score:None:lut:2,670 (46%):slice_reg:1,711 (14%):slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.10 secs 
+STATUS:MapLogicOpt:map:Score:None:lut:2,670 (46%):slice_reg:1,711 (14%):slice:1,013 (70%):bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.10 secs 
+STATUS:MapLogicOpt:map:Score:None:lut:2,670 (46%):slice_reg:1,711 (14%):slice:1,013 (70%):bram:19:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.11 secs 
+STATUS:MapLogicOpt:map:Score:None:lut:2,670 (46%):slice_reg:1,711 (14%):slice:1,013 (70%):bram:22:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.11 secs 
+STATUS:MapLogicOpt:map:Score:None:lut:2,670 (46%):slice_reg:1,711 (14%):slice:1,013 (70%):bram:22:dsp48:0 (0%):mult18x18:None:Power:None:wnsInfo:None:Time:70.11 secs 
+DONE:map:0
+RUNNING:17048:17061:MapLogicOpt:par:PANDA_LIGHT_map.ncd: -ol high -xe n  -w PANDA_LIGHT.ncd  :slhome:slsebastian:slGitHub:slVHDL:slpandaLight:dsHDL:slpandaLight:dsTests:slsmartxplorer_results:slrun2:slPANDA_LIGHT.pcf
+STATUS:MapLogicOpt:par:Score:None:lut:None:slice_reg:None:slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:-6.024ns:Time:160.20 secs 
+DONE:par:31
+START:Strategy:3:MapGlobOptIOReg
+REMOTE_PID:17070
+RUNNING:17070:17074:MapGlobOptIOReg:map:PANDA_LIGHT.ngd: -ol high -global_opt speed -pr b -w  -p xc6slx9-tqg144-3 -o PANDA_LIGHT_map.ncd  :slhome:slsebastian:slGitHub:slVHDL:slpandaLight:dsHDL:slpandaLight:dsTests:slsmartxplorer_results:slrun3:slPANDA_LIGHT.pcf
+STATUS:MapGlobOptIOReg:map:Score:None:lut:None:slice_reg:1,704 (14%):slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:105.13 secs 
+STATUS:MapGlobOptIOReg:map:Score:None:lut:2,453 (42%):slice_reg:1,704 (14%):slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:105.13 secs 
+STATUS:MapGlobOptIOReg:map:Score:None:lut:2,453 (42%):slice_reg:1,704 (14%):slice:925 (64%):bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:105.13 secs 
+STATUS:MapGlobOptIOReg:map:Score:None:lut:2,453 (42%):slice_reg:1,704 (14%):slice:925 (64%):bram:19:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:105.13 secs 
+STATUS:MapGlobOptIOReg:map:Score:None:lut:2,453 (42%):slice_reg:1,704 (14%):slice:925 (64%):bram:22:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:105.13 secs 
+STATUS:MapGlobOptIOReg:map:Score:None:lut:2,453 (42%):slice_reg:1,704 (14%):slice:925 (64%):bram:22:dsp48:0 (0%):mult18x18:None:Power:None:wnsInfo:None:Time:105.13 secs 
+DONE:map:0
+RUNNING:17070:17093:MapGlobOptIOReg:par:PANDA_LIGHT_map.ncd: -ol high -xe n  -w PANDA_LIGHT.ncd  :slhome:slsebastian:slGitHub:slVHDL:slpandaLight:dsHDL:slpandaLight:dsTests:slsmartxplorer_results:slrun3:slPANDA_LIGHT.pcf
+STATUS:MapGlobOptIOReg:par:Score:None:lut:None:slice_reg:None:slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:-6.522ns:Time:195.20 secs 
+DONE:par:31
+START:Strategy:4:MapRegDup
+REMOTE_PID:17112
+RUNNING:17112:17116:MapRegDup:map:PANDA_LIGHT.ngd: -ol high -xe n -register_duplication on -w  -p xc6slx9-tqg144-3 -o PANDA_LIGHT_map.ncd  :slhome:slsebastian:slGitHub:slVHDL:slpandaLight:dsHDL:slpandaLight:dsTests:slsmartxplorer_results:slrun4:slPANDA_LIGHT.pcf
+STATUS:MapRegDup:map:Score:None:lut:None:slice_reg:1,744 (15%):slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:85.13 secs 
+STATUS:MapRegDup:map:Score:None:lut:2,695 (47%):slice_reg:1,744 (15%):slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:85.13 secs 
+STATUS:MapRegDup:map:Score:None:lut:2,695 (47%):slice_reg:1,744 (15%):slice:1,006 (70%):bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:85.13 secs 
+STATUS:MapRegDup:map:Score:None:lut:2,695 (47%):slice_reg:1,744 (15%):slice:1,006 (70%):bram:19:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:85.14 secs 
+STATUS:MapRegDup:map:Score:None:lut:2,695 (47%):slice_reg:1,744 (15%):slice:1,006 (70%):bram:22:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:85.14 secs 
+STATUS:MapRegDup:map:Score:None:lut:2,695 (47%):slice_reg:1,744 (15%):slice:1,006 (70%):bram:22:dsp48:0 (0%):mult18x18:None:Power:None:wnsInfo:None:Time:85.14 secs 
+DONE:map:0
+RUNNING:17112:17150:MapRegDup:par:PANDA_LIGHT_map.ncd: -ol high -xe n  -w PANDA_LIGHT.ncd  :slhome:slsebastian:slGitHub:slVHDL:slpandaLight:dsHDL:slpandaLight:dsTests:slsmartxplorer_results:slrun4:slPANDA_LIGHT.pcf
+STATUS:MapRegDup:par:Score:None:lut:None:slice_reg:None:slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:-5.978ns:Time:175.20 secs 
+DONE:par:31
+START:Strategy:5:MapExtraEffortIOReg
+REMOTE_PID:17165
+RUNNING:17165:17169:MapExtraEffortIOReg:map:PANDA_LIGHT.ngd: -ol high -xe n -pr b -t 7 -w  -p xc6slx9-tqg144-3 -o PANDA_LIGHT_map.ncd  :slhome:slsebastian:slGitHub:slVHDL:slpandaLight:dsHDL:slpandaLight:dsTests:slsmartxplorer_results:slrun5:slPANDA_LIGHT.pcf
+STATUS:MapExtraEffortIOReg:map:Score:None:lut:None:slice_reg:1,709 (14%):slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.11 secs 
+STATUS:MapExtraEffortIOReg:map:Score:None:lut:2,686 (46%):slice_reg:1,709 (14%):slice:None:bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.11 secs 
+STATUS:MapExtraEffortIOReg:map:Score:None:lut:2,686 (46%):slice_reg:1,709 (14%):slice:986 (68%):bram:None:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.11 secs 
+STATUS:MapExtraEffortIOReg:map:Score:None:lut:2,686 (46%):slice_reg:1,709 (14%):slice:986 (68%):bram:19:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.12 secs 
+STATUS:MapExtraEffortIOReg:map:Score:None:lut:2,686 (46%):slice_reg:1,709 (14%):slice:986 (68%):bram:22:dsp48:None:mult18x18:None:Power:None:wnsInfo:None:Time:70.12 secs 
+STATUS:MapExtraEffortIOReg:map:Score:None:lut:2,686 (46%):slice_reg:1,709 (14%):slice:986 (68%):bram:22:dsp48:0 (0%):mult18x18:None:Power:None:wnsInfo:None:Time:70.12 secs 
+DONE:map:0
+RUNNING:17165:17181:MapExtraEffortIOReg:par:PANDA_LIGHT_map.ncd: -ol high -xe n  -w PANDA_LIGHT.ncd  :slhome:slsebastian:slGitHub:slVHDL:slpandaLight:dsHDL:slpandaLight:dsTests:slsmartxplorer_results:slrun5:slPANDA_LIGHT.pcf

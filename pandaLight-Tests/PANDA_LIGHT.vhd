@@ -52,12 +52,18 @@ entity PANDA_LIGHT is
         TX_EN               : out std_ulogic := '0';
         
         -- USB UART
-        USB_TXD     : out std_ulogic;
+        USB_TXD     : out std_ulogic := '0';
         USB_RXD     : in std_ulogic;
-        USB_RTS     : out std_ulogic;
+        USB_RTS     : out std_ulogic := '0';
         USB_CTS     : in std_ulogic;
         USB_RXLED   : in std_ulogic;
         USB_TXLED   : in std_ulogic;
+        
+        -- Blutooth UART
+        BT_TXD  : out std_ulogic := '0';
+        BT_RXD  : in std_ulogic;
+        BT_RTS  : out std_ulogic := '0';
+        BT_CTS  : in std_ulogic;
         
         -- LED strip
         LEDS_CLK    : out std_ulogic := '0';
@@ -77,6 +83,8 @@ architecture rtl of PANDA_LIGHT is
     
     signal g_clk_stopped    : std_ulogic := '0';
     
+    signal uart_select  : std_ulogic := '0';
+    
     
     ----------------------------
     --- HDMI related signals ---
@@ -84,8 +92,10 @@ architecture rtl of PANDA_LIGHT is
     
     signal rx_select    : std_ulogic := '0';
     
-    signal rx0_clk_in   : std_ulogic := '0';
-    signal rx1_clk_in   : std_ulogic := '0';
+    signal rx0_clk_in       : std_ulogic := '0';
+    signal rx0_clk_in_buf   : std_ulogic := '0';
+    signal rx1_clk_in       : std_ulogic := '0';
+    signal rx1_clk_in_buf   : std_ulogic := '0';
     
     signal rx0_channels_in  : std_ulogic_vector(3 downto 0) := "0000";
     signal rx1_channels_in  : std_ulogic_vector(3 downto 0) := "0000";
@@ -136,7 +146,7 @@ architecture rtl of PANDA_LIGHT is
             Reset           : in std_logic;
             UART_Rx         : in std_logic;
             UART_Tx         : out std_logic;
-            GPO1            : out std_logic_vector(10 downto 0);
+            GPO1            : out std_logic_vector(12 downto 0);
             GPO2            : out std_logic_vector(6 downto 0);
             GPO3            : out std_logic_vector(26 downto 0);
             GPI1            : in std_logic_vector(5 downto 0);
@@ -156,7 +166,7 @@ architecture rtl of PANDA_LIGHT is
     
     -- Outputs
     signal microblaze_txd           : std_logic := '0';
-    signal microblaze_gpo1          : std_logic_vector(10 downto 0) := (others => '0');
+    signal microblaze_gpo1          : std_logic_vector(12 downto 0) := (others => '0');
     signal microblaze_gpo2          : std_logic_vector(6 downto 0) := (others => '0');
     signal microblaze_gpo3          : std_logic_vector(26 downto 0) := (others => '0');
     signal microblaze_gpi1_int      : std_logic := '0';
@@ -326,13 +336,18 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    USB_TXD <= microblaze_txd;
-    USB_RTS <= microblaze_gpo1(0);
+    USB_TXD <= microblaze_txd when uart_select='0' else '0';
+    USB_RTS <= microblaze_gpo1(11) when uart_select='0' else '0';
+    
+    BT_TXD  <= microblaze_txd when uart_select='1' else '0';
+    BT_RTS  <= microblaze_gpo1(11) when uart_select='1' else '0';
     
     LEDS_CLK    <= ledctrl_leds_clk;
     LEDS_DATA   <= ledctrl_leds_data;
     
     g_rst   <= g_clk_stopped;
+    
+    uart_select <= microblaze_gpo1(12);
     
     
     ------------------------------------
@@ -352,8 +367,8 @@ begin
     rx_sda_in   <= RX1_SDA when rx_select='1' else RX0_SDA;
     rx_scl_in   <= RX1_SCL when rx_select='1' else RX0_SCL;
     
-    rx_edid_ready   <= stdul(microblaze_gpo1(10));
-    rx_select       <= stdul(microblaze_gpo1(9));
+    rx_edid_ready   <= microblaze_gpo1(10);
+    rx_select       <= microblaze_gpo1(9);
     
     TX_EN   <= rx_enc_data_valid;
     
@@ -428,14 +443,14 @@ begin
     microblaze_clk  <= g_clk;
     microblaze_rst  <= g_rst;
     
-    microblaze_rxd  <= USB_RXD;
+    microblaze_rxd  <= USB_RXD when uart_select='0' else BT_RXD;
     
     microblaze_gpi1(5)              <= RX1_DET;
     microblaze_gpi1(4)              <= RX0_DET;
     microblaze_gpi1(3)              <= rx_aux_data_valid;
     microblaze_gpi1(2)              <= e_ddc_edid_transm_error;
     microblaze_gpi1(1)              <= e_ddc_edid_busy;
-    microblaze_gpi1(0)              <= USB_CTS;
+    microblaze_gpi1(0)              <= USB_CTS when uart_select='0' else BT_CTS;
     
     microblaze_gpi2(16 downto 8)    <= stdlv(rx_aux_data);
     microblaze_gpi2(7 downto 0)     <= stdlv(edid_ram_dout);
@@ -491,17 +506,29 @@ begin
             DIVCLK  => rx0_clk_in
         );
     
+    rx0_BUFG_inst : BUFG
+        port map (
+            I   => rx0_clk_in,
+            O   => rx0_clk_in_buf
+        );
+    
     rx1_BUFIO2_inst : BUFIO2
         port map (
             I       => rx1_channels_in(3),
             DIVCLK  => rx1_clk_in
         );
     
+    rx1_BUFG_inst : BUFG
+        port map (
+            I   => rx1_clk_in,
+            O   => rx1_clk_in_buf
+        );
+    
     rx_BUFGMUX_inst : BUFGMUX
         port map (
             S   => rx_select,
-            I0  => rx0_clk_in,
-            I1  => rx1_clk_in,
+            I0  => rx0_clk_in_buf,
+            I1  => rx1_clk_in_buf,
             O   => rx_channels_in(3)
         );
     

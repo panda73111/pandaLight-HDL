@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Wed Aug 06 21:57:40 2014
+# Date: Thu Aug  7 07:20:13 2014
 #
 ##############################################################
 #
@@ -59,7 +59,7 @@ CSET gpi3_size=32
 CSET gpi4_interrupt=None
 CSET gpi4_size=32
 CSET gpo1_init=0x00000000
-CSET gpo1_size=11
+CSET gpo1_size=13
 CSET gpo2_init=0x00000000
 CSET gpo2_size=7
 CSET gpo3_init=0x00000000
@@ -123,4 +123,4 @@ CSET use_uart_tx=true
 MISC pkg_timestamp=2012-11-21T08:11:43Z
 # END Extra information
 GENERATE
-# CRC: 84e84d0e
+# CRC: 10248628
