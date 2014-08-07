@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Thu Aug  7 07:20:13 2014
+# Date: Thu Aug 07 19:47:19 2014
 #
 ##############################################################
 #
@@ -40,7 +40,7 @@ SELECT MicroBlaze_MCS xilinx.com:ip:microblaze_mcs:1.4
 # END Select
 # BEGIN Parameters
 CSET component_name=microblaze_mcs_v1_4
-CSET debug_enabled=true
+CSET debug_enabled=false
 CSET fit1_interrupt=false
 CSET fit1_no_clocks=6216
 CSET fit2_interrupt=false
@@ -70,8 +70,8 @@ CSET intc_intr_size=1
 CSET intc_level_edge=0x0000
 CSET intc_positive=0xFFFF
 CSET intc_use_ext_intr=false
-CSET jtag_chain=USER1
-CSET memsize=32KB
+CSET jtag_chain=USER2
+CSET memsize=8KB
 CSET microblaze_instance=microblaze_mcs_v1_4
 CSET path=microblaze_inst
 CSET pit1_interrupt=false
@@ -123,4 +123,4 @@ CSET use_uart_tx=true
 MISC pkg_timestamp=2012-11-21T08:11:43Z
 # END Extra information
 GENERATE
-# CRC: 10248628
+# CRC: 64de7f52

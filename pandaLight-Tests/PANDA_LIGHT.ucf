@@ -2,11 +2,11 @@
 CONFIG VCCAUX  = 3.3;
 
 # Constraint for RX0
-NET "rx0_clk_in" TNM_NET = RX0_CLOCK;
+NET "rx0_channels_in[3]" TNM_NET = RX0_CLOCK;
 TIMESPEC TS_RX0_CLOCK = PERIOD "RX0_CLOCK" 74.25 MHz HIGH 50%;
 
 # Constraint for RX1
-NET "rx1_clk_in" TNM_NET = RX1_CLOCK;
+NET "rx1_channels_in[3]" TNM_NET = RX1_CLOCK;
 TIMESPEC TS_RX1_CLOCK = PERIOD "RX1_CLOCK" 74.25 MHz HIGH 50%;
 
 NET "clk20" PERIOD = 20 MHz;

@@ -19,7 +19,6 @@ use UNISIM.VComponents.all;
 entity TMDS_PASSTHROUGH is
     port (
         PIX_CLK_X2  : in std_ulogic;
-        PIX_CLK_X10 : in std_ulogic;
         RST         : in std_ulogic;
         
         SERDESSTROBE        : in std_ulogic;
@@ -36,8 +35,8 @@ architecture rtl of TMDS_PASSTHROUGH is
         array(0 to 3) of
         std_ulogic_vector(4 downto 0);
     
+    signal pix_clk_x10  : std_ulogic := '0';
     signal serdes_rst   : std_ulogic := '0';
-    
     signal serdes_din   : serdes_din_type := (others => "00000");
     
     signal cascade_di   : std_ulogic_vector(3 downto 0) := "0000";
@@ -59,6 +58,17 @@ begin
     
     tx_clk_v    <= "11111" when tx_clk='1' else "00000";
     
+    CLK_MAN_inst : entity work.CLK_MAN
+        generic map (
+            CLK_IN_PERIOD   => 6.7,
+            MULTIPLIER      => 10,
+            DIVISOR         => 1
+        )
+        port map (
+            CLK_IN  => PIX_CLK_X2,
+            CLK_OUT => pix_clk_x10
+        );
+    
     OSERDES_gen : for i in 0 to 3 generate
         
         master_OSERDES_inst : OSERDES2
@@ -72,7 +82,7 @@ begin
             port map (
                 OQ          => TX_CHANNELS_OUT(i),
                 OCE         => '1',
-                CLK0        => PIX_CLK_X10,
+                CLK0        => pix_clk_x10,
                 CLK1        => '0',
                 IOCE        => SERDESSTROBE,
                 RST         => serdes_rst,
@@ -109,7 +119,7 @@ begin
             port map (
             OQ          => open,
             OCE         => '1',
-            CLK0        => PIX_CLK_X10,
+            CLK0        => pix_clk_x10,
             CLK1        => '0',
             IOCE        => SERDESSTROBE,
             RST         => serdes_rst,

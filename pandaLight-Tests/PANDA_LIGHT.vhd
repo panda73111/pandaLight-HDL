@@ -73,7 +73,8 @@ end PANDA_LIGHT;
 
 architecture rtl of PANDA_LIGHT is
     
-    constant G_CLK_PERIOD   : real := 10.0; -- in nano seconds
+    -- 50 MHz in nano seconds
+    constant G_CLK_PERIOD   : real := 20.0;
     
     -- 1 MHz, 100 LEDs: 2.9 ms latency, ~344 fps
     constant WS2801_CLK_PERIOD  : real := 1000.0;
@@ -92,14 +93,8 @@ architecture rtl of PANDA_LIGHT is
     
     signal rx_select    : std_ulogic := '0';
     
-    signal rx0_clk_in       : std_ulogic := '0';
-    signal rx0_clk_in_buf   : std_ulogic := '0';
-    signal rx1_clk_in       : std_ulogic := '0';
-    signal rx1_clk_in_buf   : std_ulogic := '0';
-    
     signal rx0_channels_in  : std_ulogic_vector(3 downto 0) := "0000";
     signal rx1_channels_in  : std_ulogic_vector(3 downto 0) := "0000";
-    signal rx_channels_in   : std_ulogic_vector(3 downto 0) := "0000";
     
     signal rx_sda_in    : std_ulogic := '1';
     signal rx_scl_in    : std_ulogic := '1';
@@ -193,15 +188,15 @@ architecture rtl of PANDA_LIGHT is
     ----------------------------------
     
     -- Inputs
-    signal rxclk_clk_in : std_ulogic := '0';
+    signal rxclk_clk_in : std_ulogic_vector(1 downto 0) := "00";
     
     -- Outputs
-    signal rxclk_clk_out0       : std_ulogic := '0';
-    signal rxclk_clk_out1       : std_ulogic := '0';
-    signal rxclk_clk_out2       : std_ulogic := '0';
-    signal rxclk_ioclk_out      : std_ulogic := '0';
-    signal rxclk_ioclk_locked   : std_ulogic := '0';
-    signal rxclk_serdesstrobe   : std_ulogic := '0';
+    signal rxclk_clk_out0       : std_ulogic_vector(1 downto 0) := "00";
+    signal rxclk_clk_out1       : std_ulogic_vector(1 downto 0) := "00";
+    signal rxclk_clk_out2       : std_ulogic_vector(1 downto 0) := "00";
+    signal rxclk_ioclk_out      : std_ulogic_vector(1 downto 0) := "00";
+    signal rxclk_ioclk_locked   : std_ulogic_vector(1 downto 0) := "00";
+    signal rxclk_serdesstrobe   : std_ulogic_vector(1 downto 0) := "00";
     
     
     --------------------
@@ -303,7 +298,6 @@ architecture rtl of PANDA_LIGHT is
     
     -- Inputs
     signal rxpt_pix_clk_x2  : std_ulogic := '0';
-    signal rxpt_pix_clk_x10 : std_ulogic := '0';
     signal rxpt_rst         : std_ulogic := '0';
     
     -- Outputs
@@ -319,11 +313,11 @@ begin
     ------ clock management ------
     ------------------------------
     
-    CLKMAN_inst : entity work.CLKMAN
+    CLK_MAN_inst : entity work.CLK_MAN
         generic map (
             CLK_IN_PERIOD   => G_CLK_PERIOD,
             MULTIPLIER      => 5,
-            DIVISOR         => 1
+            DIVISOR         => 2
         )
         port map (
             CLK_IN          => CLK20,
@@ -500,77 +494,66 @@ begin
     --- HDMI ISerDes clock manager ---
     ----------------------------------
     
-    rx0_BUFIO2_inst : BUFIO2
-        port map (
-            I       => rx0_channels_in(3),
-            DIVCLK  => rx0_clk_in
-        );
+    rxclk_clk_in    <= rx0_channels_in(3) & rx1_channels_in(3);
     
-    rx0_BUFG_inst : BUFG
-        port map (
-            I   => rx0_clk_in,
-            O   => rx0_clk_in_buf
-        );
-    
-    rx1_BUFIO2_inst : BUFIO2
-        port map (
-            I       => rx1_channels_in(3),
-            DIVCLK  => rx1_clk_in
-        );
-    
-    rx1_BUFG_inst : BUFG
-        port map (
-            I   => rx1_clk_in,
-            O   => rx1_clk_in_buf
-        );
-    
-    rx_BUFGMUX_inst : BUFGMUX
-        port map (
-            S   => rx_select,
-            I0  => rx0_clk_in_buf,
-            I1  => rx1_clk_in_buf,
-            O   => rx_channels_in(3)
-        );
-    
-    rxclk_clk_in    <= rx_channels_in(3);
-    
-    ISERDES2_CLK_MAN_inst : entity work.ISERDES2_CLK_MAN
-        generic map (
-            MULTIPLIER      => 10,
-            CLK_IN_PERIOD   => 13.0, -- only for testing
-            DIVISOR0        => 1,    -- bit clock
-            DIVISOR1        => 5,    -- serdes clock = pixel clock * 2
-            DIVISOR2        => 10,   -- pixel clock
-            DATA_CLK_SELECT => 1,    -- clock out 1
-            IO_CLK_SELECT   => 0     -- clock out 0
-        )
-        port map (
-            CLK_IN          => rxclk_clk_in,
-            CLK_OUT0        => rxclk_clk_out0,
-            CLK_OUT1        => rxclk_clk_out1,
-            CLK_OUT2        => rxclk_clk_out2,
-            IOCLK_OUT       => rxclk_ioclk_out,
-            IOCLK_LOCKED    => rxclk_ioclk_locked,
-            SERDESSTROBE    => rxclk_serdesstrobe
-        );
+    rx_ISERDES2_CLK_MAN_gen : for i in 0 to 1 generate
+
+        ISERDES2_CLK_MAN_inst : entity work.ISERDES2_CLK_MAN
+            generic map (
+                MULTIPLIER      => 10,
+                CLK_IN_PERIOD   => 13.0, -- only for testing
+                DIVISOR0        => 1,    -- bit clock
+                DIVISOR1        => 5,    -- serdes clock = pixel clock * 2
+                DIVISOR2        => 10,   -- pixel clock
+                DATA_CLK_SELECT => 1,    -- clock out 1
+                IO_CLK_SELECT   => 0     -- clock out 0
+            )
+            port map (
+                CLK_IN          => rxclk_clk_in(i),
+                CLK_OUT0        => rxclk_clk_out0(i),
+                CLK_OUT1        => rxclk_clk_out1(i),
+                CLK_OUT2        => rxclk_clk_out2(i),
+                IOCLK_OUT       => rxclk_ioclk_out(i),
+                IOCLK_LOCKED    => rxclk_ioclk_locked(i),
+                SERDESSTROBE    => rxclk_serdesstrobe(i)
+            );
+        
+    end generate;
     
     
     --------------------
     --- HDMI Decoder ---
     --------------------
     
-    rx_pix_clk      <= rxclk_clk_out2;
-    rx_pix_clk_x2   <= rxclk_clk_out1;
-    rx_pix_clk_x10  <= rxclk_ioclk_out;
-    rx_rst          <= not RX1_DET when rx_select='1' else not RX0_DET;
-    rx_clk_locked   <= rxclk_ioclk_locked;
-    rx_serdesstrobe <= rxclk_serdesstrobe;
+    rx_pix_clk_BUFGMUX_inst : BUFGMUX
+        port map (
+            S   => rx_select,
+            I0  => rxclk_clk_out2(0),
+            I1  => rxclk_clk_out2(1),
+            O   => rx_pix_clk
+        );
     
-    rx_channels_in(2)  <= rx1_channels_in(2) when rx_select='1' else rx0_channels_in(2);
-    rx_channels_in(1)  <= rx1_channels_in(1) when rx_select='1' else rx0_channels_in(1);
-    rx_channels_in(0)  <= rx1_channels_in(0) when rx_select='1' else rx0_channels_in(0);
+    rx_pix_clk_x2_BUFGMUX_inst : BUFGMUX
+        port map (
+            S   => rx_select,
+            I0  => rxclk_clk_out1(0),
+            I1  => rxclk_clk_out1(1),
+            O   => rx_pix_clk_x2
+        );
     
-    TMDS_DECODER_inst : entity work.TMDS_DECODER
+    rxclk_ioclk_out_BUFGMUX_inst : BUFGMUX
+        port map (
+            S   => rx_select,
+            I0  => rxclk_ioclk_out(0),
+            I1  => rxclk_ioclk_out(1),
+            O   => rx_pix_clk_x10
+        );
+    
+    rx_rst          <= not RX1_DET           when rx_select='1' else not RX0_DET;
+    rx_clk_locked   <= rxclk_ioclk_locked(1) when rx_select='1' else rxclk_ioclk_locked(0);
+    rx_serdesstrobe <= rxclk_serdesstrobe(1) when rx_select='1' else rxclk_serdesstrobe(0);
+    
+    TMDS_MUX_DECODER_inst : entity work.TMDS_MUX_DECODER
         port map (
             PIX_CLK         => rx_pix_clk,
             PIX_CLK_X2      => rx_pix_clk_x2,
@@ -580,7 +563,9 @@ begin
             CLK_LOCKED      => rx_clk_locked,
             SERDESSTROBE    => rx_serdesstrobe,
             
-            CHANNELS_IN     => rx_channels_in(2 downto 0),
+            RX_SELECT       => rx_select,
+            RX0_CHANNELS_IN => rx0_channels_in(2 downto 0),
+            RX1_CHANNELS_IN => rx1_channels_in(2 downto 0),
             
             ENC_DATA        => rx_enc_data,
             ENC_DATA_VALID  => rx_enc_data_valid,
@@ -708,7 +693,6 @@ begin
     -----------------------------
     
     rxpt_pix_clk_x2     <= rx_pix_clk_x2;
-    rxpt_pix_clk_x10    <= rx_pix_clk_x10;
     rxpt_rst            <= rx_rst;
     
     rxpt_serdesstrobe       <= rx_serdesstrobe;
@@ -718,7 +702,6 @@ begin
     TMDS_PASSTHROUGH_inst : entity work.TMDS_PASSTHROUGH
         port map (
             PIX_CLK_X2  => rxpt_pix_clk_x2,
-            PIX_CLK_X10 => rxpt_pix_clk_x10,
             RST         => rxpt_rst,
             
             SERDESSTROBE        => rxpt_serdesstrobe,
