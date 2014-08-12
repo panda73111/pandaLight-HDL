@@ -6,10 +6,8 @@
 -- Module Name:    i2c-master - rtl
 -- Tool versions:  Xilinx ISE 14.7
 -- Description: 
---   This core implements the enhanced display data channel (1.1), 100 kHz
---   and is compatibel to DDC2B
--- Revision: 0
--- Revision 0.01 - File Created
+--   This core implements the enhanced display data channel (1.1) in master mode
+--   (100 kHz) and is compatible to DDC2B
 -- Additional Comments:
 --   Generic:
 --     CLK_IN_PERIOD : clock period of CLK in nanoseconds
@@ -30,8 +28,6 @@
 library IEEE;
 use IEEE.std_logic_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 
 entity DDC_EDID_MASTER is
     generic (
@@ -188,14 +184,14 @@ begin
         case cur_reg.state is
             
             when INIT =>
-                r.bit_index         := to_unsigned(7, reg_type.bit_index'length);
-                r.byte_index        := to_unsigned(127, reg_type.byte_index'length);
-                r.state             := WAIT_FOR_START;
+                r.bit_index     := to_unsigned(7, reg_type.bit_index'length);
+                r.byte_index    := to_unsigned(127, reg_type.byte_index'length);
+                r.state         := WAIT_FOR_START;
             
             when WAIT_FOR_START =>
                 if START = '1' then
-                    r.error     := '0';
-                    r.state         := WAIT_FOR_RECEIVER;
+                    r.error := '0';
+                    r.state := WAIT_FOR_RECEIVER;
                 end if;
             
             when WAIT_FOR_RECEIVER =>
