@@ -18,10 +18,9 @@ use UNISIM.VComponents.all;
 
 entity TMDS_PASSTHROUGH is
     port (
-        PIX_CLK_X2  : in std_ulogic;
-        RST         : in std_ulogic;
+        PIX_CLK : in std_ulogic;
+        RST     : in std_ulogic;
         
-        SERDESSTROBE        : in std_ulogic;
         RX_ENC_DATA         : in std_ulogic_vector(14 downto 0);
         RX_ENC_DATA_VALID   : in std_ulogic;
         
@@ -35,7 +34,10 @@ architecture rtl of TMDS_PASSTHROUGH is
         array(0 to 3) of
         std_ulogic_vector(4 downto 0);
     
+    signal pix_clk_x2   : std_ulogic := '0';
     signal pix_clk_x10  : std_ulogic := '0';
+    signal serdesstrobe : std_ulogic := '0';
+    
     signal serdes_rst   : std_ulogic := '0';
     signal serdes_din   : serdes_din_type := (others => "00000");
     
@@ -58,15 +60,23 @@ begin
     
     tx_clk_v    <= "11111" when tx_clk='1' else "00000";
     
-    CLK_MAN_inst : entity work.CLK_MAN
+    OSERDES2_CLK_MAN_inst : entity work.OSERDES2_CLK_MAN
         generic map (
-            CLK_IN_PERIOD   => 6.7,
+            CLK_IN_PERIOD   => 7.0,
             MULTIPLIER      => 10,
-            DIVISOR         => 1
+            DIVISOR0        => 1,
+            DIVISOR1        => 5,
+            DIVISOR2        => 10,
+            IO_CLK_SELECT   => 0,
+            DATA_CLK_SELECT => 1,
+            SKIP_INBUF      => true
         )
         port map (
-            CLK_IN  => PIX_CLK_X2,
-            CLK_OUT => pix_clk_x10
+            CLK_IN  => PIX_CLK,
+            
+            CLK_OUT1        => pix_clk_x2,
+            IOCLK_OUT       => pix_clk_x10,
+            SERDESSTROBE    => serdesstrobe
         );
     
     OSERDES_gen : for i in 0 to 3 generate
@@ -84,9 +94,9 @@ begin
                 OCE         => '1',
                 CLK0        => pix_clk_x10,
                 CLK1        => '0',
-                IOCE        => SERDESSTROBE,
+                IOCE        => serdesstrobe,
                 RST         => serdes_rst,
-                CLKDIV      => PIX_CLK_X2,
+                CLKDIV      => pix_clk_x2,
                 D4          => '0',
                 D3          => '0',
                 D2          => '0',
@@ -121,9 +131,9 @@ begin
             OCE         => '1',
             CLK0        => pix_clk_x10,
             CLK1        => '0',
-            IOCE        => SERDESSTROBE,
+            IOCE        => serdesstrobe,
             RST         => serdes_rst,
-            CLKDIV      => PIX_CLK_X2,
+            CLKDIV      => pix_clk_x2,
             D4          => serdes_din(i)(3),
             D3          => serdes_din(i)(2),
             D2          => serdes_din(i)(1),
@@ -147,11 +157,11 @@ begin
         
     end generate;
     
-    tx_clk_proc : process(RST, PIX_CLK_X2)
+    tx_clk_proc : process(RST, pix_clk_x2)
     begin
         if RST='1' then
             tx_clk  <= '0';
-        elsif rising_edge(PIX_CLK_X2) then
+        elsif rising_edge(pix_clk_x2) then
             tx_clk  <= not tx_clk;
             if RX_ENC_DATA_VALID='0' then
                 tx_clk  <= '0';

@@ -28,21 +28,13 @@ entity PANDA_LIGHT is
         CLK20   : in std_ulogic;
         
         -- HDMI
-        RX0_CHANNELS_IN_P   : in std_ulogic_vector(3 downto 0);
-        RX0_CHANNELS_IN_N   : in std_ulogic_vector(3 downto 0);
-        RX0_SDA             : inout std_ulogic := 'Z';
-        RX0_SCL             : inout std_ulogic := 'Z';
-        RX0_CEC             : inout std_ulogic := 'Z';
-        RX0_DET             : in std_ulogic;
-        RX0_EN              : out std_ulogic := '0';
-        
-        RX1_CHANNELS_IN_P   : in std_ulogic_vector(3 downto 0);
-        RX1_CHANNELS_IN_N   : in std_ulogic_vector(3 downto 0);
-        RX1_SDA             : inout std_ulogic := 'Z';
-        RX1_SCL             : inout std_ulogic := 'Z';
-        RX1_CEC             : inout std_ulogic := 'Z';
-        RX1_DET             : in std_ulogic;
-        RX1_EN              : out std_ulogic := '0';
+        RX_CHANNELS_IN_P    : in std_ulogic_vector(3 downto 0);
+        RX_CHANNELS_IN_N    : in std_ulogic_vector(3 downto 0);
+        RX_SDA              : inout std_ulogic := 'Z';
+        RX_SCL              : inout std_ulogic := 'Z';
+        RX_CEC              : inout std_ulogic := 'Z';
+        RX_DET              : in std_ulogic;
+        RX_EN               : out std_ulogic := '0';
         
         TX_CHANNELS_OUT_P   : out std_ulogic_vector(3 downto 0) := "0000";
         TX_CHANNELS_OUT_N   : out std_ulogic_vector(3 downto 0) := "0000";
@@ -91,19 +83,12 @@ architecture rtl of PANDA_LIGHT is
     --- HDMI related signals ---
     ----------------------------
     
-    signal rx_select    : std_ulogic := '0';
-    
-    signal rx0_channels_in  : std_ulogic_vector(3 downto 0) := "0000";
-    signal rx1_channels_in  : std_ulogic_vector(3 downto 0) := "0000";
-    
-    signal rx_sda_in    : std_ulogic := '1';
-    signal rx_scl_in    : std_ulogic := '1';
-    
-    signal rx0_cec_in   : std_ulogic := '0';
-    signal rx1_cec_in   : std_ulogic := '0';
-    
+    signal rx_sda_in        : std_ulogic := '1';
+    signal rx_scl_in        : std_ulogic := '1';
+    signal rx_cec_in        : std_ulogic := '0';
     signal rx_edid_ready    : std_ulogic := '0';
     
+    signal rx_channels_in   : std_ulogic_vector(3 downto 0) := "0000";
     signal tx_channels_out  : std_ulogic_vector(3 downto 0) := "0000";
     
     
@@ -141,10 +126,10 @@ architecture rtl of PANDA_LIGHT is
             Reset           : in std_logic;
             UART_Rx         : in std_logic;
             UART_Tx         : out std_logic;
-            GPO1            : out std_logic_vector(12 downto 0);
+            GPO1            : out std_logic_vector(11 downto 0);
             GPO2            : out std_logic_vector(6 downto 0);
             GPO3            : out std_logic_vector(26 downto 0);
-            GPI1            : in std_logic_vector(5 downto 0);
+            GPI1            : in std_logic_vector(4 downto 0);
             GPI1_Interrupt  : out std_logic;
             GPI2            : in std_logic_vector(16 downto 0);
             GPI2_Interrupt  : out std_logic;
@@ -156,12 +141,12 @@ architecture rtl of PANDA_LIGHT is
     signal microblaze_clk   : std_logic := '0';
     signal microblaze_rst   : std_logic := '0';
     signal microblaze_rxd   : std_logic := '0';
-    signal microblaze_gpi1  : std_logic_vector(5 downto 0) := (others => '0');
+    signal microblaze_gpi1  : std_logic_vector(4 downto 0) := (others => '0');
     signal microblaze_gpi2  : std_logic_vector(16 downto 0) := (others => '0');
     
     -- Outputs
     signal microblaze_txd           : std_logic := '0';
-    signal microblaze_gpo1          : std_logic_vector(12 downto 0) := (others => '0');
+    signal microblaze_gpo1          : std_logic_vector(11 downto 0) := (others => '0');
     signal microblaze_gpo2          : std_logic_vector(6 downto 0) := (others => '0');
     signal microblaze_gpo3          : std_logic_vector(26 downto 0) := (others => '0');
     signal microblaze_gpi1_int      : std_logic := '0';
@@ -188,20 +173,19 @@ architecture rtl of PANDA_LIGHT is
     ----------------------------------
     
     -- Inputs
-    signal rxclk_clk_in : std_ulogic_vector(1 downto 0) := "00";
+    signal rxclk_clk_in : std_ulogic := '0';
     
     -- Outputs
-    signal rxclk_clk_out0       : std_ulogic_vector(1 downto 0) := "00";
-    signal rxclk_clk_out1       : std_ulogic_vector(1 downto 0) := "00";
-    signal rxclk_clk_out2       : std_ulogic_vector(1 downto 0) := "00";
-    signal rxclk_ioclk_out      : std_ulogic_vector(1 downto 0) := "00";
-    signal rxclk_ioclk_locked   : std_ulogic_vector(1 downto 0) := "00";
-    signal rxclk_serdesstrobe   : std_ulogic_vector(1 downto 0) := "00";
+    signal rxclk_clk_out1       : std_ulogic := '0';
+    signal rxclk_clk_out2       : std_ulogic := '0';
+    signal rxclk_ioclk_out      : std_ulogic := '0';
+    signal rxclk_ioclk_locked   : std_ulogic := '0';
+    signal rxclk_serdesstrobe   : std_ulogic := '0';
     
     
-    --------------------
-    --- HDMI Decoder ---
-    --------------------
+    -----------------------
+    --- RX HDMI Decoder ---
+    -----------------------
     
     -- Inputs
     signal rx_pix_clk       : std_ulogic := '0';
@@ -211,9 +195,6 @@ architecture rtl of PANDA_LIGHT is
     
     signal rx_clk_locked    : std_ulogic := '0';
     signal rx_serdesstrobe  : std_ulogic := '0';
-    
-    signal rx_ch_in_p   : std_ulogic_vector(2 downto 0) := "000";
-    signal rx_ch_in_n   : std_ulogic_vector(2 downto 0) := "111";
     
     -- Outputs
     signal rx_enc_data          : std_ulogic_vector(14 downto 0) := (others => '0');
@@ -297,11 +278,10 @@ architecture rtl of PANDA_LIGHT is
     -----------------------------
     
     -- Inputs
-    signal rxpt_pix_clk_x2  : std_ulogic := '0';
-    signal rxpt_rst         : std_ulogic := '0';
+    signal rxpt_pix_clk : std_ulogic := '0';
+    signal rxpt_rst     : std_ulogic := '0';
     
     -- Outputs
-    signal rxpt_serdesstrobe        : std_ulogic := '0';
     signal rxpt_rx_enc_data         : std_ulogic_vector(14 downto 0) := (others => '0');
     signal rxpt_rx_enc_data_valid   : std_ulogic := '0';
     
@@ -331,38 +311,33 @@ begin
     --------------------------------------
     
     USB_TXD <= microblaze_txd when uart_select='0' else '0';
-    USB_RTS <= microblaze_gpo1(11) when uart_select='0' else '0';
+    USB_RTS <= microblaze_gpo1(10) when uart_select='0' else '0';
     
     BT_TXD  <= microblaze_txd when uart_select='1' else '0';
-    BT_RTS  <= microblaze_gpo1(11) when uart_select='1' else '0';
+    BT_RTS  <= microblaze_gpo1(10) when uart_select='1' else '0';
     
     LEDS_CLK    <= ledctrl_leds_clk;
     LEDS_DATA   <= ledctrl_leds_data;
     
     g_rst   <= g_clk_stopped;
     
-    uart_select <= microblaze_gpo1(12);
+    uart_select <= microblaze_gpo1(11);
     
     
     ------------------------------------
     ------ HDMI signal management ------
     ------------------------------------
     
-    RX0_EN  <= rx_edid_ready;
-    RX1_EN  <= rx_edid_ready;
+    RX_EN   <= rx_edid_ready;
     
     -- drive low dominant I2C signals
-    RX0_SDA <= '0' when rx_select='0' and e_ddc_edid_sda_out='0' else 'Z';
-    RX0_SCL <= '0' when rx_select='0' and e_ddc_edid_scl_out='0' else 'Z';
+    RX_SDA <= '0' when e_ddc_edid_sda_out='0' else 'Z';
+    RX_SCL <= '0' when e_ddc_edid_scl_out='0' else 'Z';
     
-    RX1_SDA <= '0' when rx_select='1' and e_ddc_edid_sda_out='0' else 'Z';
-    RX1_SCL <= '0' when rx_select='1' and e_ddc_edid_scl_out='0' else 'Z';
+    rx_sda_in   <= RX_SDA;
+    rx_scl_in   <= RX_SCL;
     
-    rx_sda_in   <= RX1_SDA when rx_select='1' else RX0_SDA;
-    rx_scl_in   <= RX1_SCL when rx_select='1' else RX0_SCL;
-    
-    rx_edid_ready   <= microblaze_gpo1(10);
-    rx_select       <= microblaze_gpo1(9);
+    rx_edid_ready   <= microblaze_gpo1(9);
     
     TX_EN   <= rx_enc_data_valid;
     
@@ -370,20 +345,12 @@ begin
     
     diff_buf_gen : for i in 0 to 3 generate
         
-        rx0_channel_IBUFDS_inst : IBUFDS
+        rx_channel_IBUFDS_inst : IBUFDS
             generic map (DIFF_TERM  => false)
             port map (
-                I   => RX0_CHANNELS_IN_P(i),
-                IB  => RX0_CHANNELS_IN_N(i),
-                O   => rx0_channels_in(i)
-            );
-        
-        rx1_channel_IBUFDS_inst : IBUFDS
-            generic map (DIFF_TERM  => false)
-            port map (
-                I   => RX1_CHANNELS_IN_P(i),
-                IB  => RX1_CHANNELS_IN_N(i),
-                O   => rx1_channels_in(i)
+                I   => RX_CHANNELS_IN_P(i),
+                IB  => RX_CHANNELS_IN_N(i),
+                O   => rx_channels_in(i)
             );
         
         tx_channel_OBUFDS_inst : OBUFDS
@@ -439,8 +406,7 @@ begin
     
     microblaze_rxd  <= USB_RXD when uart_select='0' else BT_RXD;
     
-    microblaze_gpi1(5)              <= RX1_DET;
-    microblaze_gpi1(4)              <= RX0_DET;
+    microblaze_gpi1(4)              <= RX_DET;
     microblaze_gpi1(3)              <= rx_aux_data_valid;
     microblaze_gpi1(2)              <= e_ddc_edid_transm_error;
     microblaze_gpi1(1)              <= e_ddc_edid_busy;
@@ -494,66 +460,40 @@ begin
     --- HDMI ISerDes clock manager ---
     ----------------------------------
     
-    rxclk_clk_in    <= rx0_channels_in(3) & rx1_channels_in(3);
-    
-    rx_ISERDES2_CLK_MAN_gen : for i in 0 to 1 generate
+    rxclk_clk_in    <= rx_channels_in(3);
 
-        ISERDES2_CLK_MAN_inst : entity work.ISERDES2_CLK_MAN
-            generic map (
-                MULTIPLIER      => 10,
-                CLK_IN_PERIOD   => 13.0, -- only for testing
-                DIVISOR0        => 1,    -- bit clock
-                DIVISOR1        => 5,    -- serdes clock = pixel clock * 2
-                DIVISOR2        => 10,   -- pixel clock
-                DATA_CLK_SELECT => 1,    -- clock out 1
-                IO_CLK_SELECT   => 0     -- clock out 0
-            )
-            port map (
-                CLK_IN          => rxclk_clk_in(i),
-                CLK_OUT0        => rxclk_clk_out0(i),
-                CLK_OUT1        => rxclk_clk_out1(i),
-                CLK_OUT2        => rxclk_clk_out2(i),
-                IOCLK_OUT       => rxclk_ioclk_out(i),
-                IOCLK_LOCKED    => rxclk_ioclk_locked(i),
-                SERDESSTROBE    => rxclk_serdesstrobe(i)
-            );
-        
-    end generate;
+    ISERDES2_CLK_MAN_inst : entity work.ISERDES2_CLK_MAN
+        generic map (
+            MULTIPLIER      => 10,
+            CLK_IN_PERIOD   => 13.0, -- only for testing
+            DIVISOR0        => 1,    -- bit clock
+            DIVISOR1        => 5,    -- serdes clock = pixel clock * 2
+            DIVISOR2        => 10,   -- pixel clock
+            DATA_CLK_SELECT => 1,    -- clock out 1
+            IO_CLK_SELECT   => 0     -- clock out 0
+        )
+        port map (
+            CLK_IN          => rxclk_clk_in,
+            CLK_OUT1        => rxclk_clk_out1,
+            CLK_OUT2        => rxclk_clk_out2,
+            IOCLK_OUT       => rxclk_ioclk_out,
+            IOCLK_LOCKED    => rxclk_ioclk_locked,
+            SERDESSTROBE    => rxclk_serdesstrobe
+        );
     
     
     --------------------
     --- HDMI Decoder ---
     --------------------
     
-    rx_pix_clk_BUFGMUX_inst : BUFGMUX
-        port map (
-            S   => rx_select,
-            I0  => rxclk_clk_out2(0),
-            I1  => rxclk_clk_out2(1),
-            O   => rx_pix_clk
-        );
+    rx_pix_clk          <= rxclk_clk_out2;
+    rx_pix_clk_x2       <= rxclk_clk_out1;
+    rx_pix_clk_x10      <= rxclk_ioclk_out;
+    rx_rst              <= not RX_DET;
+    rx_clk_locked       <= rxclk_ioclk_locked;
+    rx_serdesstrobe     <= rxclk_serdesstrobe;
     
-    rx_pix_clk_x2_BUFGMUX_inst : BUFGMUX
-        port map (
-            S   => rx_select,
-            I0  => rxclk_clk_out1(0),
-            I1  => rxclk_clk_out1(1),
-            O   => rx_pix_clk_x2
-        );
-    
-    rxclk_ioclk_out_BUFGMUX_inst : BUFGMUX
-        port map (
-            S   => rx_select,
-            I0  => rxclk_ioclk_out(0),
-            I1  => rxclk_ioclk_out(1),
-            O   => rx_pix_clk_x10
-        );
-    
-    rx_rst          <= not RX1_DET           when rx_select='1' else not RX0_DET;
-    rx_clk_locked   <= rxclk_ioclk_locked(1) when rx_select='1' else rxclk_ioclk_locked(0);
-    rx_serdesstrobe <= rxclk_serdesstrobe(1) when rx_select='1' else rxclk_serdesstrobe(0);
-    
-    TMDS_MUX_DECODER_inst : entity work.TMDS_MUX_DECODER
+    rx_TMDS_DECODER_inst : entity work.TMDS_DECODER
         port map (
             PIX_CLK         => rx_pix_clk,
             PIX_CLK_X2      => rx_pix_clk_x2,
@@ -563,9 +503,7 @@ begin
             CLK_LOCKED      => rx_clk_locked,
             SERDESSTROBE    => rx_serdesstrobe,
             
-            RX_SELECT       => rx_select,
-            RX0_CHANNELS_IN => rx0_channels_in(2 downto 0),
-            RX1_CHANNELS_IN => rx1_channels_in(2 downto 0),
+            CHANNELS_IN => rx_channels_in(2 downto 0),
             
             ENC_DATA        => rx_enc_data,
             ENC_DATA_VALID  => rx_enc_data_valid,
@@ -692,19 +630,17 @@ begin
     --- RX to TX0 passthrough ---
     -----------------------------
     
-    rxpt_pix_clk_x2     <= rx_pix_clk_x2;
-    rxpt_rst            <= rx_rst;
+    rxpt_pix_clk    <= rx_pix_clk;
+    rxpt_rst        <= rx_rst;
     
-    rxpt_serdesstrobe       <= rx_serdesstrobe;
     rxpt_rx_enc_data        <= rx_enc_data;
     rxpt_rx_enc_data_valid  <= rx_enc_data_valid;
     
     TMDS_PASSTHROUGH_inst : entity work.TMDS_PASSTHROUGH
         port map (
-            PIX_CLK_X2  => rxpt_pix_clk_x2,
-            RST         => rxpt_rst,
+            PIX_CLK => rxpt_pix_clk,
+            RST     => rxpt_rst,
             
-            SERDESSTROBE        => rxpt_serdesstrobe,
             RX_ENC_DATA         => rxpt_rx_enc_data,
             RX_ENC_DATA_VALID   => rxpt_rx_enc_data_valid,
             

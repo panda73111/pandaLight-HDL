@@ -2,6 +2,7 @@
 ##############################
 .Xil/
 smartxplorer_results/
+planAhead_run_*/
 _xmsgs/
 _ngo/
 iseconfig/
