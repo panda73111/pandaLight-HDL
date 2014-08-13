@@ -97,23 +97,23 @@ architecture rtl of PANDA_LIGHT is
     -----------------------------------
     
     -- Inputs
-    signal e_ddc_edid_clk   : std_ulogic := '0';
-    signal e_ddc_edid_rst   : std_ulogic := '0';
-    signal e_ddc_edid_start : std_ulogic := '0';
+    signal eddc_m_edid_clk      : std_ulogic := '0';
+    signal eddc_m_edid_rst      : std_ulogic := '0';
+    signal eddc_m_edid_start    : std_ulogic := '0';
 
     -- BiDirs
-    signal e_ddc_edid_sda_in    : std_ulogic := '1';
-    signal e_ddc_edid_sda_out   : std_ulogic := '1';
-    signal e_ddc_edid_scl_in    : std_ulogic := '1';
-    signal e_ddc_edid_scl_out   : std_ulogic := '1';
+    signal eddc_m_edid_sda_in   : std_ulogic := '1';
+    signal eddc_m_edid_sda_out  : std_ulogic := '1';
+    signal eddc_m_edid_scl_in   : std_ulogic := '1';
+    signal eddc_m_edid_scl_out  : std_ulogic := '1';
 
     -- Outputs
-    signal e_ddc_edid_block_number      : std_ulogic_vector(7 downto 0) := (others => '0');
-    signal e_ddc_edid_busy              : std_ulogic := '0';
-    signal e_ddc_edid_transm_error      : std_ulogic := '0';
-    signal e_ddc_edid_data_out          : std_ulogic_vector(7 downto 0) := (others => '0');
-    signal e_ddc_edid_data_out_valid    : std_ulogic := '0';
-    signal e_ddc_edid_byte_index        : std_ulogic_vector(6 downto 0) := (others => '0');
+    signal eddc_m_edid_block_number     : std_ulogic_vector(7 downto 0) := (others => '0');
+    signal eddc_m_edid_busy             : std_ulogic := '0';
+    signal eddc_m_edid_transm_error     : std_ulogic := '0';
+    signal eddc_m_edid_data_out         : std_ulogic_vector(7 downto 0) := (others => '0');
+    signal eddc_m_edid_data_out_valid   : std_ulogic := '0';
+    signal eddc_m_edid_byte_index       : std_ulogic_vector(6 downto 0) := (others => '0');
     
     
     ----------------------------------------
@@ -331,8 +331,8 @@ begin
     RX_EN   <= rx_edid_ready;
     
     -- drive low dominant I2C signals
-    RX_SDA <= '0' when e_ddc_edid_sda_out='0' else 'Z';
-    RX_SCL <= '0' when e_ddc_edid_scl_out='0' else 'Z';
+    TX_SDA <= '0' when eddc_m_edid_sda_out='0' else 'Z';
+    TX_SCL <= '0' when eddc_m_edid_scl_out='0' else 'Z';
     
     rx_sda_in   <= RX_SDA;
     rx_scl_in   <= RX_SCL;
@@ -366,34 +366,34 @@ begin
     ------ E-DDC (E-)EDID Master ------
     -----------------------------------
     
-    e_ddc_edid_clk          <= g_clk;
-    e_ddc_edid_rst          <= g_rst;
-    e_ddc_edid_sda_in       <= rx_sda_in;
-    e_ddc_edid_scl_in       <= rx_scl_in;
-    e_ddc_edid_block_number <= stdulv(microblaze_gpo1(7 downto 0));
-    e_ddc_edid_start        <= microblaze_gpo1(8);
+    eddc_m_edid_clk             <= g_clk;
+    eddc_m_edid_rst             <= g_rst;
+    eddc_m_edid_sda_in          <= TX_SDA;
+    eddc_m_edid_scl_in          <= TX_SCL;
+    eddc_m_edid_block_number    <= stdulv(microblaze_gpo1(7 downto 0));
+    eddc_m_edid_start           <= microblaze_gpo1(8);
     
     DDC_EDID_MASTER_inst : entity work.DDC_EDID_MASTER
         generic map (
             CLK_IN_PERIOD   => G_CLK_PERIOD
         )
         port map (
-            CLK => e_ddc_edid_clk,
-            RST => e_ddc_edid_rst,
+            CLK => eddc_m_edid_clk,
+            RST => eddc_m_edid_rst,
             
-            SDA_IN  => e_ddc_edid_sda_in,
-            SDA_OUT => e_ddc_edid_sda_out,
-            SCL_IN  => e_ddc_edid_scl_in,
-            SCL_OUT => e_ddc_edid_scl_out,
+            SDA_IN  => eddc_m_edid_sda_in,
+            SDA_OUT => eddc_m_edid_sda_out,
+            SCL_IN  => eddc_m_edid_scl_in,
+            SCL_OUT => eddc_m_edid_scl_out,
             
-            START           => e_ddc_edid_start,
-            BLOCK_NUMBER    => e_ddc_edid_block_number,
+            START           => eddc_m_edid_start,
+            BLOCK_NUMBER    => eddc_m_edid_block_number,
             
-            BUSY            => e_ddc_edid_busy,
-            TRANSM_ERROR    => e_ddc_edid_transm_error,
-            DATA_OUT        => e_ddc_edid_data_out,
-            DATA_OUT_VALID  => e_ddc_edid_data_out_valid,
-            BYTE_INDEX      => e_ddc_edid_byte_index
+            BUSY            => eddc_m_edid_busy,
+            TRANSM_ERROR    => eddc_m_edid_transm_error,
+            DATA_OUT        => eddc_m_edid_data_out,
+            DATA_OUT_VALID  => eddc_m_edid_data_out_valid,
+            BYTE_INDEX      => eddc_m_edid_byte_index
         );
     
     
@@ -408,8 +408,8 @@ begin
     
     microblaze_gpi1(4)              <= RX_DET;
     microblaze_gpi1(3)              <= rx_aux_data_valid;
-    microblaze_gpi1(2)              <= e_ddc_edid_transm_error;
-    microblaze_gpi1(1)              <= e_ddc_edid_busy;
+    microblaze_gpi1(2)              <= eddc_m_edid_transm_error;
+    microblaze_gpi1(1)              <= eddc_m_edid_busy;
     microblaze_gpi1(0)              <= USB_CTS when uart_select='0' else BT_CTS;
     
     microblaze_gpi2(16 downto 8)    <= stdlv(rx_aux_data);
@@ -435,9 +435,9 @@ begin
     
     edid_ram_clk        <= g_clk;
     edid_ram_rd_addr    <= stdulv(microblaze_gpo2(6 downto 0));
-    edid_ram_wr_en      <= e_ddc_edid_data_out_valid;
-    edid_ram_wr_addr    <= e_ddc_edid_byte_index;
-    edid_ram_din        <= e_ddc_edid_data_out;
+    edid_ram_wr_en      <= eddc_m_edid_data_out_valid;
+    edid_ram_wr_addr    <= eddc_m_edid_byte_index;
+    edid_ram_din        <= eddc_m_edid_data_out;
     
     edid_ram_inst : entity work.DUAL_PORT_RAM
         generic map (
