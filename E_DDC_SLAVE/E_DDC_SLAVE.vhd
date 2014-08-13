@@ -7,10 +7,9 @@
 -- Tool versions:  Xilinx ISE 14.7
 -- Description: 
 --   This core implements the enhanced display data channel (1.1) in slave mode
---   (100 kHz) and is compatible to DDC2B
+--   and is compatible to DDC2B
 -- Additional Comments:
 --   Generic:
---     CLK_IN_PERIOD : clock period of CLK in nanoseconds
 --     READ_ADDR     : 8bit read address of the DDC receiver, usually 0xA1
 --     WRITE_ADDR    : 8bit write address of the DDC receiver, usually 0xA0
 --     SEG_P_ADDR    : 8bit write address of the segment pointer, usually 0x60
@@ -22,7 +21,6 @@ use work.help_funcs.all;
 
 entity E_DDC_SLAVE is
     generic (
-        CLK_IN_PERIOD   : real;
         READ_ADDR       : std_ulogic_vector(7 downto 0) := x"A1";
         WRITE_ADDR      : std_ulogic_vector(7 downto 0) := x"A0";
         SEG_P_ADDR      : std_ulogic_vector(7 downto 0) := x"60"
@@ -31,48 +29,25 @@ entity E_DDC_SLAVE is
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
-        DATA_IN_ADDR    : in std_ulogic_vector(15 downto 0);
+        DATA_IN_ADDR    : in std_ulogic_vector(6 downto 0);
         DATA_IN_WR_EN   : in std_ulogic;
         DATA_IN         : in std_ulogic_vector(7 downto 0);
+        BLOCK_VALID     : in std_ulogic;
+        BLOCK_INVALID   : in std_ulogic;
         
         SDA_IN  : in std_ulogic;
         SDA_OUT : out std_ulogic := '1';
         SCL_IN  : in std_ulogic;
         SCL_OUT : out std_ulogic := '1';
         
+        BLOCK_REQUEST   : out std_ulogic := '0';
+        BLOCK_NUMBER    : out std_ulogic_vector(7 downto 0) := x"00";
         BUSY            : out std_ulogic := '0';
         TRANSM_ERROR    : out std_ulogic := '0'
     );
 end E_DDC_SLAVE;
 
 architecture rtl of E_DDC_SLAVE is
-    
-    -- one 100 kHz cycle: scl_rise -> scl_high -> scl_fall -> scl_low
-    -- cycle_ticks : how many rising edges of CLK fit in one 100 kHz period
-    -- (the tick counter is basically a clock divider)
-    
-    -- _/~\_/~\_/~\_/~\_/~\_/~\_/~\_/~\_/~\_/~\_/~\_/~\_/~\_/~\_/  ticks of CLK
-    --                                                           
-    --      /~~~~~~~~~~~~~~~~~~~~~~\                        /~~~~  SCL_OUT
-    -- ____/                        \______________________/     
-    --      |          |           |            |                
-    --   scl_rise   scl_high    scl_fall     scl_low             
-    --                                                           
-    --     |-----------------------------------------------|       scl cycle
-    --                                                           
-    --      0         1/4         1/2          3/4                 portion of cycle_ticks
-    --                                                           
-    -- ddc (=i2c) frequency: 100 kHz = 10 000 ns => cycle_ticks = 10_000 / CLK_PERIOD
-    
-    -- rise scl at tick counter=0 and fall at tick counter=half_cycle_ticks
-    constant cycle_ticks            : positive := integer(10000.0 / CLK_IN_PERIOD);
-    constant half_cycle_ticks       : positive := cycle_ticks / 2;
-    -- probe sda when scl=high, in tick counter=(0..half_cycle_tick),
-    -- sda change is allowed when scl=low, so in tick counter=(half_cycle_ticks..cycle_ticks-1),
-    -- and we do probing exactly at 1/4 and changing at 3/4 of cycle_ticks
-    constant one_qu_cycle_ticks     : positive := half_cycle_ticks / 2;
-    constant three_qu_cycle_ticks   : positive := half_cycle_ticks + one_qu_cycle_ticks;
-    -- (for simplicity, instability of the sda line is not taken into account!)
     
     constant FIRST_BLOCK_WORD_OFFS  : std_ulogic_vector(7 downto 0) := x"00";
     constant SECOND_BLOCK_WORD_OFFS : std_ulogic_vector(7 downto 0) := x"80";
@@ -86,57 +61,52 @@ architecture rtl of E_DDC_SLAVE is
         state           : state_type;
         sda_out         : std_ulogic;
         scl_out         : std_ulogic;
-        tick_cnt        : natural range 0 to cycle_ticks-1; -- counts CLK cycles
-        seg_p           : unsigned(7 downto 0);
+        segment_pointer : unsigned(7 downto 0);
         error           : std_ulogic;
-        data_out        : std_ulogic_vector(7 downto 0);
-        data_out_valid  : std_ulogic;
+        byte            : std_ulogic_vector(7 downto 0);
         bit_index       : unsigned(2 downto 0); -- 0..7
         byte_index      : unsigned(6 downto 0); -- counts bytes of one EDID block (128 bytes)
+        block_request   : std_ulogic;
+        block_number    : std_ulogic_vector(7 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
         state           => INIT,
         sda_out         => '1',
         scl_out         => '1',
-        tick_cnt        => 0,
-        seg_p           => uns(0, reg_type.seg_p'length),
+        segment_pointer => (others => '0'),
         error           => '0',
-        data_out        => (others => '0'),
-        data_out_valid  => '0',
-        bit_index       => uns(7, reg_type.bit_index'length),
-        byte_index      => uns(127, reg_type.byte_index'length)
+        byte            => x"00",
+        bit_index       => uns(7, 3),
+        byte_index      => uns(127, 7),
+        block_request   => '0',
+        block_number    => x"00"
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal scl_rise, scl_fall   : boolean := false;
-    signal scl_high, scl_low    : boolean := false;
-    signal segment_pointer      : std_ulogic_vector(7 downto 0) := x"00";
     
     signal ram_rd_addr  : std_ulogic_vector(15 downto 0) := x"0000";
     signal ram_dout     : std_ulogic_vector(7 downto 0) := x"00";
+    
+    signal sda_in_q : std_ulogic := '1';
+    signal scl_in_q : std_ulogic := '1';
+    signal stop     : std_ulogic := '0';
     
 begin
     
     SDA_OUT <= cur_reg.sda_out;
     SCL_OUT <= cur_reg.scl_out;
     
-    BUSY            <= '0' when cur_reg.state = WAIT_FOR_START else '1';
+    BUSY            <= '0' when cur_reg.state=WAIT_FOR_START else '1';
     TRANSM_ERROR    <= cur_reg.error;
     
-    DATA_OUT        <= cur_reg.data_out;
-    DATA_OUT_VALID  <= cur_reg.data_out_valid;
-    BYTE_INDEX      <= stdulv(cur_reg.byte_index);
-    
-    scl_rise    <= cur_reg.tick_cnt = 0;
-    scl_high    <= cur_reg.tick_cnt = one_qu_cycle_ticks;
-    scl_fall    <= cur_reg.tick_cnt = half_cycle_ticks;
-    scl_low     <= cur_reg.tick_cnt = three_qu_cycle_ticks;
+    BLOCK_REQUEST   <= cur_reg.block_request;
+    BLOCK_NUMBER    <= cur_reg.block_number;
     
     DUAL_PORT_RAM_inst : entity work.DUAL_PORT_RAM
         generic map (
             WIDTH   => 8,
-            DEPTH   => 256*128
+            DEPTH   => 128
         )
         port map (
             CLK => CLK,
@@ -150,38 +120,145 @@ begin
             DOUT    => ram_dout
         );
     
-    finite_state_machine : process(RST, cur_reg, START, SDA_IN, SCL_IN,
-        BLOCK_NUMBER, scl_rise, scl_high, scl_fall, scl_low, segment_pointer)
+    stop_detect_proc : process(CLK)
+    begin
+        if rising_edge(CLK) then
+            sda_in_q    <= SDA_IN;
+            scl_in_q    <= SCL_IN;
+            -- stop condition: SDA from low to high while SCL remains high
+            stop        <=
+                (scl_in_q and SCL_IN) and
+                (not sda_in_q and SDA_IN);
+        end if;
+    end process;
+    
+    finite_state_machine : process(RST, cur_reg, BLOCK_VALID, BLOCK_INVALID, SDA_IN, SCL_IN, stop)
+        alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
-        r   := cur_reg;
+        r   := cr;
         
-        r.data_out_valid    := '0';
+        r.scl_out       := '1';
+        r.sda_out       := '1';
+        r.block_request := '0';
         
         case cur_reg.state is
             
             when INIT =>
-                r.bit_index     := uns(7, reg_type.bit_index'length);
-                r.byte_index    := uns(127, reg_type.byte_index'length);
-                r.state         := WAIT_FOR_START;
-            
-            when WAIT_FOR_START =>
-                if START='1' then
-                    r.error := '0';
-                    r.state := WAIT_FOR_SENDER;
-                end if;
+                r.bit_index     := uns(7, 3);
+                r.byte_index    := uns(127, 7);
+                r.state         := WAIT_FOR_SENDER;
             
             when WAIT_FOR_SENDER =>
-                if SCL_IN='1' then
-                    r.state := SEG_P_START;
+                if (SCL_IN and SDA_IN)='1' then
+                    r.state := WAIT_FOR_START;
                 end if;
             
-            when SEG_P_START =>
+            when WAIT_FOR_START =>
+                if SDA_IN='0' then
+                    r.state := GET_ADDR_WAIT_FOR_SCL_LOW;
+                end if;
+            
+            when GET_ADDR_WAIT_FOR_SCL_LOW =>
+                if SCL_LOW='0' then
+                    r.state := GET_ADDR_WAIT_FOR_SCL_HIGH;
+                end if;
+            
+            when GET_ADDR_WAIT_FOR_SCL_HIGH =>
+                r.byte(cr.bit_index)    := SDA_IN;
+                if SCL_IN='1' then
+                    r.bit_index := cr.bit_index-1;
+                    r.state     := GET_ADDR_WAIT_FOR_SCL_LOW;
+                    if cr.bit_index=0 then
+                        r.state := CHECK_ADDR_WAIT_FOR_SCL_LOW;
+                    end if;
+                end if;
+            
+            when CHECK_ADDR_WAIT_FOR_SCL_LOW =>
+                if SCL_IN='0' then
+                    r.state := CHECK_ADDR;
+                end if;
+            
+            when CHECK_ADDR =>
+                case cr.byte is
+                    when SEG_P_ADDR => r.state  := SEG_P_SEND_ACK_WAIT_FOR_SCL_HIGH;
+                    when WRITE_ADDR => r.state  := WORD_OFFS_SEND_ACK_WAIT_FOR_SCL_HIGH;
+                    when READ_ADDR  => r.state  := READ_SEND_ACK_WAIT_FOR_SCL_HIGH;
+                    when others     => r.state  := INIT; -- unrecognized address
+                end case;
+            
+            when SEG_P_SEND_ACK_WAIT_FOR_SCL_HIGH =>
+                r.sda_out   := '0';
+                if SCL_IN='1' then
+                    r.state := SEG_P_SEND_ACK_WAIT_FOR_SCL_LOW;
+                end if;
+            
+            when SEG_P_SEND_ACK_WAIT_FOR_SCL_LOW =>
+                r.sda_out   := '0';
+                if SCL_IN='0' then
+                    r.state := GET_SEG_P_WAIT_FOR_SCL_HIGH;
+                end if;
+            
+            when GET_SEG_P_WAIT_FOR_SCL_HIGH =>
+                r.byte(cr.bit_index)    := SDA_IN;
+                if SCL_IN='1' then
+                    r.bit_index := cr.bit_index-1;
+                    r.state     := GET_SEG_P_WAIT_FOR_SCL_LOW;
+                    if cr.bit_index=0 then
+                        r.state := WAIT_FOR_BLOCK_WAIT_FOR_SCL_LOW;
+                    end if;
+                end if;
+            
+            when GET_SEG_P_WAIT_FOR_SCL_LOW =>
+                if SCL_IN='0' then
+                    r.state := GET_SEG_P_WAIT_FOR_SCL_HIGH;
+                end if;
+            
+            when WAIT_FOR_BLOCK_WAIT_FOR_SCL_LOW =>
+                if SCL_IN='0' then
+                    r.state := WAIT_FOR_BLOCK;
+                end if;
+            
+            when WAIT_FOR_BLOCK =>
+                -- stretch the clock until the requested block is available
+                r.scl_out       := '0';
+                r.block_number  := cr.byte;
+                r.block_request := '1';
+                if BLOCK_VALID='1' then
+                    r.state := BLOCK_SEND_ACK_WAIT_FOR_SCL_HIGH;
+                end if;
+                if BLOCK_INVALID='1' then
+                    r.state := BLOCK_SEND_NACK_WAIT_FOR_SCL_HIGH;
+                end if;
+            
+            when BLOCK_SEND_ACK_WAIT_FOR_SCL_HIGH =>
+                r.sda_out   := '0';
+                if SCL_IN='1' then
+                    r.state := BLOCK_SEND_ACK_WAIT_FOR_SCL_LOW;
+                end if;
+            
+            when BLOCK_SEND_ACK_WAIT_FOR_SCL_LOW =>
+                r.sda_out   := '0';
+                if SCL_IN='0' then
+                    r.state := INIT;
+                end if;
+            
+            when BLOCK_SEND_NACK_WAIT_FOR_SCL_HIGH =>
+                if SCL_IN='1' then
+                    r.state := BLOCK_SEND_NACK_WAIT_FOR_SCL_LOW;
+                end if;
+            
+            when BLOCK_SEND_NACK_WAIT_FOR_SCL_LOW =>
+                if SCL_IN='0' then
+                    r.state := INIT;
+                end if;
+            
+            when WORD_OFFS_SEND_ACK_WAIT_FOR_SCL_HIGH =>
                 
             
         end case;
         
-        if RST='1' then
+        if RST='1' or stop='1' then
             r   := reg_type_def;
         end if;
         
