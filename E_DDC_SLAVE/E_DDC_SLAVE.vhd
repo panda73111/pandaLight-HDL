@@ -43,8 +43,7 @@ entity E_DDC_SLAVE is
         BLOCK_CHECK     : out std_ulogic := '0';
         BLOCK_REQUEST   : out std_ulogic := '0';
         BLOCK_NUMBER    : out std_ulogic_vector(7 downto 0) := x"00";
-        BUSY            : out std_ulogic := '0';
-        TRANSM_ERROR    : out std_ulogic := '0'
+        BUSY            : out std_ulogic := '0'
     );
 end E_DDC_SLAVE;
 
@@ -55,21 +54,47 @@ architecture rtl of E_DDC_SLAVE is
     
     type state_type is (
         INIT,
-        WAIT_FOR_START
+        WAIT_FOR_SENDER,
+        WAIT_FOR_START,
+        GET_ADDR_WAIT_FOR_SCL_LOW,
+        GET_ADDR_WAIT_FOR_SCL_HIGH,
+        CHECK_ADDR_WAIT_FOR_SCL_LOW,
+        CHECK_ADDR,
+        SEG_P_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH,
+        SEG_P_ADDR_SEND_ACK_WAIT_FOR_SCL_LOW,
+        GET_SEG_P_WAIT_FOR_SCL_HIGH,
+        GET_SEG_P_WAIT_FOR_SCL_LOW,
+        CHECK_FOR_BLOCK_WAIT_FOR_SCL_LOW,
+        CHECK_FOR_BLOCK,
+        BLOCK_NUM_SEND_ACK_WAIT_FOR_SCL_HIGH,
+        BLOCK_NUM_SEND_ACK_WAIT_FOR_SCL_LOW,
+        WRITE_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH,
+        WRITE_ADDR_SEND_ACK_WAIT_FOR_SCL_LOW,
+        GET_WORD_OFFS_WAIT_FOR_SCL_HIGH,
+        GET_WORD_OFFS_WAIT_FOR_SCL_LOW,
+        REQUEST_BLOCK,
+        READ_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH,
+        READ_ADDR_SEND_ACK_WAIT_FOR_SCL_LOW,
+        SEND_BYTE_WAIT_FOR_SCL_HIGH,
+        SEND_BYTE_WAIT_FOR_SCL_LOW,
+        CHECK_FOR_BLOCK_END,
+        SEND_BYTE_GET_ACK_WAIT_FOR_SCL_HIGH,
+        SEND_BYTE_GET_ACK_WAIT_FOR_SCL_LOW,
+        SEND_NACK_WAIT_FOR_SCL_HIGH,
+        SEND_NACK_WAIT_FOR_SCL_LOW
     );
     
     type reg_type is record
         state           : state_type;
         sda_out         : std_ulogic;
         scl_out         : std_ulogic;
-        segment_pointer : unsigned(6 downto 0);
-        error           : std_ulogic;
+        segment_pointer : std_ulogic_vector(6 downto 0);
         byte            : std_ulogic_vector(7 downto 0);
         bit_index       : unsigned(2 downto 0); -- 0..7
-        byte_count      : unsigned(6 downto 0); -- counts bytes of one EDID block (128 bytes)
         block_check     : std_ulogic;
         block_request   : std_ulogic;
         block_number    : std_ulogic_vector(7 downto 0);
+        ram_rd_addr     : std_ulogic_vector(6 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -77,18 +102,16 @@ architecture rtl of E_DDC_SLAVE is
         sda_out         => '1',
         scl_out         => '1',
         segment_pointer => "0000000",
-        error           => '0',
         byte            => x"00",
         bit_index       => uns(7, 3),
-        byte_count      => "0000000",
         block_check     => '0',
         block_request   => '0',
-        block_number    => x"00"
+        block_number    => x"00",
+        ram_rd_addr     => "0000000"
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     
-    signal ram_rd_addr  : std_ulogic_vector(15 downto 0) := x"0000";
     signal ram_dout     : std_ulogic_vector(7 downto 0) := x"00";
     
     signal sda_in_q : std_ulogic := '1';
@@ -101,8 +124,8 @@ begin
     SCL_OUT <= cur_reg.scl_out;
     
     BUSY            <= '0' when cur_reg.state=WAIT_FOR_START else '1';
-    TRANSM_ERROR    <= cur_reg.error;
     
+    BLOCK_CHECK     <= cur_reg.block_check;
     BLOCK_REQUEST   <= cur_reg.block_request;
     BLOCK_NUMBER    <= cur_reg.block_number;
     
@@ -113,9 +136,8 @@ begin
         )
         port map (
             CLK => CLK,
-            RST => RST,
             
-            RD_ADDR => ram_rd_addr,
+            RD_ADDR => cur_reg.ram_rd_addr,
             WR_EN   => DATA_IN_WR_EN,
             WR_ADDR => DATA_IN_ADDR,
             DIN     => DATA_IN,
@@ -135,7 +157,8 @@ begin
         end if;
     end process;
     
-    finite_state_machine : process(RST, cur_reg, BLOCK_VALID, BLOCK_INVALID, SDA_IN, SCL_IN, stop)
+    finite_state_machine : process(RST, cur_reg, BLOCK_VALID,
+        BLOCK_INVALID, SDA_IN, SCL_IN, stop, ram_dout)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
@@ -150,7 +173,7 @@ begin
             
             when INIT =>
                 r.bit_index     := uns(7, 3);
-                r.byte_count    := "0000000";
+                r.ram_rd_addr   := "0000000";
                 r.state         := WAIT_FOR_SENDER;
             
             when WAIT_FOR_SENDER =>
@@ -164,7 +187,7 @@ begin
                 end if;
             
             when GET_ADDR_WAIT_FOR_SCL_LOW =>
-                if SCL_LOW='0' then
+                if SCL_IN='0' then
                     r.state := GET_ADDR_WAIT_FOR_SCL_HIGH;
                 end if;
             
@@ -184,12 +207,11 @@ begin
                 end if;
             
             when CHECK_ADDR =>
-                case cr.byte is
-                    when SEG_P_ADDR => r.state  := SEG_P_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH;
-                    when WRITE_ADDR => r.state  := WRITE_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH;
-                    when READ_ADDR  => r.state  := REQUEST_BLOCK_WAIT_FOR_SCL_HIGH;
-                    when others     => r.state  := INIT; -- unrecognized address
-                end case;
+                if    cr.byte=SEG_P_ADDR then r.state  := SEG_P_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH;
+                elsif cr.byte=WRITE_ADDR then r.state  := WRITE_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH;
+                elsif cr.byte=READ_ADDR  then r.state  := REQUEST_BLOCK;
+                else                          r.state  := INIT; -- unrecognized address
+                end if;
             
             when SEG_P_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH =>
                 r.sda_out   := '0';
@@ -234,7 +256,7 @@ begin
                     r.state := BLOCK_NUM_SEND_ACK_WAIT_FOR_SCL_HIGH;
                 end if;
                 if BLOCK_INVALID='1' then
-                    r.state := BLOCK_NUM_SEND_NACK_WAIT_FOR_SCL_HIGH;
+                    r.state := SEND_NACK_WAIT_FOR_SCL_HIGH;
                 end if;
             
             when BLOCK_NUM_SEND_ACK_WAIT_FOR_SCL_HIGH =>
@@ -245,16 +267,6 @@ begin
             
             when BLOCK_NUM_SEND_ACK_WAIT_FOR_SCL_LOW =>
                 r.sda_out   := '0';
-                if SCL_IN='0' then
-                    r.state := INIT;
-                end if;
-            
-            when BLOCK_NUM_SEND_NACK_WAIT_FOR_SCL_HIGH =>
-                if SCL_IN='1' then
-                    r.state := BLOCK_NUM_SEND_NACK_WAIT_FOR_SCL_LOW;
-                end if;
-            
-            when BLOCK_NUM_SEND_NACK_WAIT_FOR_SCL_LOW =>
                 if SCL_IN='0' then
                     r.state := INIT;
                 end if;
@@ -288,7 +300,7 @@ begin
                     r.state := GET_WORD_OFFS_WAIT_FOR_SCL_HIGH;
                 end if;
             
-            when REQUEST_BLOCK_WAIT_FOR_SCL_HIGH =>
+            when REQUEST_BLOCK =>
                 -- stretch the clock until the requested block has been written to the RAM
                 r.scl_out       := '0';
                 r.block_request := '1';
@@ -296,7 +308,7 @@ begin
                     r.state := READ_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH;
                 end if;
                 if BLOCK_INVALID='1' then
-                    r.state := READ_ADDR_SEND_NACK_WAIT_FOR_SCL_HIGH;
+                    r.state := SEND_NACK_WAIT_FOR_SCL_HIGH;
                 end if;
             
             when READ_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH =>
@@ -311,19 +323,54 @@ begin
                     r.state := SEND_BYTE_WAIT_FOR_SCL_HIGH;
                 end if;
             
-            when READ_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH =>
-                r.sda_out   := '0';
+            when SEND_BYTE_WAIT_FOR_SCL_HIGH =>
+                r.sda_out   := ram_dout(int(cr.bit_index));
                 if SCL_IN='1' then
-                    r.state := READ_ADDR_SEND_ACK_WAIT_FOR_SCL_LOW;
+                    r.state := SEND_BYTE_WAIT_FOR_SCL_LOW;
                 end if;
             
-            when READ_ADDR_SEND_ACK_WAIT_FOR_SCL_LOW =>
-                r.sda_out   := '0';
+            when SEND_BYTE_WAIT_FOR_SCL_LOW =>
+                r.sda_out   := ram_dout(int(cr.bit_index));
+                if SCL_IN='0' then
+                    r.bit_index := cr.bit_index-1;
+                    r.state     := SEND_BYTE_WAIT_FOR_SCL_HIGH;
+                    if cr.bit_index=0 then
+                        r.state := CHECK_FOR_BLOCK_END;
+                    end if;
+                end if;
+            
+            when CHECK_FOR_BLOCK_END =>
+                r.state := SEND_BYTE_GET_ACK_WAIT_FOR_SCL_HIGH;
+                if cr.ram_rd_addr=127 then
+                    -- second block of segment
+                    r.block_number(0)   := '1';
+                    r.state             := REQUEST_BLOCK;
+                end if;
+            
+            when SEND_BYTE_GET_ACK_WAIT_FOR_SCL_HIGH =>
+                if SCL_IN='1' then
+                    r.state := SEND_BYTE_GET_ACK_WAIT_FOR_SCL_LOW;
+                    if SDA_IN='1' then
+                        -- NACK from master, end of transmission
+                        r.state := INIT;
+                    end if;
+                end if;
+            
+            when SEND_BYTE_GET_ACK_WAIT_FOR_SCL_LOW =>
+                if SCL_IN='0' then
+                    r.ram_rd_addr   := cr.ram_rd_addr+1;
+                    r.state         := SEND_BYTE_WAIT_FOR_SCL_HIGH;
+                end if;
+            
+            when SEND_NACK_WAIT_FOR_SCL_HIGH =>
+                if SCL_IN='1' then
+                    r.state := SEND_NACK_WAIT_FOR_SCL_LOW;
+                end if;
+            
+            when SEND_NACK_WAIT_FOR_SCL_LOW =>
                 if SCL_IN='0' then
                     r.state := INIT;
                 end if;
-            
-            when SEND_BYTE_WAIT_FOR_SCL_HIGH =>
             
         end case;
         
