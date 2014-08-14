@@ -8,16 +8,12 @@
 -- 
 -- VHDL Test Bench Created by ISE for module: DDC_EDID_MASTER
 -- 
--- Revision: 0
--- Revision 0.01 - File Created
 -- Additional Comments:
 --   First test: DDC2B receiver, one EDID block
 --------------------------------------------------------------------------------
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 use work.help_funcs.all;
 use work.txt_util.all;
  
@@ -118,13 +114,13 @@ BEGIN
             CLK_PERIOD  => receiver_clk_period
         )
         port map (
-            CLK                 => clk,
-            RST                 => rst,
+            CLK => clk,
+            RST => rst,
             
-            SDA_IN              => slave1_sda_in,
-            SDA_OUT             => slave1_sda_out,
-            SCL_IN              => slave1_scl_in,
-            SCL_OUT             => slave1_scl_OUT,
+            SDA_IN  => slave1_sda_in,
+            SDA_OUT => slave1_sda_out,
+            SCL_IN  => slave1_scl_in,
+            SCL_OUT => slave1_scl_out,
             
             ACTIVATE            => slave1_activate,
             CLOCK_STRETCHING    => slave1_clock_stretching,

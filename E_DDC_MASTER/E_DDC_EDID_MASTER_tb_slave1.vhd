@@ -25,8 +25,6 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 use work.help_funcs.all;
 use work.txt_util.all;
 use work.DDC_EDID_tb_funcs.all;
@@ -84,102 +82,97 @@ begin
         variable addr_match     : boolean := false;
         variable ack            : boolean := false;
     begin
-        loop
-            active  <= false;
-            BUSY    <= '0';
+        active  <= false;
+        BUSY    <= '0';
+        
+        wait until ACTIVATE = '1';
+        assert not VERBOSE
+            report CORE_NAME & ": Activated"
+            severity NOTE;
+        
+        active          <= true;
+        BUSY            <= '1';
+        TRANSM_ERROR    <= '0';
+        
+        -- get write address
+        addr_match  := false;
+        while not addr_match loop
+            -- wait for start condition
+            wait_for_start(VERBOSE, CORE_NAME, SCL_IN, SDA_IN);
+            get_address(VERBOSE, CORE_NAME, WR_ADDR, SCL_IN, SDA_IN, CLK_PERIOD, addr_match);
+        end loop;
+        
+        -- send ACK
+        send_ack(VERBOSE, CORE_NAME, SCL_IN, SDA_OUT, CLK_PERIOD);
+        if CLOCK_STRETCHING = '1' then
+            stretch_clock(VERBOSE, CORE_NAME, SCL_OUT, STRETCH_DURATION);
+        end if;
+        
+        -- get word offset
+        get_word_offset(VERBOSE, CORE_NAME, SCL_IN, SDA_IN, CLK_PERIOD, word_offset);
+        
+        -- send ACK
+        send_ack(VERBOSE, CORE_NAME, SCL_IN, SDA_OUT, CLK_PERIOD);
+        if CLOCK_STRETCHING = '1' then
+            stretch_clock(VERBOSE, CORE_NAME, SCL_OUT, STRETCH_DURATION);
+        end if;
+        
+        -- get read address
+        addr_match  := false;
+        while not addr_match loop
+            -- wait for repeated start condition
+            wait_for_start(VERBOSE, CORE_NAME, SCL_IN, SDA_IN);
+            get_address(VERBOSE, CORE_NAME, RD_ADDR, SCL_IN, SDA_IN, CLK_PERIOD, addr_match);
+        end loop;
+        
+        -- send ACK
+        send_ack(VERBOSE, CORE_NAME, SCL_IN, SDA_OUT, CLK_PERIOD);
+        if CLOCK_STRETCHING = '1' then
+            stretch_clock(VERBOSE, CORE_NAME, SCL_OUT, STRETCH_DURATION);
+        end if;
+        
+        -- send the EDID table
+        for byte_index in 0 to 127 loop
+            -- send byte
+            byte    := test1_edid_block0(byte_index);
+            send_byte(VERBOSE, CORE_NAME, SCL_IN, SDA_OUT, CLK_PERIOD, byte_index, byte);
             
-            wait until ACTIVATE = '1';
-            assert not VERBOSE
-                report CORE_NAME & ": Activated"
-                severity NOTE;
-            
-            active          <= true;
-            BUSY            <= '1';
-            TRANSM_ERROR    <= '0';
-            
-            -- get write address
-            addr_match  := false;
-            while not addr_match loop
-                -- wait for start condition
-                wait_for_start(VERBOSE, CORE_NAME, SCL_IN, SDA_IN);
-                get_address(VERBOSE, CORE_NAME, WR_ADDR, SCL_IN, SDA_IN, CLK_PERIOD, addr_match);
-            end loop;
-            
-            -- send ACK
-            send_ack(VERBOSE, CORE_NAME, SCL_IN, SDA_OUT, CLK_PERIOD);
-            if CLOCK_STRETCHING = '1' then
-                stretch_clock(VERBOSE, CORE_NAME, SCL_OUT, STRETCH_DURATION);
-            end if;
-            
-            -- get word offset
-            get_word_offset(VERBOSE, CORE_NAME, SCL_IN, SDA_IN, CLK_PERIOD, word_offset);
-            
-            -- send ACK
-            send_ack(VERBOSE, CORE_NAME, SCL_IN, SDA_OUT, CLK_PERIOD);
-            if CLOCK_STRETCHING = '1' then
-                stretch_clock(VERBOSE, CORE_NAME, SCL_OUT, STRETCH_DURATION);
-            end if;
-            
-            -- get read address
-            addr_match  := false;
-            while not addr_match loop
-                -- wait for repeated start condition
-                wait_for_start(VERBOSE, CORE_NAME, SCL_IN, SDA_IN);
-                get_address(VERBOSE, CORE_NAME, RD_ADDR, SCL_IN, SDA_IN, CLK_PERIOD, addr_match);
-            end loop;
-            
-            -- send ACK
-            send_ack(VERBOSE, CORE_NAME, SCL_IN, SDA_OUT, CLK_PERIOD);
-            if CLOCK_STRETCHING = '1' then
-                stretch_clock(VERBOSE, CORE_NAME, SCL_OUT, STRETCH_DURATION);
-            end if;
-            
-            -- send the EDID table
-            for byte_index in 0 to 127 loop
-                -- send byte
-                byte    := test1_edid_block0(byte_index);
-                send_byte(VERBOSE, CORE_NAME, SCL_IN, SDA_OUT, CLK_PERIOD, byte_index, byte);
-                
-                -- wait for ACK
-                get_ack(VERBOSE, CORE_NAME, SCL_IN, SDA_IN, CLK_PERIOD, ack);
-                if not ack then
-                    if byte_index < 127 then
-                        -- the master should have read the whole block
-                        assert false
-                            report CORE_NAME & ": Premature transmission stop by master"
-                            severity ERROR;
-                        TRANSM_ERROR    <= '1';
-                    end if;
-                    wait_for_stop(VERBOSE, CORE_NAME, SCL_IN, SDA_IN);
-                    exit;
-                elsif CLOCK_STRETCHING = '1' then
-                    stretch_clock(VERBOSE, CORE_NAME, SCL_OUT, STRETCH_DURATION);
+            -- wait for ACK
+            get_ack(VERBOSE, CORE_NAME, SCL_IN, SDA_IN, CLK_PERIOD, ack);
+            if not ack then
+                if byte_index < 127 then
+                    -- the master should have read the whole block
+                    report CORE_NAME & ": Premature transmission stop by master"
+                    severity ERROR;
+                    TRANSM_ERROR    <= '1';
                 end if;
-            end loop;
+                wait_for_stop(VERBOSE, CORE_NAME, SCL_IN, SDA_IN);
+                exit;
+            elsif CLOCK_STRETCHING = '1' then
+                stretch_clock(VERBOSE, CORE_NAME, SCL_OUT, STRETCH_DURATION);
+            end if;
         end loop;
     end process;
     
     byte_match_proc : process
-        variable index      : integer := 0;
+        variable index      : natural := 0;
         variable edid_byte  : std_ulogic_vector(7 downto 0) := (others => '0');
     begin
-        loop
-            wait until active;
-            READ_ERROR  <= '0';
-            while active loop
-                wait until rising_edge(CLK);
-                if BYTE_READ_VALID = '1' then
-                    index       := int(BYTE_READ_INDEX);
-                    edid_byte   := test1_edid_block0(index);
-                    if BYTE_READ /= edid_byte then
-                        report CORE_NAME & ": Byte " & integer'image(index) &
-                            " read by master does not match byte of EDID block: sent 0x" &
-                            hstr(edid_byte) & ", read 0x" & hstr(BYTE_READ)
-                        severity ERROR;
-                        READ_ERROR  <= '1';
-                    end if;
+        wait until active;
+        READ_ERROR  <= '0';
+        while active loop
+            wait until rising_edge(CLK);
+            if BYTE_READ_VALID = '1' then
+                index       := int(BYTE_READ_INDEX);
+                edid_byte   := test1_edid_block0(index);
+                if BYTE_READ /= edid_byte then
+                    report CORE_NAME & ": Byte " & integer'image(index) &
+                        " read by master does not match byte of EDID block: sent 0x" &
+                        hstr(edid_byte) & ", read 0x" & hstr(BYTE_READ)
+                    severity ERROR;
+                    READ_ERROR  <= '1';
                 end if;
-            end loop;
+            end if;
         end loop;
     end process;
     
