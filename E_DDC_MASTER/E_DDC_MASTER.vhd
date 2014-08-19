@@ -30,7 +30,7 @@ use IEEE.std_logic_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 use work.help_funcs.all;
 
-entity DDC_EDID_MASTER is
+entity E_DDC_MASTER is
     generic (
         CLK_IN_PERIOD   : real;
         READ_ADDR       : std_ulogic_vector(7 downto 0) := x"A1";
@@ -57,7 +57,7 @@ entity DDC_EDID_MASTER is
     );
 end;
 
-architecture rtl of DDC_EDID_MASTER is
+architecture rtl of E_DDC_MASTER is
     
     -- one 100 kHz cycle: scl_rise -> scl_high -> scl_fall -> scl_low
     -- cycle_ticks : how many rising edges of CLK fit in one 100 kHz period

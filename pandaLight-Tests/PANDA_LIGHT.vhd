@@ -373,7 +373,7 @@ begin
     eddc_m_edid_block_number    <= stdulv(microblaze_gpo1(7 downto 0));
     eddc_m_edid_start           <= microblaze_gpo1(8);
     
-    DDC_EDID_MASTER_inst : entity work.DDC_EDID_MASTER
+    E_DDC_MASTER_inst : entity work.E_DDC_MASTER
         generic map (
             CLK_IN_PERIOD   => G_CLK_PERIOD
         )

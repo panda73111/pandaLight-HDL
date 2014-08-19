@@ -49,8 +49,7 @@ end E_DDC_SLAVE;
 
 architecture rtl of E_DDC_SLAVE is
     
-    constant FIRST_BLOCK_WORD_OFFS  : std_ulogic_vector(7 downto 0) := x"00";
-    constant SECOND_BLOCK_WORD_OFFS : std_ulogic_vector(7 downto 0) := x"80";
+    constant BLOCK_SIZE : natural := 128;
     
     type state_type is (
         INIT,
@@ -94,7 +93,7 @@ architecture rtl of E_DDC_SLAVE is
         block_check     : std_ulogic;
         block_request   : std_ulogic;
         block_number    : std_ulogic_vector(7 downto 0);
-        ram_rd_addr     : std_ulogic_vector(6 downto 0);
+        ram_rd_addr     : std_ulogic_vector(log2(BLOCK_SIZE-1)-1 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -107,7 +106,7 @@ architecture rtl of E_DDC_SLAVE is
         block_check     => '0',
         block_request   => '0',
         block_number    => x"00",
-        ram_rd_addr     => "0000000"
+        ram_rd_addr     => (others => '0')
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -132,7 +131,7 @@ begin
     DUAL_PORT_RAM_inst : entity work.DUAL_PORT_RAM
         generic map (
             WIDTH   => 8,
-            DEPTH   => 128
+            DEPTH   => BLOCK_SIZE
         )
         port map (
             CLK => CLK,
@@ -341,7 +340,7 @@ begin
             
             when CHECK_FOR_BLOCK_END =>
                 r.state := SEND_BYTE_GET_ACK_WAIT_FOR_SCL_HIGH;
-                if cr.ram_rd_addr=127 then
+                if cr.ram_rd_addr=BLOCK_SIZE-1 then
                     -- second block of segment
                     r.block_number(0)   := '1';
                     r.state             := REQUEST_BLOCK;

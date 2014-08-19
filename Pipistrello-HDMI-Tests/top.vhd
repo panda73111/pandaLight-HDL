@@ -159,7 +159,7 @@ begin
     ------ clock management ------
     ------------------------------
     
-    CLKMAN_inst : entity work.CLKMAN
+    CLK_MAN_inst : entity work.CLK_MAN
         generic map (
             CLK_IN_PERIOD   => CLK_IN_PERIOD,
             MULTIPLIER      => 2,
@@ -256,7 +256,7 @@ begin
     e_ddc_edid_block_number <= std_ulogic_vector(microblaze_gpo2(7 downto 0));
     e_ddc_edid_start        <= microblaze_gpo1(1);
     
-    DDC_EDID_MASTER_inst : entity work.DDC_EDID_MASTER
+    E_DDC_MASTER_MASTER_inst : entity work.E_DDC_MASTER
         generic map (
             CLK_IN_PERIOD   => g_clk_period
         )

@@ -82,7 +82,7 @@ BEGIN
     slave1_byte_read        <= ddc_edid_data_out;
     slave1_byte_read_index  <= ddc_edid_byte_index;
     
-    DDC_EDID_MASTER_inst : entity work.DDC_EDID_MASTER
+    E_DDC_MASTER_inst : entity work.E_DDC_MASTER
         generic map (
             CLK_IN_PERIOD   => clk_period_real
         )
@@ -231,7 +231,7 @@ BEGIN
         wait for clk_period*10;
         wait until rising_edge(clk);
         
-        assert false report "NONE. All tests successful, quitting" severity FAILURE;
+        report "NONE. All tests successful, quitting" severity FAILURE;
     end process;
 
 END;
