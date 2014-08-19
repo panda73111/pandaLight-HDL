@@ -145,17 +145,34 @@ BEGIN
     clk <= not clk after clk_period / 2;
     
     write_slave_edid_proc : process
+        -- example EDID block from the EDID specification rel. A, rev. 2, example 2
         type edid_block_type is array(0 to 127) of std_ulogic_vector(7 downto 0);
-        constant edid_block0  : edid_block_type := (
-            x"00", x"FF", x"FF", x"FF", x"FF", x"FF", x"FF", x"00", x"5A", x"63", x"1D", x"E5", x"01", x"01", x"01", x"01",
-            x"20", x"10", x"01", x"03", x"80", x"2B", x"1B", x"78", x"2E", x"CF", x"E5", x"A3", x"5A", x"49", x"A0", x"24",
-            x"13", x"50", x"54", x"BF", x"EF", x"80", x"B3", x"0F", x"81", x"80", x"81", x"40", x"71", x"4F", x"31", x"0A",
-            x"01", x"01", x"01", x"01", x"01", x"01", x"21", x"39", x"90", x"30", x"62", x"1A", x"27", x"40", x"68", x"B0",
-            x"36", x"00", x"B1", x"0F", x"11", x"00", x"00", x"1C", x"00", x"00", x"00", x"FF", x"00", x"51", x"36", x"59",
-            x"30", x"36", x"30", x"30", x"30", x"30", x"30", x"30", x"30", x"0A", x"00", x"00", x"00", x"FD", x"00", x"32",
-            x"4B", x"1E", x"52", x"11", x"00", x"0A", x"20", x"20", x"20", x"20", x"20", x"20", x"00", x"00", x"00", x"FC",
-            x"00", x"56", x"58", x"32", x"30", x"32", x"35", x"77", x"6D", x"0A", x"20", x"20", x"20", x"20", x"00", x"FE"
+        type edid_blocks_type is array(0 to 1) of edid_block_type;
+        constant edid_blocks    : edid_blocks_type := (
+            -- block 0
+            (
+                x"00", x"FF", x"FF", x"FF", x"FF", x"FF", x"FF", x"00", x"04", x"43", x"07", x"F2", x"01", x"00", x"00", x"00", 
+                x"FF", x"11", x"01", x"04", x"A2", x"4F", x"00", x"78", x"1E", x"EE", x"91", x"A3", x"54", x"4C", x"99", x"26", 
+                x"0F", x"50", x"54", x"20", x"00", x"00", x"01", x"01", x"01", x"01", x"01", x"01", x"01", x"01", x"01", x"01", 
+                x"01", x"01", x"01", x"01", x"01", x"01", x"02", x"3A", x"80", x"18", x"71", x"38", x"2D", x"40", x"58", x"2C", 
+                x"04", x"05", x"0F", x"48", x"42", x"00", x"00", x"1E", x"01", x"1D", x"80", x"18", x"71", x"1C", x"16", x"20", 
+                x"58", x"2C", x"25", x"00", x"0F", x"48", x"42", x"00", x"00", x"9E", x"01", x"1D", x"00", x"72", x"51", x"D0", 
+                x"1E", x"20", x"6E", x"28", x"55", x"00", x"0F", x"48", x"42", x"00", x"00", x"1E", x"00", x"00", x"00", x"FC", 
+                x"00", x"41", x"42", x"43", x"20", x"4C", x"43", x"44", x"34", x"37", x"77", x"0A", x"20", x"20", x"01", x"CB"
+            ),
+            -- block 1
+            (
+                x"02", x"03", x"18", x"72", x"47", x"90", x"85", x"04", x"03", x"02", x"07", x"06", x"23", x"09", x"07", x"07", 
+                x"83", x"01", x"00", x"00", x"65", x"03", x"0C", x"00", x"10", x"00", x"8E", x"0A", x"D0", x"8A", x"20", x"E0", 
+                x"2D", x"10", x"10", x"3E", x"96", x"00", x"1F", x"09", x"00", x"00", x"00", x"18", x"8E", x"0A", x"D0", x"8A", 
+                x"20", x"E0", x"2D", x"10", x"10", x"3E", x"96", x"00", x"04", x"03", x"00", x"00", x"00", x"18", x"8E", x"0A", 
+                x"A0", x"14", x"51", x"F0", x"16", x"00", x"26", x"7C", x"43", x"00", x"1F", x"09", x"00", x"00", x"00", x"98", 
+                x"8E", x"0A", x"A0", x"14", x"51", x"F0", x"16", x"00", x"26", x"7C", x"43", x"00", x"04", x"03", x"00", x"00", 
+                x"00", x"98", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", 
+                x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"C9"
+            )
         );
+        
     begin
         wait until rising_edge(clk);
         
@@ -164,25 +181,25 @@ BEGIN
         slave_data_in_wr_en <= '0';
         
         if slave_block_check='1' then
-            case slave_block_number is
-                when x"00"  =>  slave_block_valid   <= '1';
-                when others =>  slave_block_invalid <= '1';
-            end case;
+            if slave_block_number<2 then
+                slave_block_valid   <= '1';
+            else
+                slave_block_invalid <= '1';
+            end if;
         end if;
         
         if slave_block_request='1' then
-            case slave_block_number is
-                when x"00"  =>
-                    slave_data_in_wr_en <= '1';
-                    for i in 0 to 127 loop
-                        slave_data_in       <= edid_block0(i);
-                        slave_data_in_addr  <= stdulv(i, 7);
-                        wait until rising_edge(clk);
-                    end loop;
-                    slave_block_valid   <= '1';
-                when others =>
-                    slave_block_invalid <= '1';
-            end case;
+            if slave_block_number<2 then
+                slave_data_in_wr_en <= '1';
+                for i in 0 to 127 loop
+                    slave_data_in       <= edid_blocks(int(slave_block_number))(i);
+                    slave_data_in_addr  <= stdulv(i, 7);
+                    wait until rising_edge(clk);
+                end loop;
+                slave_block_valid   <= '1';
+            else
+                slave_block_invalid <= '1';
+            end if;
         end if;
         
     end process;
