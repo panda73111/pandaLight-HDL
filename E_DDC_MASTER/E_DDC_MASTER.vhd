@@ -167,7 +167,7 @@ begin
     -- divide by two, every segment contains two blocks
     segment_pointer <= '0' & BLOCK_NUMBER(7 downto 1);
     
-    finite_state_machine : process(RST, cur_reg, START, SDA_IN, SCL_IN,
+    stm_proc : process(RST, cur_reg, START, SDA_IN, SCL_IN,
         BLOCK_NUMBER, scl_rise, scl_high, scl_fall, scl_low, segment_pointer)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
@@ -519,7 +519,7 @@ begin
         next_reg    <= r;
     end process;
 
-    sync_stm : process(RST, CLK)
+    sync_stm_proc : process(RST, CLK)
     begin
         if RST='1' then
             cur_reg <= reg_type_def;
@@ -527,5 +527,6 @@ begin
             cur_reg <= next_reg;
         end if;
     end process;
+    
 end;
 

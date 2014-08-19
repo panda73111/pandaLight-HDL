@@ -195,8 +195,8 @@ begin
     end generate;
     
     stm_proc : process(RST, cur_reg, chs_data, chs_data_valid)
-        alias cr    : reg_type is cur_reg;
-        variable r  : reg_type;
+        alias cr is cur_reg;
+        variable r      : reg_type;
         variable t2     : std_ulogic_vector(1 downto 0);
         variable t4     : std_ulogic_vector(3 downto 0);
         variable t24    : std_ulogic_vector(23 downto 0);
@@ -271,6 +271,7 @@ begin
         if RST='1' then
             r   := reg_type_def;
         end if;
+        
         next_reg    <= r;
     end process;
     
@@ -283,5 +284,5 @@ begin
         end if;
     end process;
     
-end rtl;
+end;
 

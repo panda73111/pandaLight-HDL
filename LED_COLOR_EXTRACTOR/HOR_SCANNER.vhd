@@ -390,7 +390,7 @@ begin
         next_reg    <= r;
     end process;
     
-    stm_sync_proc : process(RST, CLK)
+    sync_stm_proc : process(RST, CLK)
     begin
         if RST='1' then
             cur_reg <= reg_type_def;

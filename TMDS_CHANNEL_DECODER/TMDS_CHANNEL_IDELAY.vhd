@@ -181,7 +181,7 @@ begin
     ---------------------------------------
     
     calibration_stm_proc : process(RST, cal_reg, idelay_slave_busy)
-        alias cr    : cal_reg_type is cal_reg;
+        alias cr is cal_reg;
         variable r  : cal_reg_type := cal_reg_type_def;
     begin
         r           := cr;
@@ -193,7 +193,7 @@ begin
             r.counter := (others => '0');
         end if;
         
-        case cal_reg.state is
+        case cr.state is
             
             when INIT_FIRST_WAIT_FOR_READY =>
                 if cr.enable and idelay_slave_busy = '0' then

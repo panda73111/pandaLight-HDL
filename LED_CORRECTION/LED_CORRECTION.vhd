@@ -148,11 +148,10 @@ begin
         elsif rising_edge(CLK) then
             if CFG_WR_EN='1' and LED_IN_VSYNC='0' then
                 case CFG_ADDR is
-                    when "00" => led_count      <= CFG_DATA;
-                    when "01" => start_led_num  <= CFG_DATA;
-                    when "10" => frame_delay    <= CFG_DATA;
-                    when "11" => rgb_mode       <= CFG_DATA(2 downto 0);
-                    when others => null;
+                    when "00"   => led_count        <= CFG_DATA;
+                    when "01"   => start_led_num    <= CFG_DATA;
+                    when "10"   => frame_delay      <= CFG_DATA;
+                    when others => rgb_mode         <= CFG_DATA(2 downto 0);
                 end case;
             end if;
         end if;
@@ -285,10 +284,11 @@ begin
         if (RST or stm_rst)='1' then
             r   := reg_type_def;
         end if;
+        
         next_reg    <= r;
     end process;
     
-    stm_sync_proc : process(RST, CLK)
+    sync_stm_proc : process(RST, CLK)
     begin
         if RST='1' then
             cur_reg <= reg_type_def;

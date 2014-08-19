@@ -156,7 +156,7 @@ begin
         end if;
     end process;
     
-    finite_state_machine : process(RST, cur_reg, BLOCK_VALID,
+    stm_proc : process(RST, cur_reg, BLOCK_VALID,
         BLOCK_INVALID, SDA_IN, SCL_IN, stop, ram_dout)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
@@ -380,7 +380,7 @@ begin
         next_reg    <= r;
     end process;
 
-    sync_stm : process(RST, CLK)
+    sync_stm_proc : process(RST, CLK)
     begin
         if RST='1' then
             cur_reg <= reg_type_def;
