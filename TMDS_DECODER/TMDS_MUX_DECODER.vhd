@@ -232,7 +232,7 @@ begin
     
     stm_proc : process(rst_decoder, cur_reg, chs_data, chs_data_valid)
         alias cr    : reg_type is cur_reg;
-        variable r  : reg_type;
+        variable r  : reg_type := reg_type_def;
         variable t2     : std_ulogic_vector(1 downto 0);
         variable t4     : std_ulogic_vector(3 downto 0);
         variable t24    : std_ulogic_vector(23 downto 0);

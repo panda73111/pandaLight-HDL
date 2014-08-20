@@ -90,7 +90,7 @@ begin
     
     process(RST, cur_reg, START, STOP, RGB, tick_cnt)
         alias cr is cur_reg;
-        variable r  : reg_type;
+        variable r  : reg_type := reg_type_def;
     begin
         r           := cr;
         r.tick_cnt  := cr.tick_cnt+1;

@@ -272,7 +272,7 @@ begin
     -----------------------------
     
     phase_detect_control_proc : process(RST, PIX_CLK_X2)
-        alias cr    : cal_reg_type is cal_reg;
+        alias cr is cal_reg;
     begin
         if RST = '1' then
             idelay_clk_en       <= '0';

@@ -176,7 +176,7 @@ begin
     stm_proc : process(RST, stm_rst, cur_reg, LED_IN_VSYNC, LED_IN_NUM, LED_IN_RGB, LED_IN_WR_EN,
         led_count, start_led_num, frame_delay, in_rgb_corrected)
         alias cr is cur_reg;
-        variable r  : reg_type;
+        variable r  : reg_type := reg_type_def;
     begin
         r           := cr;
         r.wr_en     := '0';

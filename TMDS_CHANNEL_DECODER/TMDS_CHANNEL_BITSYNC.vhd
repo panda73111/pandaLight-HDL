@@ -120,10 +120,10 @@ begin
     -------------------------------------
     
     stm_proc : process(RST, cur_reg, tok_detected, new_tok_detected)
-        alias cr    : reg_type is cur_reg;
-        variable r  : reg_type;
+        alias cr is cur_reg;
+        variable r  : reg_type := reg_type_def;
     begin
-        r           := cr;
+        r   := cr;
         
         case cr.state is
             

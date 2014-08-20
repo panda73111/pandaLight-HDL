@@ -251,8 +251,8 @@ begin
         LED_WIDTH, LED_HEIGHT, LED_STEP, LED_OFFS, FRAME_RGB, buf_do, ov_buf_do, overlaps,
         abs_overlap, next_inner_y, first_leds_pos
     )
-        alias cr        : reg_type is cur_reg; -- current registers
-        variable tr     : reg_type;            -- temporary registers
+        alias cr        : reg_type is cur_reg;      -- synchronous registers
+        variable tr     : reg_type := reg_type_def; -- asynchronous combinational signals
     begin
         tr  := cr;
         

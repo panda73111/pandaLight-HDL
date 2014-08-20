@@ -82,7 +82,7 @@ begin
             INCDEC_VALID    => incdec_valid
         );
     
-    TMDS_CHANNEL_DELAY_inst : entity work.TMDS_CHANNEL_IDELAY
+    TMDS_CHANNEL_IDELAY_inst : entity work.TMDS_CHANNEL_IDELAY
         generic map (
             SIM_TAP_DELAY   => SIM_TAP_DELAY
         )
