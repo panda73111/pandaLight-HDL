@@ -62,7 +62,7 @@ begin
     
     OSERDES2_CLK_MAN_inst : entity work.OSERDES2_CLK_MAN
         generic map (
-            CLK_IN_PERIOD   => 7.0,
+            CLK_IN_PERIOD   => 14.0,
             MULTIPLIER      => 10,
             DIVISOR0        => 1,
             DIVISOR1        => 5,
