@@ -44,12 +44,14 @@ entity PANDA_LIGHT is
         TX_EN               : out std_ulogic := '0';
         
         -- USB UART
-        USB_TXD     : out std_ulogic := '0';
         USB_RXD     : in std_ulogic;
-        USB_RTS     : out std_ulogic := '0';
-        USB_CTS     : in std_ulogic;
-        USB_RXLED   : in std_ulogic;
-        USB_TXLED   : in std_ulogic;
+        USB_TXD     : out std_ulogic := '0';
+        USB_CTSN    : in std_ulogic;
+        USB_RTSN    : out std_ulogic := '0';
+        USB_DSRN    : in std_ulogic;
+        USB_DTRN    : out std_ulogic := '0';
+        USB_DCDN    : out std_ulogic := '0';
+        USB_RIN     : out std_ulogic := '0';
         
         -- Blutooth UART
         BT_TXD  : out std_ulogic := '0';
@@ -334,8 +336,8 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    USB_TXD <= microblaze_txd when uart_select='0' else '0';
-    USB_RTS <= microblaze_gpo1(11) when uart_select='0' else '0';
+    USB_TXD     <= microblaze_txd when uart_select='0' else '0';
+    USB_RTSN    <= not microblaze_gpo1(11) when uart_select='0' else '1';
     
     BT_TXD  <= microblaze_txd when uart_select='1' else '0';
     BT_RTS  <= microblaze_gpo1(11) when uart_select='1' else '0';
@@ -474,7 +476,7 @@ begin
     microblaze_gpi1(3)              <= eddc_s_busy;
     microblaze_gpi1(2)              <= eddc_m_transm_error;
     microblaze_gpi1(1)              <= eddc_m_busy;
-    microblaze_gpi1(0)              <= USB_CTS when uart_select='0' else BT_CTS;
+    microblaze_gpi1(0)              <= not USB_CTSN when uart_select='0' else BT_CTS;
     
     microblaze_gpi2(24 downto 17)   <= stdlv(eddc_s_block_number);
     microblaze_gpi2(16 downto 8)    <= stdlv(rx_aux_data);
