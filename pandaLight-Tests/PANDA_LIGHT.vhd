@@ -21,6 +21,7 @@ use work.help_funcs.all;
 
 entity PANDA_LIGHT is
     generic (
+        RX_SEL              : natural := 0;
         MAX_LED_COUNT       : natural := 100;
         MAX_LED_BUFFER_SIZE : natural := 1024
     );
@@ -28,13 +29,13 @@ entity PANDA_LIGHT is
         CLK20   : in std_ulogic;
         
         -- HDMI
-        RX_CHANNELS_IN_P    : in std_ulogic_vector(3 downto 0);
-        RX_CHANNELS_IN_N    : in std_ulogic_vector(3 downto 0);
-        RX_SDA              : inout std_ulogic := 'Z';
-        RX_SCL              : inout std_ulogic := 'Z';
-        RX_CEC              : inout std_ulogic := 'Z';
-        RX_DET              : in std_ulogic;
-        RX_EN               : out std_ulogic := '0';
+        RX_CHANNELS_IN_P    : in std_ulogic_vector(7 downto 0);
+        RX_CHANNELS_IN_N    : in std_ulogic_vector(7 downto 0);
+        RX_SDA              : inout std_ulogic_vector(1 downto 0) := "ZZ";
+        RX_SCL              : inout std_ulogic_vector(1 downto 0) := "ZZ";
+        RX_CEC              : inout std_ulogic_vector(1 downto 0) := "ZZ";
+        RX_DET              : in std_ulogic_vector(1 downto 0);
+        RX_EN               : out std_ulogic_vector(1 downto 0) := "00";
         
         TX_CHANNELS_OUT_P   : out std_ulogic_vector(3 downto 0) := "0000";
         TX_CHANNELS_OUT_N   : out std_ulogic_vector(3 downto 0) := "0000";
@@ -60,12 +61,20 @@ entity PANDA_LIGHT is
         BT_CTS  : in std_ulogic;
         
         -- LED strip
-        LEDS_CLK    : out std_ulogic := '0';
-        LEDS_DATA   : out std_ulogic := '0'
+        LEDS_CLK    : out std_ulogic_vector(1 downto 0) := "00";
+        LEDS_DATA   : out std_ulogic_vector(1 downto 0) := "00";
+        
+        -- PMOD
+        PMOD0   : inout std_ulogic_vector(3 downto 0) := "0000";
+        PMOD1   : inout std_ulogic_vector(3 downto 0) := "0000";
+        PMOD2   : inout std_ulogic_vector(3 downto 0) := "0000";
+        PMOD3   : inout std_ulogic_vector(3 downto 0) := "0000"
     );
 end PANDA_LIGHT;
 
 architecture rtl of PANDA_LIGHT is
+    
+    attribute keep : string;
     
     -- 50 MHz in nano seconds
     constant G_CLK_PERIOD   : real := 20.0;
@@ -85,9 +94,9 @@ architecture rtl of PANDA_LIGHT is
     --- HDMI related signals ---
     ----------------------------
     
-    signal rx_edid_ready    : std_ulogic := '0';
+    signal rx_edid_ready    : std_ulogic_vector(1 downto 0) := "00";
     
-    signal rx_channels_in   : std_ulogic_vector(3 downto 0) := "0000";
+    signal rx_channels_in   : std_ulogic_vector(7 downto 0) := x"00";
     signal tx_channels_out  : std_ulogic_vector(3 downto 0) := "0000";
     
     
@@ -152,7 +161,7 @@ architecture rtl of PANDA_LIGHT is
             Reset           : in std_logic;
             UART_Rx         : in std_logic;
             UART_Tx         : out std_logic;
-            GPO1            : out std_logic_vector(13 downto 0);
+            GPO1            : out std_logic_vector(14 downto 0);
             GPO2            : out std_logic_vector(21 downto 0);
             GPO3            : out std_logic_vector(26 downto 0);
             GPI1            : in std_logic_vector(7 downto 0);
@@ -172,7 +181,7 @@ architecture rtl of PANDA_LIGHT is
     
     -- Outputs
     signal microblaze_txd           : std_logic := '0';
-    signal microblaze_gpo1          : std_logic_vector(13 downto 0) := (others => '0');
+    signal microblaze_gpo1          : std_logic_vector(14 downto 0) := (others => '0');
     signal microblaze_gpo2          : std_logic_vector(21 downto 0) := (others => '0');
     signal microblaze_gpo3          : std_logic_vector(26 downto 0) := (others => '0');
     signal microblaze_gpi1_int      : std_logic := '0';
@@ -200,6 +209,7 @@ architecture rtl of PANDA_LIGHT is
     
     -- Inputs
     signal rxclk_clk_in : std_ulogic := '0';
+    attribute keep of rxclk_clk_in : signal is "TRUE";
     
     -- Outputs
     signal rxclk_clk_out1       : std_ulogic := '0';
@@ -342,8 +352,8 @@ begin
     BT_TXD  <= microblaze_txd when uart_select='1' else '0';
     BT_RTS  <= microblaze_gpo1(11) when uart_select='1' else '0';
     
-    LEDS_CLK    <= ledctrl_leds_clk;
-    LEDS_DATA   <= ledctrl_leds_data;
+    LEDS_CLK(0)     <= ledctrl_leds_clk;
+    LEDS_DATA(0)    <= ledctrl_leds_data;
     
     g_rst   <= g_clk_stopped;
     
@@ -357,18 +367,18 @@ begin
     RX_EN   <= rx_edid_ready;
     
     -- drive low dominant I2C signals
-    RX_SDA  <= '0' when eddc_s_sda_out='0' else 'Z';
-    RX_SCL  <= '0' when eddc_s_scl_out='0' else 'Z';
-    TX_SDA  <= '0' when eddc_m_sda_out='0' else 'Z';
-    TX_SCL  <= '0' when eddc_m_scl_out='0' else 'Z';
+    RX_SDA(RX_SEL)  <= '0' when eddc_s_sda_out='0' else 'Z';
+    RX_SCL(RX_SEL)  <= '0' when eddc_s_scl_out='0' else 'Z';
+    TX_SDA          <= '0' when eddc_m_sda_out='0' else 'Z';
+    TX_SCL          <= '0' when eddc_m_scl_out='0' else 'Z';
     
-    rx_edid_ready   <= microblaze_gpo1(13);
+    rx_edid_ready   <= stdulv(microblaze_gpo1(14 downto 13));
     
     TX_EN   <= rx_enc_data_valid;
     
     tx_channels_out <= rxpt_tx_channels_out;
     
-    diff_buf_gen : for i in 0 to 3 generate
+    diff_ibuf_gen : for i in 0 to 7 generate
         
         rx_channel_IBUFDS_inst : IBUFDS
             generic map (DIFF_TERM  => false)
@@ -377,6 +387,10 @@ begin
                 IB  => RX_CHANNELS_IN_N(i),
                 O   => rx_channels_in(i)
             );
+        
+    end generate;
+    
+    diff_obuf_gen : for i in 0 to 3 generate
         
         tx_channel_OBUFDS_inst : OBUFDS
             port map (
@@ -429,8 +443,8 @@ begin
     
     eddc_s_clk              <= g_clk;
     eddc_s_rst              <= g_rst;
-    eddc_s_sda_in           <= RX_SDA;
-    eddc_s_scl_in           <= RX_SCL;
+    eddc_s_sda_in           <= RX_SDA(RX_SEL);
+    eddc_s_scl_in           <= RX_SCL(RX_SEL);
     eddc_s_block_valid      <= microblaze_gpo1(9);
     eddc_s_block_invalid    <= microblaze_gpo1(10);
     eddc_s_data_in_addr     <= stdulv(microblaze_gpo2(13 downto 7));
@@ -469,7 +483,7 @@ begin
     
     microblaze_rxd  <= USB_RXD when uart_select='0' else BT_RXD;
     
-    microblaze_gpi1(7)              <= RX_DET;
+    microblaze_gpi1(7)              <= RX_DET(RX_SEL);
     microblaze_gpi1(6)              <= rx_aux_data_valid;
     microblaze_gpi1(5)              <= eddc_s_block_request;
     microblaze_gpi1(4)              <= eddc_s_block_check;
@@ -527,7 +541,7 @@ begin
     --- HDMI ISerDes clock manager ---
     ----------------------------------
     
-    rxclk_clk_in    <= rx_channels_in(3);
+    rxclk_clk_in    <= rx_channels_in(RX_SEL*4 + 3);
 
     ISERDES2_CLK_MAN_inst : entity work.ISERDES2_CLK_MAN
         generic map (
@@ -556,7 +570,7 @@ begin
     rx_pix_clk          <= rxclk_clk_out2;
     rx_pix_clk_x2       <= rxclk_clk_out1;
     rx_pix_clk_x10      <= rxclk_ioclk_out;
-    rx_rst              <= not RX_DET;
+    rx_rst              <= not RX_DET(RX_SEL);
     rx_clk_locked       <= rxclk_ioclk_locked;
     rx_serdesstrobe     <= rxclk_serdesstrobe;
     
@@ -570,7 +584,7 @@ begin
             CLK_LOCKED      => rx_clk_locked,
             SERDESSTROBE    => rx_serdesstrobe,
             
-            CHANNELS_IN => rx_channels_in(2 downto 0),
+            CHANNELS_IN => rx_channels_in(RX_SEL*4 + 2 downto RX_SEL*4),
             
             ENC_DATA        => rx_enc_data,
             ENC_DATA_VALID  => rx_enc_data_valid,
