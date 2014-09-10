@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Sat Sep 06 14:51:17 2014
+# Date: Wed Sep 10 08:52:06 2014
 #
 ##############################################################
 #
@@ -50,7 +50,7 @@ CSET fit3_no_clocks=6216
 CSET fit4_interrupt=false
 CSET fit4_no_clocks=6216
 CSET freq=50.0
-CSET gpi1_interrupt=Both_Edges
+CSET gpi1_interrupt=None
 CSET gpi1_size=8
 CSET gpi2_interrupt=None
 CSET gpi2_size=25
@@ -123,4 +123,4 @@ CSET use_uart_tx=true
 MISC pkg_timestamp=2012-11-21T08:11:43Z
 # END Extra information
 GENERATE
-# CRC: 2cc6b3fe
+# CRC: 68bf5e2a
