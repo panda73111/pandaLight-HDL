@@ -6,7 +6,7 @@
 -- Project Name:   HDMI Tests
 -- Target Devices: Pipistrello
 -- Tool versions:  Xilinx ISE 14.7
--- Description:    Just some messing around with the HDMI connector & HDMI wings
+-- Description:    Just some messing around
 --
 -- Revision: 0
 -- Revision 0.01 - File Created
@@ -34,19 +34,6 @@ entity top is
         USB_RXLED   : in std_ulogic;
         USB_TXLED   : in std_ulogic;
         
-        -- HDMI
-        HDMI_B_P    : out std_ulogic := '0';
-        HDMI_B_N    : out std_ulogic := '0';
-        HDMI_R_P    : out std_ulogic := '0';
-        HDMI_R_N    : out std_ulogic := '0';
-        HDMI_G_P    : out std_ulogic := '0';
-        HDMI_G_N    : out std_ulogic := '0';
-        HDMI_CLK_P  : out std_ulogic := '0';
-        HDMI_CLK_N  : out std_ulogic := '0';
-        HDMI_SDA    : inout std_ulogic := '1';
-        HDMI_SCL    : inout std_ulogic := '1';
-        HDMI_DET    : in std_ulogic; -- active low!
-        
         -- IO
         LEDS    : out std_ulogic_vector(4 downto 0) := (others => '0');
         PUSHBTN : in std_ulogic
@@ -59,99 +46,45 @@ architecture rtl of top is
     
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
-    signal g_scl    : std_ulogic := '1';
-    signal g_sda    : std_ulogic := '1';
     
-    signal hdmi_r       : std_ulogic := '0';
-    signal hdmi_g       : std_ulogic := '0';
-    signal hdmi_b       : std_ulogic := '0';
-    signal hdmi_clk     : std_ulogic := '0';
-    signal hdmi_detect  : std_ulogic := '0';
+    signal echo_tick_cnt    : unsigned(25 downto 0);
+    signal char_index       : unsigned(6 downto 0);
     
-    
-    -----------------------------------
-    ------ E-DDC (E-)EDID Master ------
-    -----------------------------------
+    ---------------------
+    --- UART receiver ---
+    ---------------------
     
     -- Inputs
-    signal e_ddc_edid_clk   : std_ulogic := '0';
-    signal e_ddc_edid_rst   : std_ulogic := '0';
-    signal e_ddc_edid_start : std_ulogic := '0';
-
-    -- BiDirs
-    signal e_ddc_edid_sda_in    : std_ulogic := '1';
-    signal e_ddc_edid_sda_out   : std_ulogic := '1';
-    signal e_ddc_edid_scl_in    : std_ulogic := '1';
-    signal e_ddc_edid_scl_out   : std_ulogic := '1';
-
+    signal uartin_clk   : std_ulogic := '0';
+    signal uartin_rst   : std_ulogic := '0';
+    
+    signal uartin_rxd   : std_ulogic := '0';
+    signal uartin_rd_en : std_ulogic := '0';
+    
     -- Outputs
-    signal e_ddc_edid_block_number      : std_ulogic_vector(7 downto 0) := (others => '0');
-    signal e_ddc_edid_busy              : std_ulogic := '0';
-    signal e_ddc_edid_transm_error      : std_ulogic := '0';
-    signal e_ddc_edid_data_out          : std_ulogic_vector(7 downto 0) := (others => '0');
-    signal e_ddc_edid_data_out_valid    : std_ulogic := '0';
-    signal e_ddc_edid_byte_index        : std_ulogic_vector(6 downto 0) := (others => '0');
+    signal uartin_dout  : std_ulogic_vector(7 downto 0) := x"00";
+    signal uartin_valid : std_ulogic := '0';
+    signal uartin_full  : std_ulogic := '0';
+    signal uartin_error : std_ulogic := '0';
+    signal uartin_busy  : std_ulogic := '0';
     
     
-    ----------------------------------------
-    ------ MicroBlaze microcontroller ------
-    ----------------------------------------
-    
-    component microblaze_mcs_v1_4
-        port (
-            Clk             : in std_logic;
-            Reset           : in std_logic;
-            UART_Rx         : in std_logic;
-            UART_Tx         : out std_logic;
-            FIT1_Interrupt  : out std_logic;
-            FIT1_Toggle     : out std_logic;
-            FIT2_Interrupt  : out std_logic;
-            FIT2_Toggle     : out std_logic;
-            PIT1_Interrupt  : out std_logic;
-            PIT1_Toggle     : out std_logic;
-            GPO1            : out std_logic_vector(31 downto 0);
-            GPO2            : out std_logic_vector(31 downto 0);
-            GPI1            : in std_logic_vector(31 downto 0);
-            GPI1_Interrupt  : out std_logic;
-            GPI2            : in std_logic_vector(31 downto 0);
-            GPI2_Interrupt  : out std_logic
-        );
-    end component;
+    -------------------
+    --- UART sender ---
+    -------------------
     
     -- Inputs
-    signal microblaze_clk   : std_logic := '0';
-    signal microblaze_rst   : std_logic := '0';
-    signal microblaze_rxd   : std_logic := '0';
-    signal microblaze_gpi1  : std_logic_vector(31 downto 0) := (others => '0');
-    signal microblaze_gpi2  : std_logic_vector(31 downto 0) := (others => '0');
+    signal uartout_clk  : std_ulogic := '0';
+    signal uartout_rst  : std_ulogic := '0';
+    
+    signal uartout_din      : std_ulogic_vector(7 downto 0) := x"00";
+    signal uartout_wr_en    : std_ulogic := '0';
+    signal uartout_cts      : std_ulogic := '0';
     
     -- Outputs
-    signal microblaze_txd           : std_logic := '0';
-    signal microblaze_gpo1          : std_logic_vector(31 downto 0) := (others => '0');
-    signal microblaze_gpo2          : std_logic_vector(31 downto 0) := (others => '0');
-    signal microblaze_gpi1_int      : std_logic := '0';
-    signal microblaze_gpi2_int      : std_logic := '0';
-    signal microblaze_fit1_int      : std_logic := '0';
-    signal microblaze_fit1_toggle   : std_logic := '0';
-    signal microblaze_fit2_int      : std_logic := '0';
-    signal microblaze_fit2_toggle   : std_logic := '0';
-    signal microblaze_pit1_int      : std_logic := '0';
-    signal microblaze_pit1_toggle   : std_logic := '0';
-    
-    
-    ----------------------
-    ------ EDID RAM ------
-    ----------------------
-    
-    -- Inputs
-    signal edid_ram_clk         : std_ulogic := '0';
-    signal edid_ram_rd_addr     : std_ulogic_vector(6 downto 0) := (others => '0');
-    signal edid_ram_wr_en       : std_ulogic := '0';
-    signal edid_ram_wr_addr     : std_ulogic_vector(6 downto 0) := (others => '0');
-    signal edid_ram_data_in     : std_ulogic_vector(7 downto 0) := (others => '0');
-    
-    -- Outputs
-    signal edid_ram_data_out    : std_ulogic_vector(7 downto 0) := (others => '0');
+    signal uartout_txd  : std_ulogic := '0';
+    signal uartout_full : std_ulogic := '0';
+    signal uartout_busy : std_ulogic := '0';
     
 begin
     
@@ -166,7 +99,9 @@ begin
             DIVISOR         => 1
         )
         port map (
-            CLK_IN          => CLK_IN,
+            CLK_IN  => CLK_IN,
+            RST     => g_rst,
+            
             CLK_OUT         => g_clk,
             CLK_IN_STOPPED  => open,
             CLK_OUT_STOPPED => open
@@ -181,167 +116,85 @@ begin
     LEDS(4) <= PUSHBTN;
     LEDS(3) <= not USB_TXLED;
     LEDS(2) <= not USB_RXLED;
-    LEDS(1) <= microblaze_gpo1(2);
-    LEDS(0) <= not HDMI_DET;
-    USB_TXD <= microblaze_txd;
-    USB_RTS <= microblaze_gpo1(0);
+    LEDS(1) <= uartin_error;
+    LEDS(0) <= '0';
+    
+    USB_TXD <= uartout_txd;
+    USB_RTS <= not uartin_full;
     
     
-    ------------------------------------
-    ------ HDMI signal management ------
-    ------------------------------------
+    ---------------------
+    --- UART receiver ---
+    ---------------------
     
-    -- drive low dominant I2C signals
-    HDMI_SDA    <= '0' when e_ddc_edid_sda_out = '0' else 'Z';
-    HDMI_SCL    <= '0' when e_ddc_edid_scl_out = '0' else 'Z';
+    uartin_clk  <= g_clk;
+    uartin_rst  <= g_rst;
     
-    hdmi_detect <= HDMI_DET;
+    uartin_rxd      <= USB_RXD;
+    uartin_rd_en    <= not uartout_full;
     
-    hdmi_r      <= '0';
-    hdmi_g      <= '0';
-    hdmi_b      <= '0';
-    hdmi_clk    <= '0';
-    
-    -- connect differential outputs
-    
-    hdmi_r_obuf_inst : OBUFDS
-        generic map (
-            IOSTANDARD  => "TMDS_33"
-        )
-        port map (
-            I   => hdmi_r,
-            O   => HDMI_R_P,
-            OB  => HDMI_R_N
-        );
-    
-    hdmi_g_obuf_inst : OBUFDS
-        generic map (
-            IOSTANDARD  => "TMDS_33"
-        )
-        port map (
-            I   => hdmi_g,
-            O   => HDMI_G_P,
-            OB  => HDMI_G_N
-        );
-    
-    hdmi_b_obuf_inst : OBUFDS
-        generic map (
-            IOSTANDARD  => "TMDS_33"
-        )
-        port map (
-            I   => hdmi_b,
-            O   => HDMI_B_P,
-            OB  => HDMI_B_N
-        );
-    
-    hdmi_clk_obuf_inst : OBUFDS
-        generic map (
-            IOSTANDARD  => "TMDS_33"
-        )
-        port map (
-            I   => hdmi_clk,
-            O   => HDMI_CLK_P,
-            OB  => HDMI_CLK_N
-        );
-    
-    
-    -----------------------------------
-    ------ E-DDC (E-)EDID Master ------
-    -----------------------------------
-    
-    e_ddc_edid_clk          <= g_clk;
-    e_ddc_edid_rst          <= g_rst;
-    e_ddc_edid_sda_in       <= HDMI_SDA;
-    e_ddc_edid_scl_in       <= HDMI_SCL;
-    e_ddc_edid_block_number <= std_ulogic_vector(microblaze_gpo2(7 downto 0));
-    e_ddc_edid_start        <= microblaze_gpo1(1);
-    
-    E_DDC_MASTER_MASTER_inst : entity work.E_DDC_MASTER
+    UART_RECEIVER_inst : entity work.UART_RECEIVER
         generic map (
             CLK_IN_PERIOD   => g_clk_period
         )
         port map (
-            CLK => e_ddc_edid_clk,
-            RST => e_ddc_edid_rst,
+            CLK => uartin_clk,
+            RST => uartin_rst,
             
-            SDA_IN  => e_ddc_edid_sda_in,
-            SDA_OUT => e_ddc_edid_sda_out,
-            SCL_IN  => e_ddc_edid_scl_in,
-            SCL_OUT => e_ddc_edid_scl_out,
+            RXD     => uartin_rxd,
+            RD_EN   => uartin_rd_en,
             
-            START           => e_ddc_edid_start,
-            BLOCK_NUMBER    => e_ddc_edid_block_number,
-            
-            BUSY            => e_ddc_edid_busy,
-            TRANSM_ERROR    => e_ddc_edid_transm_error,
-            DATA_OUT        => e_ddc_edid_data_out,
-            DATA_OUT_VALID  => e_ddc_edid_data_out_valid,
-            BYTE_INDEX      => e_ddc_edid_byte_index
+            DOUT    => open, --uartin_dout,
+            VALID   => open, --uartin_valid,
+            FULL    => uartin_full,
+            ERROR   => uartin_error,
+            BUSY    => uartin_busy
         );
     
     
-    ----------------------------------------
-    ------ MicroBlaze microcontroller ------
-    ----------------------------------------
+    -------------------
+    --- UART sender ---
+    -------------------
     
-    microblaze_clk  <= g_clk;
-    microblaze_rst  <= g_rst;
+    uartout_clk <= g_clk;
+    uartout_rst <= g_rst;
     
-    microblaze_rxd  <= USB_RXD;
+    uartout_din     <= uartin_dout;
+    uartout_wr_en   <= uartin_valid;
+    uartout_cts     <= USB_CTS;
     
-    microblaze_gpi1(31 downto 4)    <= (others => '0');
-    microblaze_gpi1(3)              <= not hdmi_detect;
-    microblaze_gpi1(2)              <= e_ddc_edid_transm_error;
-    microblaze_gpi1(1)              <= e_ddc_edid_busy;
-    microblaze_gpi1(0)              <= USB_CTS;
-    
-    microblaze_gpi2(31 downto 8)    <= (others => '0');
-    microblaze_gpi2(7 downto 0)     <= std_logic_vector(edid_ram_data_out);
-    
-    microblaze_inst : microblaze_mcs_v1_4
-        port map (
-            Clk             => microblaze_clk,
-            Reset           => microblaze_rst,
-            UART_Rx         => microblaze_rxd,
-            UART_Tx         => microblaze_txd,
-            FIT1_Interrupt  => microblaze_fit1_int,
-            FIT1_Toggle     => microblaze_fit1_toggle,
-            FIT2_Interrupt  => microblaze_fit2_int,
-            FIT2_Toggle     => microblaze_fit2_toggle,
-            PIT1_Interrupt  => microblaze_pit1_int,
-            PIT1_Toggle     => microblaze_pit1_toggle,
-            GPO1            => microblaze_gpo1,
-            GPO2            => microblaze_gpo2,
-            GPI1            => microblaze_gpi1,
-            GPI2            => microblaze_gpi2,
-            GPI1_Interrupt  => microblaze_gpi1_int,
-            GPI2_Interrupt  => microblaze_gpi2_int
-        );
-    
-    
-    ----------------------
-    ------ EDID RAM ------
-    ----------------------
-    
-    edid_ram_clk        <= g_clk;
-    edid_ram_rd_addr    <= std_ulogic_vector(microblaze_gpo2(14 downto 8));
-    edid_ram_wr_en      <= e_ddc_edid_data_out_valid;
-    edid_ram_wr_addr    <= e_ddc_edid_byte_index;
-    edid_ram_data_in    <= e_ddc_edid_data_out;
-    
-    edid_ram_inst : entity work.DUAL_PORT_RAM
+    UART_SENDER_inst : entity work.UART_SENDER
         generic map (
-            ADDR_WIDTH  => 7,
-            DATA_WIDTH  => 8
+            CLK_IN_PERIOD   => g_clk_period
         )
         port map (
-            CLK         => edid_ram_clk,
-            RD_ADDR     => edid_ram_rd_addr,
-            WR_EN       => edid_ram_wr_en,
-            WR_ADDR     => edid_ram_wr_addr,
-            DATA_IN     => edid_ram_data_in,
-            DATA_OUT    => edid_ram_data_out
+            CLK => uartout_clk,
+            RST => uartout_rst,
+    
+            DIN     => uartout_din,
+            WR_EN   => uartout_wr_en,
+            CTS     => uartout_cts,
+    
+            TXD     => uartout_txd,
+            FULL    => uartout_full,
+            BUSY    => uartout_busy
         );
+    
+    echo_proc : process(g_rst, g_rst)
+    begin
+        if g_rst='1' then
+            echo_tick_cnt   <= (others => '0');
+        elsif rising_edge(g_clk) then
+            echo_tick_cnt   <= echo_tick_cnt+1;
+            uartin_valid    <= '0';
+            if echo_tick_cnt(echo_tick_cnt'high)='1' then
+                echo_tick_cnt   <= (others => '0');
+                uartin_dout     <= "0" & std_ulogic_vector(char_index);
+                uartin_valid    <= '1';
+                char_index      <= char_index+1;
+            end if;
+        end if;
+    end process;
     
 end rtl;
 

@@ -45,20 +45,20 @@ NET "USB_RXLED"      LOC = "C5"   | IOSTANDARD = LVTTL | PULLUP;
 #NET "usb_siwub"      LOC = "C5"   | IOSTANDARD = LVTTL | SLEW = FAST | DRIVE = 8 ;
 
 # TMDS signals
-NET "HDMI_B_P"        LOC = "T6"   | IOSTANDARD = TMDS_33; # Blue
-NET "HDMI_B_N"        LOC = "V6"   | IOSTANDARD = TMDS_33;
-NET "HDMI_R_P"        LOC = "U7"   | IOSTANDARD = TMDS_33; # Red
-NET "HDMI_R_N"        LOC = "V7"   | IOSTANDARD = TMDS_33;
-NET "HDMI_G_P"        LOC = "U8"   | IOSTANDARD = TMDS_33; # Green
-NET "HDMI_G_N"        LOC = "V8"   | IOSTANDARD = TMDS_33;
-NET "HDMI_CLK_P"      LOC = "U5"   | IOSTANDARD = TMDS_33; # Clock
-NET "HDMI_CLK_N"      LOC = "V5"   | IOSTANDARD = TMDS_33;
+#NET "HDMI_B_P"        LOC = "T6"   | IOSTANDARD = TMDS_33; # Blue
+#NET "HDMI_B_N"        LOC = "V6"   | IOSTANDARD = TMDS_33;
+#NET "HDMI_R_P"        LOC = "U7"   | IOSTANDARD = TMDS_33; # Red
+#NET "HDMI_R_N"        LOC = "V7"   | IOSTANDARD = TMDS_33;
+#NET "HDMI_G_P"        LOC = "U8"   | IOSTANDARD = TMDS_33; # Green
+#NET "HDMI_G_N"        LOC = "V8"   | IOSTANDARD = TMDS_33;
+#NET "HDMI_CLK_P"      LOC = "U5"   | IOSTANDARD = TMDS_33; # Clock
+#NET "HDMI_CLK_N"      LOC = "V5"   | IOSTANDARD = TMDS_33;
 
 # EDID
-NET "HDMI_SDA"       LOC = "T9"   | IOSTANDARD = I2C | PULLUP;
-NET "HDMI_SCL"       LOC = "V9"   | IOSTANDARD = I2C | PULLUP;
+#NET "HDMI_SDA"       LOC = "T9"   | IOSTANDARD = I2C | PULLUP;
+#NET "HDMI_SCL"       LOC = "V9"   | IOSTANDARD = I2C | PULLUP;
 
-NET "HDMI_DET"       LOC = "R8"   | IOSTANDARD = LVTTL;
+#NET "HDMI_DET"       LOC = "R8"   | IOSTANDARD = LVTTL;
 
 # audio
 #NET "audio_l"        LOC = "R7"   | IOSTANDARD = LVTTL | SLEW = SLOW | DRIVE = 8 ;
