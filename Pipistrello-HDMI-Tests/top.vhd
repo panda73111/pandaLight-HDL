@@ -29,10 +29,10 @@ entity top is
         -- USB UART
         USB_TXD     : out std_ulogic;
         USB_RXD     : in std_ulogic;
-        USB_RTS     : out std_ulogic;
-        USB_CTS     : in std_ulogic;
-        USB_RXLED   : in std_ulogic;
-        USB_TXLED   : in std_ulogic;
+        USB_RTSN    : out std_ulogic;
+        USB_CTSN    : in std_ulogic;
+        USB_RXLEDN  : in std_ulogic;
+        USB_TXLEDN  : in std_ulogic;
         
         -- IO
         LEDS    : out std_ulogic_vector(4 downto 0) := (others => '0');
@@ -114,13 +114,13 @@ begin
     
     g_rst   <= PUSHBTN;
     LEDS(4) <= PUSHBTN;
-    LEDS(3) <= not USB_TXLED;
-    LEDS(2) <= not USB_RXLED;
+    LEDS(3) <= not USB_TXLEDN;
+    LEDS(2) <= not USB_RXLEDN;
     LEDS(1) <= uartin_error;
     LEDS(0) <= '0';
     
-    USB_TXD <= uartout_txd;
-    USB_RTS <= not uartin_full;
+    USB_TXD     <= uartout_txd;
+    USB_RTSN    <= not uartin_full;
     
     
     ---------------------
@@ -161,7 +161,7 @@ begin
     
     uartout_din     <= uartin_dout;
     uartout_wr_en   <= uartin_valid;
-    uartout_cts     <= USB_CTS;
+    uartout_cts     <= USB_CTSN;
     
     UART_SENDER_inst : entity work.UART_SENDER
         generic map (
@@ -180,7 +180,7 @@ begin
             BUSY    => uartout_busy
         );
     
-    echo_proc : process(g_rst, g_rst)
+    echo_proc : process(g_rst, g_clk)
     begin
         if g_rst='1' then
             echo_tick_cnt   <= (others => '0');
