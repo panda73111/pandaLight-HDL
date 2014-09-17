@@ -16,8 +16,6 @@
 library IEEE;
 use IEEE.std_logic_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 
 entity top is
     generic (
@@ -29,8 +27,8 @@ entity top is
         -- USB UART
         USB_TXD     : out std_ulogic;
         USB_RXD     : in std_ulogic;
-        USB_RTSN    : out std_ulogic;
-        USB_CTSN    : in std_ulogic;
+        USB_RTS     : out std_ulogic;
+        USB_CTS     : in std_ulogic;
         USB_RXLEDN  : in std_ulogic;
         USB_TXLEDN  : in std_ulogic;
         
@@ -42,7 +40,7 @@ end TOP;
 
 architecture rtl of top is
     
-    constant g_clk_period   : real := 10.0; -- in nano seconds
+    constant g_clk_period   : real := 20.0; -- in nano seconds
     
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
@@ -96,7 +94,7 @@ begin
         generic map (
             CLK_IN_PERIOD   => CLK_IN_PERIOD,
             MULTIPLIER      => 2,
-            DIVISOR         => 1
+            DIVISOR         => 2
         )
         port map (
             CLK_IN  => CLK_IN,
@@ -120,7 +118,7 @@ begin
     LEDS(0) <= '0';
     
     USB_TXD     <= uartout_txd;
-    USB_RTSN    <= not uartin_full;
+    USB_RTS     <= not uartin_full;
     
     
     ---------------------
@@ -135,7 +133,11 @@ begin
     
     UART_RECEIVER_inst : entity work.UART_RECEIVER
         generic map (
-            CLK_IN_PERIOD   => g_clk_period
+            CLK_IN_PERIOD   => g_clk_period,
+            BAUD_RATE       => 115_200,
+            DATA_BITS       => 8,
+            PARITY_BIT_TYPE => 0,
+            BUFFER_SIZE     => 512
         )
         port map (
             CLK => uartin_clk,
@@ -144,8 +146,8 @@ begin
             RXD     => uartin_rxd,
             RD_EN   => uartin_rd_en,
             
-            DOUT    => open, --uartin_dout,
-            VALID   => open, --uartin_valid,
+            DOUT    => uartin_dout,
+            VALID   => uartin_valid,
             FULL    => uartin_full,
             ERROR   => uartin_error,
             BUSY    => uartin_busy
@@ -161,11 +163,16 @@ begin
     
     uartout_din     <= uartin_dout;
     uartout_wr_en   <= uartin_valid;
-    uartout_cts     <= USB_CTSN;
+    uartout_cts     <= USB_CTS;
     
     UART_SENDER_inst : entity work.UART_SENDER
         generic map (
-            CLK_IN_PERIOD   => g_clk_period
+            CLK_IN_PERIOD   => g_clk_period,
+            BAUD_RATE       => 115_200,
+            DATA_BITS       => 8,
+            STOP_BITS       => 1,
+            PARITY_BIT_TYPE => 0,
+            BUFFER_SIZE     => 512
         )
         port map (
             CLK => uartout_clk,
@@ -179,22 +186,6 @@ begin
             FULL    => uartout_full,
             BUSY    => uartout_busy
         );
-    
-    echo_proc : process(g_rst, g_clk)
-    begin
-        if g_rst='1' then
-            echo_tick_cnt   <= (others => '0');
-        elsif rising_edge(g_clk) then
-            echo_tick_cnt   <= echo_tick_cnt+1;
-            uartin_valid    <= '0';
-            if echo_tick_cnt(echo_tick_cnt'high)='1' then
-                echo_tick_cnt   <= (others => '0');
-                uartin_dout     <= "0" & std_ulogic_vector(char_index);
-                uartin_valid    <= '1';
-                char_index      <= char_index+1;
-            end if;
-        end if;
-    end process;
     
 end rtl;
 
