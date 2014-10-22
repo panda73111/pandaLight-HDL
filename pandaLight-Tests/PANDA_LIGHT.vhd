@@ -42,6 +42,7 @@ entity PANDA_LIGHT is
         TX_SDA              : inout std_ulogic := 'Z';
         TX_SCL              : inout std_ulogic := 'Z';
         TX_CEC              : inout std_ulogic := 'Z';
+        TX_DET              : in std_ulogic := '0';
         TX_EN               : out std_ulogic := '0';
         
         -- USB UART
@@ -297,79 +298,6 @@ begin
             );
         
     end generate;
-    
-    
-    -----------------------------------
-    ------ E-DDC (E-)EDID Slave ------
-    -----------------------------------
-    
-    eddc_s_clk              <= g_clk;
-    eddc_s_rst              <= g_rst;
-    eddc_s_sda_in           <= RX_SDA(RX_SEL);
-    eddc_s_scl_in           <= RX_SCL(RX_SEL);
-    eddc_s_block_valid      <= microblaze_gpo1(9);
-    eddc_s_block_invalid    <= microblaze_gpo1(10);
-    eddc_s_data_in_addr     <= stdulv(microblaze_gpo2(13 downto 7));
-    eddc_s_data_in_wr_en    <= microblaze_gpo2(14);
-    eddc_s_data_in          <= stdulv(microblaze_gpo2(21 downto 14));
-    
-    E_DDC_SLAVE_inst : entity work.E_DDC_SLAVE
-        port map (
-            CLK => eddc_s_clk,
-            RST => eddc_s_rst,
-            
-            SDA_IN  => eddc_s_sda_in,
-            SDA_OUT => eddc_s_sda_out,
-            SCL_IN  => eddc_s_scl_in,
-            SCL_OUT => eddc_s_scl_out,
-            
-            DATA_IN_ADDR    => eddc_s_data_in_addr,
-            DATA_IN_WR_EN   => eddc_s_data_in_wr_en,
-            DATA_IN         => eddc_s_data_in,
-            BLOCK_VALID     => eddc_s_block_valid,
-            BLOCK_INVALID   => eddc_s_block_invalid,
-            
-            BLOCK_CHECK     => eddc_s_block_check,
-            BLOCK_REQUEST   => eddc_s_block_request,
-            BLOCK_NUMBER    => eddc_s_block_number,
-            BUSY            => eddc_s_busy
-        );
-    
-    
-    ----------------------------------------
-    ------ MicroBlaze microcontroller ------
-    ----------------------------------------
-    
-    microblaze_clk  <= g_clk;
-    microblaze_rst  <= g_rst;
-    
-    microblaze_rxd  <= USB_RXD when uart_select='0' else BT_RXD;
-    
-    microblaze_gpi1(7)              <= RX_DET(RX_SEL);
-    microblaze_gpi1(6)              <= rx_aux_data_valid;
-    microblaze_gpi1(5)              <= eddc_s_block_request;
-    microblaze_gpi1(4)              <= eddc_s_block_check;
-    microblaze_gpi1(3)              <= eddc_s_busy;
-    microblaze_gpi1(2)              <= eddc_m_transm_error;
-    microblaze_gpi1(1)              <= eddc_m_busy;
-    microblaze_gpi1(0)              <= not USB_CTSN when uart_select='0' else BT_CTS;
-    
-    microblaze_gpi2(24 downto 17)   <= stdlv(eddc_s_block_number);
-    microblaze_gpi2(16 downto 8)    <= stdlv(rx_aux_data);
-    microblaze_gpi2(7 downto 0)     <= stdlv(edid_ram_dout);
-    
-    microblaze_inst : microblaze_mcs_v1_4
-        port map (
-            Clk             => microblaze_clk,
-            Reset           => microblaze_rst,
-            UART_Rx         => microblaze_rxd,
-            UART_Tx         => microblaze_txd,
-            GPO1            => microblaze_gpo1,
-            GPO2            => microblaze_gpo2,
-            GPO3            => microblaze_gpo3,
-            GPI1            => microblaze_gpi1,
-            GPI2            => microblaze_gpi2
-        );
     
     
     ----------------------------------

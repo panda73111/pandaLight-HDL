@@ -17,96 +17,61 @@ use IEEE.NUMERIC_STD.ALL;
 entity INPUT_EDID_FILTER is
     generic (
         CLK_PERIOD  : real
+    );
     port (
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
-        RX_SDA_IN  : in std_ulogic;
-        RX_SDA_OUT : out std_ulogic := '1';
-        RX_SCL_IN  : in std_ulogic;
-        RX_SCL_OUT : out std_ulogic := '1';
+        RX_SDA_IN   : in std_ulogic;
+        RX_SDA_OUT  : out std_ulogic := '1';
+        RX_SCL_IN   : in std_ulogic;
+        RX_SCL_OUT  : out std_ulogic := '1';
         
-        TX_SDA_IN  : in std_ulogic;
-        TX_SDA_OUT : out std_ulogic := '1';
-        TX_SCL_IN  : in std_ulogic;
-        TX_SCL_OUT : out std_ulogic := '1';
+        TX_SDA_IN   : in std_ulogic;
+        TX_SDA_OUT  : out std_ulogic := '1';
+        TX_SCL_IN   : in std_ulogic;
+        TX_SCL_OUT  : out std_ulogic := '1';
         
+        RX_DET  : in std_ulogic;
+        TX_DET  : in std_ulogic;
+        
+        EDID_RECEIVED   : out std_ulogic := '0';
+        EDID_SENT       : out std_ulogic := '0'
         
     );
 end INPUT_EDID_FILTER;
 
 architecture rtl of INPUT_EDID_FILTER is
     
-    -----------------------------------
-    ------ E-DDC (E-)EDID Master ------
-    -----------------------------------
+    type state_type is (
+        INIT,
+        WAIT_FOR_TX_CONN
+    );
     
-    -- Inputs
-    signal eddc_m_start : std_ulogic := '0';
-
-    -- BiDirs
-    signal eddc_m_sda_in    : std_ulogic := '1';
-    signal eddc_m_sda_out   : std_ulogic := '1';
-    signal eddc_m_scl_in    : std_ulogic := '1';
-    signal eddc_m_scl_out   : std_ulogic := '1';
-
-    -- Outputs
-    signal eddc_m_block_number      : std_ulogic_vector(7 downto 0) := (others => '0');
-    signal eddc_m_busy              : std_ulogic := '0';
-    signal eddc_m_transm_error      : std_ulogic := '0';
-    signal eddc_m_data_out          : std_ulogic_vector(7 downto 0) := (others => '0');
-    signal eddc_m_data_out_valid    : std_ulogic := '0';
-    signal eddc_m_byte_index        : std_ulogic_vector(6 downto 0) := (others => '0');
+    type reg_type is record
+        state       : state_type;
+        ram_wr_en   : std_ulogic;
+        ram_wr_addr : std_ulogic_vector(15 downto 0);
+        ram_din     : std_ulogic_vector(7 downto 0);
+        block_cnt   : unsigned(7 downto 0);
+    end record;
     
+    signal cur_reg, next_reg    : reg_type_def := (
+        state       => INIT,
+        ram_wr_en   => '0',
+        ram_wr_addr => (others => '0'),
+        ram_din     => (others => '0'),
+        block_cnt   => x"00"
+    );
     
-    ----------------------------------
-    ------ E-DDC (E-)EDID Slave ------
-    ----------------------------------
-    
-    -- Inputs
-    signal eddc_s_clk      : std_ulogic := '0';
-    signal eddc_s_rst      : std_ulogic := '0';
-    
-    signal eddc_s_data_in_addr  : std_ulogic_vector(6 downto 0) := (others => '0');
-    signal eddc_s_data_in_wr_en : std_ulogic := '0';
-    signal eddc_s_data_in       : std_ulogic_vector(7 downto 0) := (others => '0');
-    signal eddc_s_block_valid   : std_ulogic := '0';
-    signal eddc_s_block_invalid : std_ulogic := '0';
-
-    -- BiDirs
-    signal eddc_s_sda_in   : std_ulogic := '1';
-    signal eddc_s_sda_out  : std_ulogic := '1';
-    signal eddc_s_scl_in   : std_ulogic := '1';
-    signal eddc_s_scl_out  : std_ulogic := '1';
-
-    -- Outputs
-    signal eddc_s_block_check      : std_ulogic := '0';
-    signal eddc_s_block_request    : std_ulogic := '0';
-    signal eddc_s_block_number     : std_ulogic_vector(7 downto 0) := (others => '0');
-    signal eddc_s_busy             : std_ulogic := '0';
-    
-    
-    ----------------------
-    ------ EDID RAM ------
-    ----------------------
-    
-    -- Inputs
-    signal ram_rd_addr  : std_ulogic_vector(6 downto 0) := (others => '0');
-    signal ram_wr_en    : std_ulogic := '0';
-    signal ram_wr_addr  : std_ulogic_vector(6 downto 0) := (others => '0');
-    signal ram_din      : std_ulogic_vector(7 downto 0) := (others => '0');
-    
-    -- Outputs
-    signal ram_dout : std_ulogic_vector(7 downto 0) := (others => '0');
+    signal ram_rd_addr  : std_ulogic_vector(6 downto 0) := (others => '0');    
+    signal ram_dout     : std_ulogic_vector(7 downto 0) := (others => '0');
     
 begin
     
     -----------------------------------
     ------ E-DDC (E-)EDID Master ------
     -----------------------------------
-    
-    eddc_m_sda_in       <= SDA_IN;
-    eddc_m_scl_in       <= SCL_IN;
     
     E_DDC_MASTER_inst : entity work.E_DDC_MASTER
         generic map (
@@ -116,10 +81,10 @@ begin
             CLK => CLK,
             RST => RST,
             
-            SDA_IN  => eddc_m_sda_in,
-            SDA_OUT => eddc_m_sda_out,
-            SCL_IN  => eddc_m_scl_in,
-            SCL_OUT => eddc_m_scl_out,
+            SDA_IN  => TX_SDA_IN,
+            SDA_OUT => TX_SDA_OUT,
+            SCL_IN  => TX_SCL_IN,
+            SCL_OUT => TX_SCLK_OUT,
             
             START           => eddc_m_start,
             BLOCK_NUMBER    => eddc_m_block_number,
@@ -132,21 +97,44 @@ begin
         );
     
     
+    -----------------------------------
+    ------ E-DDC (E-)EDID Slave ------
+    -----------------------------------
+    
+    E_DDC_SLAVE_inst : entity work.E_DDC_SLAVE
+        port map (
+            CLK => CLK,
+            RST => RST,
+            
+            SDA_IN  => RX_SDA_IN,
+            SDA_OUT => RX_SDA_OUT,
+            SCL_IN  => RX_SCL_IN,
+            SCL_OUT => RX_SCLK_OUT,
+            
+            DATA_IN_ADDR    => eddc_s_data_in_addr,
+            DATA_IN_WR_EN   => eddc_s_data_in_wr_en,
+            DATA_IN         => edid_ram_dout,
+            BLOCK_VALID     => eddc_s_block_valid,
+            BLOCK_INVALID   => eddc_s_block_invalid,
+            
+            BLOCK_CHECK     => eddc_s_block_check,
+            BLOCK_REQUEST   => eddc_s_block_request,
+            BLOCK_NUMBER    => eddc_s_block_number,
+            BUSY            => eddc_s_busy
+        );
+    
+    
     ----------------------
     ------ EDID RAM ------
     ----------------------
     
-    ram_wr_en   <= eddc_m_data_out_valid;
-    ram_wr_addr <= eddc_m_byte_index;
-    ram_din     <= eddc_m_data_out_valid;
-    
     edid_ram_inst : entity work.DUAL_PORT_RAM
         generic map (
             WIDTH   => 8,
-            DEPTH   => 128
+            DEPTH   => 65536 -- 64kB, 256 x 128 byte blocks
         )
         port map (
-            CLK         => edid_ram_clk,
+            CLK         => CLK,
             
             RD_ADDR     => edid_ram_rd_addr,
             WR_EN       => edid_ram_wr_en,
@@ -156,6 +144,62 @@ begin
             DOUT    => edid_ram_dout
         );
     
+    
+    ---------------------
+    --- state machine ---
+    ---------------------
+    
+    stm_proc : process(cur_reg, RST, RX_DET, TX_DET)
+        alias cr is cur_reg;
+        variable r  : reg_type := reg_type_def;
+    begin
+        r           := cr;
+        r.m_start   := '0';
+        
+        case cr.state is
+            
+            when INIT =>
+                r.block_cnt         := x"00";
+                r.m_block_number    := x"00";
+                r.state             := WAIT_FOR_TX_CON;
+            
+            when WAIT_FOR_TX_CONN =>
+                if RX_DET='1' then
+                    r.state := READ_BLOCK;
+                end if;
+            
+            when READ_BLOCK =>
+                r.m_start   := '1';
+                r.state     := WAIT_FOR_BYTE;
+            
+            when WAIT_FOR_BYTE =>
+                if m_data_out_valid='1' then
+                    r.state <= EVAL_BYTE;
+                end if;
+                if m_transm_error='1' then
+                    -- TODO: read block again?
+                    r.state <= INIT;
+                end if;
+            
+            when EVAL_BYTE =>
+                
+            
+        end case;
+        
+        if RST='1' then
+            r   := reg_type_def;
+        end if;
+        next_reg    <= r;
+    end process;
+    
+    sync_stm_proc : process(CLK, RST)
+    begin
+        if RST='1' then
+            cur_reg <= reg_type_def;
+        elsif rising_edge(CLK) then
+            cur_reg <= next_reg;
+        end if;
+    end process;
     
 end rtl;
 
