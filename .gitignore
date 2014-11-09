@@ -76,3 +76,7 @@ transcript
 *.psr
 *.csv
 *.xbcd
+*.cfi
+*.mcs
+*.prm
+*.blc

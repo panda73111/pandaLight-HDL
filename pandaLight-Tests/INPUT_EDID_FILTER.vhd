@@ -35,8 +35,8 @@ entity INPUT_EDID_FILTER is
         RX_DET  : in std_ulogic;
         TX_DET  : in std_ulogic;
         
-        EDID_RECEIVED   : out std_ulogic := '0';
-        EDID_SENT       : out std_ulogic := '0'
+        RX_EN   : out std_ulogic := '0';
+        TX_EN   : out std_ulogic := '0'
         
     );
 end INPUT_EDID_FILTER;
@@ -50,24 +50,26 @@ architecture rtl of INPUT_EDID_FILTER is
     
     type reg_type is record
         state       : state_type;
-        ram_wr_en   : std_ulogic;
-        ram_wr_addr : std_ulogic_vector(15 downto 0);
-        ram_din     : std_ulogic_vector(7 downto 0);
-        block_cnt   : unsigned(7 downto 0);
+        rx_en       : std_ulogic;
+        tx_en       : std_ulogic;
+        m_start     : std_ulogic;
+        m_block_num : std_ulogic_vector(7 downto 0);
     end record;
     
     signal cur_reg, next_reg    : reg_type_def := (
         state       => INIT,
-        ram_wr_en   => '0',
-        ram_wr_addr => (others => '0'),
-        ram_din     => (others => '0'),
-        block_cnt   => x"00"
+        rx_en       => '0',
+        tx_en       => '0',
+        m_start     => '0',
+        m_block_num => '0'
     );
     
-    signal ram_rd_addr  : std_ulogic_vector(6 downto 0) := (others => '0');    
-    signal ram_dout     : std_ulogic_vector(7 downto 0) := (others => '0');
-    
 begin
+    
+    RX_EN   <= cur_reg.rx_en;
+    TX_EN   <= cur_reg.tx_en;
+    
+    eddc_m_start    <= cur_reg.m_start;
     
     -----------------------------------
     ------ E-DDC (E-)EDID Master ------
@@ -113,7 +115,7 @@ begin
             
             DATA_IN_ADDR    => eddc_s_data_in_addr,
             DATA_IN_WR_EN   => eddc_s_data_in_wr_en,
-            DATA_IN         => edid_ram_dout,
+            DATA_IN         => eddc_s_data_in,
             BLOCK_VALID     => eddc_s_block_valid,
             BLOCK_INVALID   => eddc_s_block_invalid,
             
@@ -124,48 +126,41 @@ begin
         );
     
     
-    ----------------------
-    ------ EDID RAM ------
-    ----------------------
-    
-    edid_ram_inst : entity work.DUAL_PORT_RAM
-        generic map (
-            WIDTH   => 8,
-            DEPTH   => 65536 -- 64kB, 256 x 128 byte blocks
-        )
-        port map (
-            CLK         => CLK,
-            
-            RD_ADDR     => edid_ram_rd_addr,
-            WR_EN       => edid_ram_wr_en,
-            WR_ADDR     => edid_ram_wr_addr,
-            DIN         => edid_ram_din,
-            
-            DOUT    => edid_ram_dout
-        );
-    
-    
     ---------------------
     --- state machine ---
     ---------------------
     
-    stm_proc : process(cur_reg, RST, RX_DET, TX_DET)
+    stm_proc : process(cur_reg, RST, RX_DET, TX_DET, eddc_s_busy)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
         r           := cr;
+        r.tx_en     := '1';
         r.m_start   := '0';
         
         case cr.state is
             
             when INIT =>
-                r.block_cnt         := x"00";
-                r.m_block_number    := x"00";
                 r.state             := WAIT_FOR_TX_CON;
             
-            when WAIT_FOR_TX_CONN =>
+            when WAIT_FOR_RX_CONN =>
+                -- wait for a receiver connection at the TX port
+                -- (which has the EDID data)
+                if TX_DET='1' then
+                    r.state := WAIT_FOR_RX_CON;
+                end if;
+            
+            when WAIT_FOR_TX_CON =>
+                -- activate the RX port,
+                -- wait for a sender connection
+                r.rx_en := '1';
                 if RX_DET='1' then
-                    r.state := READ_BLOCK;
+                    r.state := WAIT_FOR_TX_ACTIVITY;
+                end if;
+            
+            when WAIT_FOR_TX_ACTIVITY =>
+                if eddc_s_busy='1' then
+                    r.state := READ_BYTE;
                 end if;
             
             when READ_BLOCK =>
@@ -186,7 +181,7 @@ begin
             
         end case;
         
-        if RST='1' then
+        if RST='1' or TX_DET='0' then
             r   := reg_type_def;
         end if;
         next_reg    <= r;

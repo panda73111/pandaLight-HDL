@@ -148,7 +148,7 @@ begin
     --------------------------------------
     
     g_rst   <= '0'; --PUSHBTN;
-    LEDS(4) <= PUSHBTN;
+    LEDS(4) <= '1';
     LEDS(3) <= not USB_TXLEDN;
     LEDS(2) <= not USB_RXLEDN;
     LEDS(1) <= uartin_error;
@@ -247,7 +247,7 @@ begin
         generic map (
             CLK_IN_PERIOD   => g_clk_period,
             CLK_OUT_MULT    => 2,
-            CLK_OUT_DIV     => 2
+            CLK_OUT_DIV     => 4
         )
         port map (
             CLK => flashctrl_clk,
