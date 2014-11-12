@@ -37,7 +37,9 @@
     </file>
     <file xil_pn:name="../E_DDC_MASTER/E_DDC_MASTER.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="20"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="22"/>
+      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="6"/>
+      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="6"/>
+      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="6"/>
     </file>
     <file xil_pn:name="../../universal-HDL/CLOCKMAN/ISERDES2_CLK_MAN.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="12"/>
@@ -104,7 +106,9 @@
     </file>
     <file xil_pn:name="../E_DDC_SLAVE/E_DDC_SLAVE.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="88"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="21"/>
+      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="23"/>
+      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="23"/>
+      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="23"/>
     </file>
     <file xil_pn:name="INPUT_EDID_FILTER.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="81"/>
