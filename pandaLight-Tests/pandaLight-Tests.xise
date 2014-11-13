@@ -114,6 +114,10 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="81"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="81"/>
     </file>
+    <file xil_pn:name="../../universal-HDL/BIDIR_REPEAT_BUFFER/BIDIR_REPEAT_BUFFER.vhd" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="67"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="67"/>
+    </file>
   </files>
 
   <properties>

@@ -52,7 +52,9 @@ architecture rtl of INPUT_EDID_FILTER is
     
     type reg_type is record
         state           : state_type;
+        rx_scl_out      : std_ulogic;
         rx_sda_out      : std_ulogic;
+        tx_scl_out      : std_ulogic;
         segment_pointer : std_ulogic_vector(6 downto 0);
         byte            : std_ulogic_vector(7 downto 0);
         bit_index       : unsigned(2 downto 0); -- 0..7
@@ -61,7 +63,9 @@ architecture rtl of INPUT_EDID_FILTER is
     
     signal cur_reg, next_reg    : reg_type_def := (
         state           => INIT,
-        rx_sda_out      => '1'
+        rx_scl_out      => '1',
+        rx_sda_out      => '1',
+        tx_scl_out      => '1',
         segment_pointer => "0000000",
         byte            => x"00",
         bit_index       => uns(7, 3),
@@ -79,11 +83,30 @@ begin
     TX_EN   <= RX_DET;
     
     -- pass through the DDC signals,
-    -- filter the data signal to the master
-    RX_SCL_OUT  <= TX_SCL_IN;
-    RX_SDA_OUT  <= cur_reg.rx_sda_out;
-    TX_SCL_OUT  <= RX_SCL_IN;
-    TX_SDA_OUT  <= RX_SDA_IN;
+    -- filter the clock signals for clock stretching and
+    -- the data signal to the master for injections
+    
+    scl_BIDIR_REPEAT_BUFFER_inst : entity work.BIDIR_REPEAT_BUFFER
+        generic map (PULL => "UP")
+        port map (
+            CLK => CLK,
+            
+            P0_IN   => cur_reg.tx_scl_out,
+            P0_OUT  => RX_SCL_OUT,
+            P1_IN   => cur_reg.rx_scl_out,
+            P1_OUT  => TX_SCL_OUT
+        );
+    
+    sda_BIDIR_REPEAT_BUFFER_inst : entity work.BIDIR_REPEAT_BUFFER
+        generic map (PULL => "UP")
+        port map (
+            CLK => CLK,
+            
+            P0_IN   => RX_SDA_IN,
+            P0_OUT  => RX_SDA_OUT,
+            P1_IN   => cur_reg.rx_sda_out,
+            P1_OUT  => TX_SDA_OUT
+        );
     
     stop_detect_proc : process(CLK)
     begin
@@ -109,7 +132,9 @@ begin
     begin
         r   := cr;
         
+        r.rx_scl_out    := TX_SCL_IN;
         r.rx_sda_out    := TX_SDA_IN;
+        r.tx_scl_out    := RX_SCL_IN;
         
         case cr.state is
             
@@ -180,7 +205,7 @@ begin
                     r.bit_index := cr.bit_index-1;
                     r.state     := GET_SEG_P_WAIT_FOR_SCL_LOW;
                     if cr.bit_index=0 then
-                        r.state := CHECK_FOR_BLOCK_WAIT_FOR_SCL_LOW;
+                        r.state := GET_SEG_P_ACK_WAIT_FOR_SCL_LOW;
                     end if;
                 end if;
             
@@ -189,20 +214,9 @@ begin
                     r.state := GET_SEG_P_WAIT_FOR_SCL_HIGH;
                 end if;
             
-            when CHECK_FOR_BLOCK_WAIT_FOR_SCL_LOW =>
+            when GET_SEG_P_ACK_WAIT_FOR_SCL_LOW =>
                 if SCL_IN='0' then
-                    r.state := CHECK_FOR_BLOCK;
-                end if;
-            
-            when CHECK_FOR_BLOCK =>
-                -- stretch the clock until the requested block is checked
-                r.scl_out       := '0';
-                r.block_check   := '1';
-                if BLOCK_VALID='1' then
-                    r.state := BLOCK_NUM_SEND_ACK_WAIT_FOR_SCL_HIGH;
-                end if;
-                if BLOCK_INVALID='1' then
-                    r.state := SEND_NACK_WAIT_FOR_SCL_HIGH;
+                    r.state := GET_SEG_P_ACK;
                 end if;
             
             when BLOCK_NUM_SEND_ACK_WAIT_FOR_SCL_HIGH =>
