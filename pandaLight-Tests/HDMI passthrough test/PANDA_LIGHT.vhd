@@ -21,9 +21,7 @@ use work.help_funcs.all;
 
 entity PANDA_LIGHT is
     generic (
-        RX_SEL              : natural := 0;
-        MAX_LED_COUNT       : natural := 100;
-        MAX_LED_BUFFER_SIZE : natural := 1024
+        RX_SEL  : natural := 0
     );
     port (
         CLK20   : in std_ulogic;
@@ -43,24 +41,37 @@ entity PANDA_LIGHT is
         TX_SCL              : inout std_ulogic := 'Z';
         TX_CEC              : inout std_ulogic := 'Z';
         TX_DET              : in std_ulogic := '0';
-        TX_EN               : out std_ulogic := '0'
+        TX_EN               : out std_ulogic := '0';
+        
+        -- USB UART
+        USB_RXD     : in std_ulogic;
+        USB_TXD     : out std_ulogic := '0';
+        USB_CTSN    : in std_ulogic;
+        USB_RTSN    : out std_ulogic := '0';
+        USB_DSRN    : in std_ulogic;
+        USB_DTRN    : out std_ulogic := '0';
+        USB_DCDN    : out std_ulogic := '0';
+        USB_RIN     : out std_ulogic := '0'
     );
 end PANDA_LIGHT;
 
 architecture rtl of PANDA_LIGHT is
     
-    attribute keep : string;
+    attribute keep  : boolean;
     
     -- 50 MHz in nano seconds
     constant G_CLK_PERIOD   : real := 20.0;
-    
-    -- 1 MHz, 100 LEDs: 2.9 ms latency, ~344 fps
-    constant WS2801_CLK_PERIOD  : real := 1000.0;
     
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
     
     signal g_clk_stopped    : std_ulogic := '0';
+    
+    signal boot_msg_delay   : natural := 1000;
+    signal boot_msg_sent    : boolean := false;
+    signal dbg_ready        : boolean := false;
+    signal rx_con_msg_sent  : boolean := false;
+    signal tx_con_msg_sent  : boolean := false;
     
     
     ----------------------------
@@ -80,7 +91,7 @@ architecture rtl of PANDA_LIGHT is
     
     -- Inputs
     signal rxclk_clk_in : std_ulogic := '0';
-    attribute keep of rxclk_clk_in : signal is "TRUE";
+    attribute keep of rxclk_clk_in : signal is true;
     
     -- Outputs
     signal rxclk_clk_out1       : std_ulogic := '0';
@@ -128,6 +139,24 @@ architecture rtl of PANDA_LIGHT is
     
     signal rxpt_tx_channels_out : std_ulogic_vector(3 downto 0) := "0000";
     
+    
+    ------------------
+    --- UART debug ---
+    ------------------
+    
+    -- Inputs
+    signal dbg_clk  : std_ulogic := '0';
+    signal dbg_rst  : std_ulogic := '0';
+    
+    signal dbg_msg      : string(1 to 128) := (others => nul);
+    signal dbg_wr_en    : std_ulogic := '0';
+    signal dbg_cts      : std_ulogic := '0';
+    
+    -- Outputs
+    signal dbg_done : std_ulogic := '0';
+    signal dbg_full : std_ulogic := '0';
+    signal dbg_txd  : std_ulogic := '0';
+    
 begin
     
     ------------------------------
@@ -136,7 +165,7 @@ begin
     
     CLK_MAN_inst : entity work.CLK_MAN
         generic map (
-            CLK_IN_PERIOD   => G_CLK_PERIOD,
+            CLK_IN_PERIOD   => 50.0,
             MULTIPLIER      => 5,
             DIVISOR         => 2
         )
@@ -155,13 +184,17 @@ begin
     
     g_rst   <= g_clk_stopped;
     
+    USB_TXD     <= dbg_txd;
+    USB_RTSN    <= dbg_full;
+    
     
     ------------------------------------
     ------ HDMI signal management ------
     ------------------------------------
     
-    RX_EN(RX_SEL)   <= tx_det_stable;
-    TX_EN           <= rx_det_stable;
+    -- only enabled chips make 'DET' signals possible!
+    RX_EN(RX_SEL)   <= '1'; --tx_det_stable;
+    TX_EN           <= '1';
     
     tx_channels_out <= rxpt_tx_channels_out;
     
@@ -323,6 +356,73 @@ begin
             RX_ENC_DATA_VALID   => rxpt_rx_enc_data_valid,
             
             TX_CHANNELS_OUT => rxpt_tx_channels_out
+        );
+    
+    
+    ------------------
+    --- UART debug ---
+    ------------------
+    
+    dbg_clk <= g_clk;
+    dbg_rst <= g_rst;
+    
+    dbg_cts <= not USB_CTSN;
+    
+    process(g_clk)
+    begin
+        if rising_edge(g_clk) then
+            dbg_wr_en   <= '0';
+            
+            if not boot_msg_sent then
+                if boot_msg_delay=0 then
+                    dbg_msg(1 to 6) <= "ready" & nul;
+                    dbg_wr_en       <= '1';
+                    boot_msg_sent   <= true;
+                    dbg_ready       <= true;
+                else
+                    boot_msg_delay  <= boot_msg_delay-1;
+                end if;
+            end if;
+            
+            if dbg_ready then
+                if rx_det_stable='1' then
+                    if not rx_con_msg_sent and dbg_full='0' then
+                        dbg_msg(1 to 13)    <= "RX connected" & nul;
+                        dbg_wr_en           <= '1';
+                        rx_con_msg_sent     <= true;
+                    end if;
+                else
+                    rx_con_msg_sent <= false;
+                end if;
+                
+                if tx_det_stable='1' then
+                    if not tx_con_msg_sent and dbg_full='0' then
+                        dbg_msg(1 to 13)    <= "TX connected" & nul;
+                        dbg_wr_en           <= '1';
+                        tx_con_msg_sent     <= true;
+                    end if;
+                else
+                    tx_con_msg_sent <= false;
+                end if;
+            end if;
+        end if;
+    end process;
+    
+    UART_DEBUG_inst : entity work.UART_DEBUG
+        generic map (
+            CLK_IN_PERIOD   => G_CLK_PERIOD
+        )
+        port map (
+            CLK => dbg_clk,
+            RST => dbg_rst,
+            
+            MSG     => dbg_msg,
+            WR_EN   => dbg_wr_en,
+            CTS     => dbg_cts,
+            
+            DONE    => dbg_done,
+            FULL    => dbg_full,
+            TXD     => dbg_txd
         );
     
 end rtl;
