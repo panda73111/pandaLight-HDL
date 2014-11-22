@@ -29,12 +29,12 @@ architecture behavior of testbench is
     -- USB UART
     signal USB_RXD     : std_ulogic := '0';
     signal USB_TXD     : std_ulogic;
---    signal USB_CTSN    : in std_ulogic;
---    signal USB_RTSN    : out std_ulogic := '1';
---    signal USB_DSRN    : in std_ulogic;
---    signal USB_DTRN    : out std_ulogic := '0';
---    signal USB_DCDN    : out std_ulogic := '0';
---    signal USB_RIN     : out std_ulogic := '0'
+    signal USB_CTSN    : std_ulogic := '0';
+    signal USB_RTSN    : std_ulogic;
+    signal USB_DSRN    : std_ulogic := '0';
+    signal USB_DTRN    : std_ulogic;
+    signal USB_DCDN    : std_ulogic;
+    signal USB_RIN     : std_ulogic;
     
     constant CLK20_PERIOD   : time := 50 ns;
     
@@ -62,8 +62,14 @@ begin
         TX_DET              => TX_DET,
         TX_EN               => TX_EN,
         
-        USB_RXD => USB_RXD,
-        USB_TXD => USB_TXD
+        USB_RXD     => USB_RXD,
+        USB_TXD     => USB_TXD,
+        USB_CTSN    => USB_CTSN,
+        USB_RTSN    => USB_RTSN,
+        USB_DSRN    => USB_DSRN,
+        USB_DTRN    => USB_DTRN,
+        USB_DCDN    => USB_DCDN,
+        USB_RIN     => USB_RIN
     );
     
     process

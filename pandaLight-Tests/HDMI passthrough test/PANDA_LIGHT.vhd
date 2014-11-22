@@ -35,8 +35,8 @@ entity PANDA_LIGHT is
         RX_DET              : in std_ulogic_vector(1 downto 0);
         RX_EN               : out std_ulogic_vector(1 downto 0) := "00";
         
-        TX_CHANNELS_OUT_P   : out std_ulogic_vector(3 downto 0) := "0000";
-        TX_CHANNELS_OUT_N   : out std_ulogic_vector(3 downto 0) := "0000";
+        TX_CHANNELS_OUT_P   : out std_ulogic_vector(3 downto 0) := "1111";
+        TX_CHANNELS_OUT_N   : out std_ulogic_vector(3 downto 0) := "1111";
         TX_SDA              : inout std_ulogic := 'Z';
         TX_SCL              : inout std_ulogic := 'Z';
         TX_CEC              : inout std_ulogic := 'Z';
@@ -67,11 +67,13 @@ architecture rtl of PANDA_LIGHT is
     
     signal g_clk_stopped    : std_ulogic := '0';
     
-    signal boot_msg_delay   : natural := 1000;
-    signal boot_msg_sent    : boolean := false;
-    signal dbg_ready        : boolean := false;
-    signal rx_con_msg_sent  : boolean := false;
-    signal tx_con_msg_sent  : boolean := false;
+    signal boot_msg_delay       : natural := 1000;
+    signal boot_msg_sent        : boolean := false;
+    signal dbg_ready            : boolean := false;
+    signal rx_con_msg_sent      : boolean := false;
+    signal rx_discon_msg_sent   : boolean := false;
+    signal tx_con_msg_sent      : boolean := false;
+    signal tx_discon_msg_sent   : boolean := false;
     
     
     ----------------------------
@@ -153,7 +155,7 @@ architecture rtl of PANDA_LIGHT is
     signal dbg_cts      : std_ulogic := '0';
     
     -- Outputs
-    signal dbg_done : std_ulogic := '0';
+    signal dbg_busy : std_ulogic := '0';
     signal dbg_full : std_ulogic := '0';
     signal dbg_txd  : std_ulogic := '0';
     
@@ -193,7 +195,7 @@ begin
     ------------------------------------
     
     -- only enabled chips make 'DET' signals possible!
-    RX_EN(RX_SEL)   <= '1'; --tx_det_stable;
+    RX_EN(RX_SEL)   <= tx_det_stable;
     TX_EN           <= '1';
     
     tx_channels_out <= rxpt_tx_channels_out;
@@ -369,39 +371,60 @@ begin
     dbg_cts <= not USB_CTSN;
     
     process(g_clk)
+        variable printing   : boolean;
     begin
         if rising_edge(g_clk) then
             dbg_wr_en   <= '0';
+            printing    := false;
             
             if not boot_msg_sent then
                 if boot_msg_delay=0 then
-                    dbg_msg(1 to 6) <= "ready" & nul;
+                    dbg_msg(1 to 11) <= "RX" & natural'image(RX_SEL) & ": ready" & nul;
                     dbg_wr_en       <= '1';
                     boot_msg_sent   <= true;
                     dbg_ready       <= true;
+                    printing        := true;
                 else
                     boot_msg_delay  <= boot_msg_delay-1;
                 end if;
             end if;
             
-            if dbg_ready then
+            if
+                dbg_ready and
+                dbg_busy='0' and
+                dbg_full='0'
+            then
                 if rx_det_stable='1' then
-                    if not rx_con_msg_sent and dbg_full='0' then
+                    if not rx_con_msg_sent and not printing then
                         dbg_msg(1 to 13)    <= "RX connected" & nul;
                         dbg_wr_en           <= '1';
                         rx_con_msg_sent     <= true;
+                        printing            := true;
                     end if;
+                    rx_discon_msg_sent  <= false;
                 else
+                    if not rx_discon_msg_sent and not printing then
+                        dbg_msg(1 to 16)    <= "RX disconnected" & nul;
+                        dbg_wr_en           <= '1';
+                        rx_discon_msg_sent  <= true;
+                        printing            := true;
+                    end if;
                     rx_con_msg_sent <= false;
                 end if;
                 
                 if tx_det_stable='1' then
-                    if not tx_con_msg_sent and dbg_full='0' then
+                    if not tx_con_msg_sent and not printing then
                         dbg_msg(1 to 13)    <= "TX connected" & nul;
                         dbg_wr_en           <= '1';
                         tx_con_msg_sent     <= true;
                     end if;
+                    tx_discon_msg_sent  <= false;
                 else
+                    if not tx_discon_msg_sent and not printing then
+                        dbg_msg(1 to 16)    <= "TX disconnected" & nul;
+                        dbg_wr_en           <= '1';
+                        tx_discon_msg_sent  <= true;
+                    end if;
                     tx_con_msg_sent <= false;
                 end if;
             end if;
@@ -420,7 +443,7 @@ begin
             WR_EN   => dbg_wr_en,
             CTS     => dbg_cts,
             
-            DONE    => dbg_done,
+            BUSY    => dbg_busy,
             FULL    => dbg_full,
             TXD     => dbg_txd
         );
