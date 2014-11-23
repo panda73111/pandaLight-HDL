@@ -7,8 +7,6 @@
 -- Tool versions:  Xilinx ISE 14.7
 -- Description: 
 --
--- Revision: 0
--- Revision 0.01 - File Created
 -- Additional Comments: 
 --
 ----------------------------------------------------------------------------------
@@ -21,7 +19,10 @@ use work.help_funcs.all;
 
 entity PANDA_LIGHT is
     generic (
-        RX_SEL  : natural := 0
+        RX_SEL              : natural := 1;
+        RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
+        RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"0533D9";
+        UART_DEBUG          : boolean := true
     );
     port (
         CLK20   : in std_ulogic;
@@ -62,25 +63,25 @@ architecture rtl of PANDA_LIGHT is
     -- 50 MHz in nano seconds
     constant G_CLK_PERIOD   : real := 20.0;
     
+    type rx_bitfile_addrs_type is array(0 to 1)
+        of std_ulogic_vector(23 downto 0);
+    
+    constant rx_bitfile_addrs   : rx_bitfile_addrs_type := (
+        RX0_BITFILE_ADDR,
+        RX1_BITFILE_ADDR
+    );
+    
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
     
     signal g_clk_stopped    : std_ulogic := '0';
-    
-    signal boot_msg_delay       : natural := 1000;
-    signal boot_msg_sent        : boolean := false;
-    signal dbg_ready            : boolean := false;
-    signal rx_con_msg_sent      : boolean := false;
-    signal rx_discon_msg_sent   : boolean := false;
-    signal tx_con_msg_sent      : boolean := false;
-    signal tx_discon_msg_sent   : boolean := false;
     
     
     ----------------------------
     --- HDMI related signals ---
     ----------------------------
     
-    signal rx_det_stable    : std_ulogic := '0';
+    signal rx_det_stable    : std_ulogic_vector(1 downto 0) := "00";
     signal tx_det_stable    : std_ulogic := '0';
     
     signal rx_channels_in   : std_ulogic_vector(7 downto 0) := x"00";
@@ -142,22 +143,13 @@ architecture rtl of PANDA_LIGHT is
     signal rxpt_tx_channels_out : std_ulogic_vector(3 downto 0) := "0000";
     
     
-    ------------------
-    --- UART debug ---
-    ------------------
+    -----------------------------
+    --- IPROG reconfiguration ---
+    -----------------------------
     
     -- Inputs
-    signal dbg_clk  : std_ulogic := '0';
-    signal dbg_rst  : std_ulogic := '0';
-    
-    signal dbg_msg      : string(1 to 128) := (others => nul);
-    signal dbg_wr_en    : std_ulogic := '0';
-    signal dbg_cts      : std_ulogic := '0';
-    
-    -- Outputs
-    signal dbg_busy : std_ulogic := '0';
-    signal dbg_full : std_ulogic := '0';
-    signal dbg_txd  : std_ulogic := '0';
+    signal iprog_clk    : std_ulogic := '0';
+    signal iprog_en     : std_ulogic := '0';
     
 begin
     
@@ -186,9 +178,6 @@ begin
     
     g_rst   <= g_clk_stopped;
     
-    USB_TXD     <= dbg_txd;
-    USB_RTSN    <= dbg_full;
-    
     
     ------------------------------------
     ------ HDMI signal management ------
@@ -196,24 +185,29 @@ begin
     
     -- only enabled chips make 'DET' signals possible!
     RX_EN(RX_SEL)   <= tx_det_stable;
+    RX_EN(1-RX_SEL) <= tx_det_stable;
     TX_EN           <= '1';
     
     tx_channels_out <= rxpt_tx_channels_out;
     
-    rx_det_DEBOUNCE_inst : entity work.DEBOUNCE
-        generic map (
-            CYCLE_COUNT => 100
-        )
-        port map (
-            CLK => g_clk,
-            
-            I   => RX_DET(RX_SEL),
-            O   => rx_det_stable
-        );
+    rx_DEBOUNCE_gen : for i in 0 to 1 generate
+        
+        rx_det_DEBOUNCE_inst : entity work.DEBOUNCE
+            generic map (
+                CYCLE_COUNT => 1000
+            )
+            port map (
+                CLK => g_clk,
+                
+                I   => RX_DET(i),
+                O   => rx_det_stable(i)
+            );
+    
+    end generate;
         
     tx_det_DEBOUNCE_inst : entity work.DEBOUNCE
         generic map (
-            CYCLE_COUNT => 100
+            CYCLE_COUNT => 1000
         )
         port map (
             CLK => g_clk,
@@ -222,7 +216,7 @@ begin
             O   => tx_det_stable
         );
     
-    diff_ibuf_gen : for i in 0 to 7 generate
+    diff_IBUFDS_gen : for i in 0 to 7 generate
         
         rx_channel_IBUFDS_inst : IBUFDS
             generic map (DIFF_TERM  => false)
@@ -234,7 +228,7 @@ begin
         
     end generate;
     
-    diff_obuf_gen : for i in 0 to 3 generate
+    diff_OBUFDS_gen : for i in 0 to 3 generate
         
         tx_channel_OBUFDS_inst : OBUFDS
             port map (
@@ -361,92 +355,175 @@ begin
         );
     
     
-    ------------------
-    --- UART debug ---
-    ------------------
+    -----------------------------
+    --- IPROG reconfiguration ---
+    -----------------------------
     
-    dbg_clk <= g_clk;
-    dbg_rst <= g_rst;
+    iprog_clk   <= g_clk;
     
-    dbg_cts <= not USB_CTSN;
+    -- switch the bitfile if the inactive RX port is connected
+    iprog_en    <= '1' when
+                    (RX_SEL=0 and rx_det_stable(1)='1') or
+                    (RX_SEL=1 and rx_det_stable(0)='1')
+                    else '0';
     
-    process(g_clk)
-        variable printing   : boolean;
+    IPROG_RECONF_inst : entity work.iprog_reconf
+        generic map (
+            START_ADDR      => rx_bitfile_addrs(1-RX_SEL),
+            FALLBACK_ADDR   => rx_bitfile_addrs(RX_SEL)
+        )
+        port map (
+            CLK => iprog_clk,
+            
+            EN  => iprog_en
+        );
+    
+    
+    UART_DEBUG_gen : if UART_DEBUG generate
+        constant BOOT_DELAY_CYCLES  : natural := 1000;
+        
+        type state_type is (
+            WAIT_FOR_BOOT,
+            PRINT_BOOT_MSG,
+            PAUSING,
+            IDLE,
+            PRINT_RX_CON_MSG,
+            PRINT_RX_DISCON_MSG,
+            PRINT_TX_CON_MSG,
+            PRINT_TX_DISCON_MSG
+        );
+        signal state                : state_type := WAIT_FOR_BOOT;
+        signal boot_msg_delay       : natural range 0 to BOOT_DELAY_CYCLES-1 := 0;
+        signal rx_con_msg_sent      : boolean := false;
+        signal rx_discon_msg_sent   : boolean := false;
+        signal tx_con_msg_sent      : boolean := false;
+        signal tx_discon_msg_sent   : boolean := false;
+        
+        -- Inputs
+        signal dbg_clk  : std_ulogic := '0';
+        signal dbg_rst  : std_ulogic := '0';
+        
+        signal dbg_msg      : string(1 to 128) := (others => nul);
+        signal dbg_wr_en    : std_ulogic := '0';
+        signal dbg_cts      : std_ulogic := '0';
+        
+        -- Outputs
+        signal dbg_busy : std_ulogic := '0';
+        signal dbg_full : std_ulogic := '0';
+        signal dbg_txd  : std_ulogic := '0';
     begin
-        if rising_edge(g_clk) then
-            dbg_wr_en   <= '0';
-            printing    := false;
-            
-            if not boot_msg_sent then
-                if boot_msg_delay=0 then
-                    dbg_msg(1 to 11) <= "RX" & natural'image(RX_SEL) & ": ready" & nul;
-                    dbg_wr_en       <= '1';
-                    boot_msg_sent   <= true;
-                    dbg_ready       <= true;
-                    printing        := true;
-                else
-                    boot_msg_delay  <= boot_msg_delay-1;
-                end if;
-            end if;
-            
-            if
-                dbg_ready and
-                dbg_busy='0' and
-                dbg_full='0'
-            then
-                if rx_det_stable='1' then
-                    if not rx_con_msg_sent and not printing then
+        
+        USB_TXD     <= dbg_txd;
+        USB_RTSN    <= dbg_full;
+        
+        
+        ------------------
+        --- UART debug ---
+        ------------------
+        
+        dbg_clk <= g_clk;
+        dbg_rst <= g_rst;
+        
+        dbg_cts <= not USB_CTSN;
+        
+        process(g_clk)
+        begin
+            if g_rst='1' then
+                dbg_wr_en       <= '0';
+                state           <= WAIT_FOR_BOOT;
+                boot_msg_delay  <= 0;
+            elsif rising_edge(g_clk) then
+                dbg_wr_en   <= '0';
+                case state is
+                    
+                    when WAIT_FOR_BOOT =>
+                        boot_msg_delay  <= boot_msg_delay+1;
+                        if boot_msg_delay=BOOT_DELAY_CYCLES-2 then
+                            state   <= PRINT_BOOT_MSG;
+                        end if;
+                    
+                    when PRINT_BOOT_MSG =>
+                        dbg_msg(1 to 11)    <= "RX" & natural'image(RX_SEL) & ": ready" & nul;
+                        dbg_wr_en           <= '1';
+                        state               <= PAUSING;
+                    
+                    when PAUSING =>
+                        -- I have no idea why this pause is necessary
+                        state   <= IDLE;
+                    
+                    when IDLE =>
+                        if rx_det_stable(RX_SEL)='1' then
+                            if not rx_con_msg_sent then
+                                state   <= PRINT_RX_CON_MSG;
+                            end if;
+                        else
+                            if not rx_discon_msg_sent then
+                                state   <= PRINT_RX_DISCON_MSG;
+                            end if;
+                        end if;
+                        if tx_det_stable='1' then
+                            if not rx_con_msg_sent then
+                                state   <= PRINT_RX_CON_MSG;
+                            end if;
+                        else
+                            if not rx_discon_msg_sent then
+                                state   <= PRINT_RX_DISCON_MSG;
+                            end if;
+                        end if;
+                        if dbg_busy='1' or dbg_full='1' then
+                            state   <= IDLE;
+                        end if;
+                    
+                    when PRINT_RX_CON_MSG =>
                         dbg_msg(1 to 13)    <= "RX connected" & nul;
                         dbg_wr_en           <= '1';
                         rx_con_msg_sent     <= true;
-                        printing            := true;
-                    end if;
-                    rx_discon_msg_sent  <= false;
-                else
-                    if not rx_discon_msg_sent and not printing then
+                        rx_discon_msg_sent  <= false;
+                        state               <= PAUSING;
+                    
+                    when PRINT_RX_DISCON_MSG =>
                         dbg_msg(1 to 16)    <= "RX disconnected" & nul;
                         dbg_wr_en           <= '1';
                         rx_discon_msg_sent  <= true;
-                        printing            := true;
-                    end if;
-                    rx_con_msg_sent <= false;
-                end if;
-                
-                if tx_det_stable='1' then
-                    if not tx_con_msg_sent and not printing then
+                        rx_con_msg_sent     <= false;
+                        state               <= PAUSING;
+                    
+                    when PRINT_TX_CON_MSG =>
                         dbg_msg(1 to 13)    <= "TX connected" & nul;
                         dbg_wr_en           <= '1';
                         tx_con_msg_sent     <= true;
-                    end if;
-                    tx_discon_msg_sent  <= false;
-                else
-                    if not tx_discon_msg_sent and not printing then
+                        tx_discon_msg_sent  <= false;
+                        state               <= PAUSING;
+                    
+                    when PRINT_TX_DISCON_MSG =>
                         dbg_msg(1 to 16)    <= "TX disconnected" & nul;
                         dbg_wr_en           <= '1';
                         tx_discon_msg_sent  <= true;
-                    end if;
-                    tx_con_msg_sent <= false;
-                end if;
+                        tx_con_msg_sent     <= false;
+                        state               <= PAUSING;
+                    
+                end case;
             end if;
-        end if;
-    end process;
-    
-    UART_DEBUG_inst : entity work.UART_DEBUG
-        generic map (
-            CLK_IN_PERIOD   => G_CLK_PERIOD
-        )
-        port map (
-            CLK => dbg_clk,
-            RST => dbg_rst,
-            
-            MSG     => dbg_msg,
-            WR_EN   => dbg_wr_en,
-            CTS     => dbg_cts,
-            
-            BUSY    => dbg_busy,
-            FULL    => dbg_full,
-            TXD     => dbg_txd
-        );
+        end process;
+        
+        UART_DEBUG_inst : entity work.UART_DEBUG
+            generic map (
+                CLK_IN_PERIOD   => G_CLK_PERIOD
+            )
+            port map (
+                CLK => dbg_clk,
+                RST => dbg_rst,
+                
+                MSG     => dbg_msg,
+                WR_EN   => dbg_wr_en,
+                CTS     => dbg_cts,
+                
+                BUSY    => dbg_busy,
+                FULL    => dbg_full,
+                TXD     => dbg_txd
+            );
+        
+    end generate;
     
 end rtl;
 

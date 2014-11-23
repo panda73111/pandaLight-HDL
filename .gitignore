@@ -77,6 +77,5 @@ transcript
 *.csv
 *.xbcd
 *.cfi
-*.mcs
 *.prm
 *.blc
