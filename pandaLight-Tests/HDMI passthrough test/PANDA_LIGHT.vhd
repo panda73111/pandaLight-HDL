@@ -82,6 +82,7 @@ architecture rtl of PANDA_LIGHT is
     ----------------------------
     
     signal rx_det_stable    : std_ulogic_vector(1 downto 0) := "00";
+    signal rx_det_stable_q  : std_ulogic_vector(1 downto 0) := "00";
     signal tx_det_stable    : std_ulogic := '0';
     
     signal rx_channels_in   : std_ulogic_vector(7 downto 0) := x"00";
@@ -361,11 +362,15 @@ begin
     
     iprog_clk   <= g_clk;
     
-    -- switch the bitfile if the inactive RX port is connected
-    iprog_en    <= '1' when
-                    (RX_SEL=0 and rx_det_stable(1)='1') or
-                    (RX_SEL=1 and rx_det_stable(0)='1')
-                    else '0';
+    iprog_enable_proc : process(g_clk)
+    begin
+        if rising_edge(g_clk) then
+            -- switch the bitfile if the inactive RX port gets connected
+            iprog_en        <= rx_det_stable(1-RX_SEL) and not rx_det_stable_q(1-RX_SEL);
+            rx_det_stable_q <= rx_det_stable;
+        end if;
+    end process;
+    
     
     IPROG_RECONF_inst : entity work.iprog_reconf
         generic map (
@@ -386,18 +391,10 @@ begin
             WAIT_FOR_BOOT,
             PRINT_BOOT_MSG,
             PAUSING,
-            IDLE,
-            PRINT_RX_CON_MSG,
-            PRINT_RX_DISCON_MSG,
-            PRINT_TX_CON_MSG,
-            PRINT_TX_DISCON_MSG
+            IDLE
         );
         signal state                : state_type := WAIT_FOR_BOOT;
         signal boot_msg_delay       : natural range 0 to BOOT_DELAY_CYCLES-1 := 0;
-        signal rx_con_msg_sent      : boolean := false;
-        signal rx_discon_msg_sent   : boolean := false;
-        signal tx_con_msg_sent      : boolean := false;
-        signal tx_discon_msg_sent   : boolean := false;
         
         -- Inputs
         signal dbg_clk  : std_ulogic := '0';
@@ -452,55 +449,7 @@ begin
                         state   <= IDLE;
                     
                     when IDLE =>
-                        if rx_det_stable(RX_SEL)='1' then
-                            if not rx_con_msg_sent then
-                                state   <= PRINT_RX_CON_MSG;
-                            end if;
-                        else
-                            if not rx_discon_msg_sent then
-                                state   <= PRINT_RX_DISCON_MSG;
-                            end if;
-                        end if;
-                        if tx_det_stable='1' then
-                            if not rx_con_msg_sent then
-                                state   <= PRINT_RX_CON_MSG;
-                            end if;
-                        else
-                            if not rx_discon_msg_sent then
-                                state   <= PRINT_RX_DISCON_MSG;
-                            end if;
-                        end if;
-                        if dbg_busy='1' or dbg_full='1' then
-                            state   <= IDLE;
-                        end if;
-                    
-                    when PRINT_RX_CON_MSG =>
-                        dbg_msg(1 to 13)    <= "RX connected" & nul;
-                        dbg_wr_en           <= '1';
-                        rx_con_msg_sent     <= true;
-                        rx_discon_msg_sent  <= false;
-                        state               <= PAUSING;
-                    
-                    when PRINT_RX_DISCON_MSG =>
-                        dbg_msg(1 to 16)    <= "RX disconnected" & nul;
-                        dbg_wr_en           <= '1';
-                        rx_discon_msg_sent  <= true;
-                        rx_con_msg_sent     <= false;
-                        state               <= PAUSING;
-                    
-                    when PRINT_TX_CON_MSG =>
-                        dbg_msg(1 to 13)    <= "TX connected" & nul;
-                        dbg_wr_en           <= '1';
-                        tx_con_msg_sent     <= true;
-                        tx_discon_msg_sent  <= false;
-                        state               <= PAUSING;
-                    
-                    when PRINT_TX_DISCON_MSG =>
-                        dbg_msg(1 to 16)    <= "TX disconnected" & nul;
-                        dbg_wr_en           <= '1';
-                        tx_discon_msg_sent  <= true;
-                        tx_con_msg_sent     <= false;
-                        state               <= PAUSING;
+                        null;
                     
                 end case;
             end if;
