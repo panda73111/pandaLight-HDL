@@ -16,12 +16,16 @@ use IEEE.NUMERIC_STD.ALL;
 library UNISIM;
 use UNISIM.VComponents.all;
 use work.help_funcs.all;
+use work.txt_util.all;
 
 entity PANDA_LIGHT is
     generic (
+        G_CLK_MULT          : natural := 5; -- 20 MHz * 5 / 2 = 50 MHz
+        G_CLK_DIV           : natural := 2;
+        G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
         RX_SEL              : natural := 1;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
-        RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"0533D9";
+        RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"053395";
         UART_DEBUG          : boolean := true
     );
     port (
@@ -59,9 +63,6 @@ end PANDA_LIGHT;
 architecture rtl of PANDA_LIGHT is
     
     attribute keep  : boolean;
-    
-    -- 50 MHz in nano seconds
-    constant G_CLK_PERIOD   : real := 20.0;
     
     type rx_bitfile_addrs_type is array(0 to 1)
         of std_ulogic_vector(23 downto 0);
@@ -160,9 +161,9 @@ begin
     
     CLK_MAN_inst : entity work.CLK_MAN
         generic map (
-            CLK_IN_PERIOD   => 50.0,
-            MULTIPLIER      => 5,
-            DIVISOR         => 2
+            CLK_IN_PERIOD   => 50.0, -- 20 MHz in nano seconds
+            MULTIPLIER      => G_CLK_MULT,
+            DIVISOR         => G_CLK_DIV
         )
         port map (
             RST => '0',
@@ -386,15 +387,17 @@ begin
     
     UART_DEBUG_gen : if UART_DEBUG generate
         constant BOOT_DELAY_CYCLES  : natural := 1000;
+        constant STATUS_MSG_CYCLES  : natural := 50_000_000; -- 1 sec
         
         type state_type is (
             WAIT_FOR_BOOT,
             PRINT_BOOT_MSG,
-            PAUSING,
-            IDLE
+            IDLE,
+            PRINT_STATUS
         );
-        signal state                : state_type := WAIT_FOR_BOOT;
-        signal boot_msg_delay       : natural range 0 to BOOT_DELAY_CYCLES-1 := 0;
+        signal state            : state_type := WAIT_FOR_BOOT;
+        signal boot_msg_delay   : natural range 0 to BOOT_DELAY_CYCLES-1 := 0;
+        signal cycle_cnt        : natural range 0 to STATUS_MSG_CYCLES-1 := 0;
         
         -- Inputs
         signal dbg_clk  : std_ulogic := '0';
@@ -423,12 +426,13 @@ begin
         
         dbg_cts <= not USB_CTSN;
         
-        process(g_clk)
+        process(g_rst, g_clk)
         begin
             if g_rst='1' then
                 dbg_wr_en       <= '0';
                 state           <= WAIT_FOR_BOOT;
                 boot_msg_delay  <= 0;
+                cycle_cnt       <= 0;
             elsif rising_edge(g_clk) then
                 dbg_wr_en   <= '0';
                 case state is
@@ -442,14 +446,20 @@ begin
                     when PRINT_BOOT_MSG =>
                         dbg_msg(1 to 11)    <= "RX" & natural'image(RX_SEL) & ": ready" & nul;
                         dbg_wr_en           <= '1';
-                        state               <= PAUSING;
-                    
-                    when PAUSING =>
-                        -- I have no idea why this pause is necessary
-                        state   <= IDLE;
+                        state               <= IDLE;
                     
                     when IDLE =>
-                        null;
+                        cycle_cnt   <= cycle_cnt+1;
+                        if cycle_cnt=STATUS_MSG_CYCLES-2 then
+                            state   <= PRINT_STATUS;
+                        end if;
+                    
+                    when PRINT_STATUS =>
+                        cycle_cnt           <= 0;
+                        dbg_msg(1 to 7)     <= "RX" & natural'image(1-RX_SEL) & ":  " & nul;
+                        dbg_msg(6)          <= chr(rx_det_stable(1-RX_SEL));
+                        dbg_wr_en           <= '1';
+                        state               <= IDLE;
                     
                 end case;
             end if;
