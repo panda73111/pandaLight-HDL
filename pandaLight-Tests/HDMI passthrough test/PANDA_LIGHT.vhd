@@ -25,7 +25,7 @@ entity PANDA_LIGHT is
         G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
         RX_SEL              : natural := 1;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
-        RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"053395";
+        RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
         UART_DEBUG          : boolean := true
     );
     port (
