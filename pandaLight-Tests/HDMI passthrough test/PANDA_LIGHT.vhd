@@ -56,7 +56,10 @@ entity PANDA_LIGHT is
         USB_DSRN    : in std_ulogic;
         USB_DTRN    : out std_ulogic := '0';
         USB_DCDN    : out std_ulogic := '0';
-        USB_RIN     : out std_ulogic := '0'
+        USB_RIN     : out std_ulogic := '0';
+        
+        -- PMOD
+        PMOD0   : out std_ulogic_vector(3 downto 0) := "0000"
     );
 end PANDA_LIGHT;
 
@@ -84,11 +87,11 @@ architecture rtl of PANDA_LIGHT is
     
     signal rx_det_stable    : std_ulogic_vector(1 downto 0) := "00";
     signal rx_det_stable_q  : std_ulogic_vector(1 downto 0) := "00";
+    signal tx_det_sync      : std_ulogic_vector(1 downto 0) := "00";
     signal tx_det_stable    : std_ulogic := '0';
     
     signal rx_channels_in   : std_ulogic_vector(7 downto 0) := x"00";
     signal tx_channels_out  : std_ulogic_vector(3 downto 0) := "0000";
-    
     
     ----------------------------------
     --- HDMI ISerDes clock manager ---
@@ -180,6 +183,11 @@ begin
     
     g_rst   <= g_clk_stopped;
     
+    PMOD0(RX_SEL)   <= '1';
+    PMOD0(1-RX_SEL) <= '0';
+    PMOD0(2)        <= rx_det_stable(0);
+    PMOD0(3)        <= rx_det_stable(1);
+    
     
     ------------------------------------
     ------ HDMI signal management ------
@@ -192,6 +200,13 @@ begin
     
     tx_channels_out <= rxpt_tx_channels_out;
     
+    rx_det_sync_proc : process(g_clk)
+    begin
+        if rising_edge(g_clk) then
+            tx_det_sync <= rx_det;
+        end if;
+    end process;
+    
     rx_DEBOUNCE_gen : for i in 0 to 1 generate
         
         rx_det_DEBOUNCE_inst : entity work.DEBOUNCE
@@ -201,7 +216,7 @@ begin
             port map (
                 CLK => g_clk,
                 
-                I   => RX_DET(i),
+                I   => tx_det_sync(i),
                 O   => rx_det_stable(i)
             );
     
