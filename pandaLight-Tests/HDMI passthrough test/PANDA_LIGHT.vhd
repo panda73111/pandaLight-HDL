@@ -26,7 +26,8 @@ entity PANDA_LIGHT is
         RX_SEL              : natural := 1;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
-        UART_DEBUG          : boolean := true
+        ENABLE_UART_DEBUG   : boolean := true;
+        ENABLE_IPROG_RECONF : boolean := false
     );
     port (
         CLK20   : in std_ulogic;
@@ -66,14 +67,6 @@ end PANDA_LIGHT;
 architecture rtl of PANDA_LIGHT is
     
     attribute keep  : boolean;
-    
-    type rx_bitfile_addrs_type is array(0 to 1)
-        of std_ulogic_vector(23 downto 0);
-    
-    constant rx_bitfile_addrs   : rx_bitfile_addrs_type := (
-        RX0_BITFILE_ADDR,
-        RX1_BITFILE_ADDR
-    );
     
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
@@ -146,15 +139,6 @@ architecture rtl of PANDA_LIGHT is
     signal rxpt_rx_enc_data_valid   : std_ulogic := '0';
     
     signal rxpt_tx_channels_out : std_ulogic_vector(3 downto 0) := "0000";
-    
-    
-    -----------------------------
-    --- IPROG reconfiguration ---
-    -----------------------------
-    
-    -- Inputs
-    signal iprog_clk    : std_ulogic := '0';
-    signal iprog_en     : std_ulogic := '0';
     
 begin
     
@@ -372,35 +356,50 @@ begin
         );
     
     
-    -----------------------------
-    --- IPROG reconfiguration ---
-    -----------------------------
-    
-    iprog_clk   <= g_clk;
-    
-    iprog_enable_proc : process(g_clk)
-    begin
-        if rising_edge(g_clk) then
-            -- switch the bitfile if the inactive RX port gets connected
-            iprog_en        <= rx_det_stable(1-RX_SEL) and not rx_det_stable_q(1-RX_SEL);
-            rx_det_stable_q <= rx_det_stable;
-        end if;
-    end process;
-    
-    
-    IPROG_RECONF_inst : entity work.iprog_reconf
-        generic map (
-            START_ADDR      => rx_bitfile_addrs(1-RX_SEL),
-            FALLBACK_ADDR   => rx_bitfile_addrs(RX_SEL)
-        )
-        port map (
-            CLK => iprog_clk,
-            
-            EN  => iprog_en
+    IPROG_RECONF_gen : if ENABLE_IPROG_RECONF generate
+        type rx_bitfile_addrs_type is array(0 to 1)
+            of std_ulogic_vector(23 downto 0);
+        
+        constant rx_bitfile_addrs   : rx_bitfile_addrs_type := (
+            RX0_BITFILE_ADDR,
+            RX1_BITFILE_ADDR
         );
+        -- Inputs
+        signal iprog_clk    : std_ulogic := '0';
+        signal iprog_en     : std_ulogic := '0';
+    begin
+
+        -----------------------------
+        --- IPROG reconfiguration ---
+        -----------------------------
+
+        iprog_clk   <= g_clk;
+
+        iprog_enable_proc : process(g_clk)
+        begin
+            if rising_edge(g_clk) then
+                -- switch the bitfile if the inactive RX port gets connected
+                iprog_en        <= rx_det_stable(1-RX_SEL) and not rx_det_stable_q(1-RX_SEL);
+                rx_det_stable_q <= rx_det_stable;
+            end if;
+        end process;
+
+
+        IPROG_RECONF_inst : entity work.iprog_reconf
+            generic map (
+                START_ADDR      => rx_bitfile_addrs(1-RX_SEL),
+                FALLBACK_ADDR   => rx_bitfile_addrs(RX_SEL)
+            )
+            port map (
+                CLK => iprog_clk,
+                
+                EN  => iprog_en
+            );
+    
+    end generate;
     
     
-    UART_DEBUG_gen : if UART_DEBUG generate
+    UART_DEBUG_gen : if ENABLE_UART_DEBUG generate
         constant BOOT_DELAY_CYCLES  : natural := 1000;
         constant STATUS_MSG_CYCLES  : natural := 50_000_000; -- 1 sec
         
