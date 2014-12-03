@@ -20,10 +20,10 @@ use work.txt_util.all;
 
 entity PANDA_LIGHT is
     generic (
-        G_CLK_MULT          : natural := 5; -- 20 MHz * 5 / 2 = 50 MHz
-        G_CLK_DIV           : natural := 2;
+        G_CLK_MULT          : natural range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
+        G_CLK_DIV           : natural range 1 to 256 := 2;
         G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
-        RX_SEL              : natural := 1;
+        RX_SEL              : natural range 0 to 1 := 1;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
         ENABLE_UART_DEBUG   : boolean := true;
@@ -80,7 +80,8 @@ architecture rtl of PANDA_LIGHT is
     
     signal rx_det_stable    : std_ulogic_vector(1 downto 0) := "00";
     signal rx_det_stable_q  : std_ulogic_vector(1 downto 0) := "00";
-    signal tx_det_sync      : std_ulogic_vector(1 downto 0) := "00";
+    signal rx_det_sync      : std_ulogic_vector(1 downto 0) := "00";
+    signal tx_det_sync      : std_ulogic := '0';
     signal tx_det_stable    : std_ulogic := '0';
     
     signal rx_channels_in   : std_ulogic_vector(7 downto 0) := x"00";
@@ -167,10 +168,10 @@ begin
     
     g_rst   <= g_clk_stopped;
     
-    PMOD0(RX_SEL)   <= '1';
-    PMOD0(1-RX_SEL) <= '0';
-    PMOD0(2)        <= rx_det_stable(0);
-    PMOD0(3)        <= rx_det_stable(1);
+    PMOD0(0)    <= rx_vsync;
+    PMOD0(1)    <= not rx_vsync;
+    PMOD0(2)    <= rx_hsync;
+    PMOD0(3)    <= not rx_hsync;
     
     
     ------------------------------------
@@ -178,8 +179,8 @@ begin
     ------------------------------------
     
     -- only enabled chips make 'DET' signals possible!
-    RX_EN(RX_SEL)   <= tx_det_stable;
-    RX_EN(1-RX_SEL) <= tx_det_stable;
+    RX_EN(RX_SEL)   <= '1'; --tx_det_stable;
+    RX_EN(1-RX_SEL) <= '0'; --tx_det_stable;
     TX_EN           <= '1';
     
     tx_channels_out <= rxpt_tx_channels_out;
@@ -187,7 +188,8 @@ begin
     rx_det_sync_proc : process(g_clk)
     begin
         if rising_edge(g_clk) then
-            tx_det_sync <= rx_det;
+            rx_det_sync <= rx_det;
+            tx_det_sync <= tx_det;
         end if;
     end process;
     
@@ -200,7 +202,7 @@ begin
             port map (
                 CLK => g_clk,
                 
-                I   => tx_det_sync(i),
+                I   => rx_det_sync(i),
                 O   => rx_det_stable(i)
             );
     
@@ -213,7 +215,7 @@ begin
         port map (
             CLK => g_clk,
             
-            I   => TX_DET,
+            I   => tx_det_sync,
             O   => tx_det_stable
         );
     
@@ -307,7 +309,7 @@ begin
     rx_pix_clk          <= rxclk_clk_out2;
     rx_pix_clk_x2       <= rxclk_clk_out1;
     rx_pix_clk_x10      <= rxclk_ioclk_out;
-    rx_rst              <= not tx_det_stable;
+    rx_rst              <= not rx_det_stable(RX_SEL);
     rx_clk_locked       <= rxclk_ioclk_locked;
     rx_serdesstrobe     <= rxclk_serdesstrobe;
     
