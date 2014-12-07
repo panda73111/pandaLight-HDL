@@ -126,8 +126,56 @@ architecture rtl of PANDA_LIGHT is
     signal rx_aux_data          : std_ulogic_vector(8 downto 0) := (others => '0');
     signal rx_aux_data_valid    : std_ulogic := '0';
     
-    attribute keep of rx_rgb        : signal is true;
-    attribute keep of rx_aux_data   : signal is true;
+    
+    ----------------------
+    --- video analyzer ---
+    ----------------------
+    
+    -- Inputs
+    signal analyzer_clk : std_ulogic := '0';
+    signal analyzer_rst : std_ulogic := '0';
+    
+    signal analyzer_start       : std_ulogic := '0';
+    signal analyzer_vsync       : std_ulogic := '0';
+    signal analyzer_hsync       : std_ulogic := '0';
+    signal analyzer_rgb_valid   : std_ulogic := '0';
+    
+    -- Outputs
+    signal analyzer_positive_vsync  : std_ulogic := '0';
+    signal analyzer_positive_hsync  : std_ulogic := '0';
+    signal analyzer_width           : std_ulogic_vector(10 downto 0) := (others => '0');
+    signal analyzer_height          : std_ulogic_vector(10 downto 0) := (others => '0');
+    signal analyzer_valid           : std_ulogic := '0';
+    
+    attribute keep of analyzer_positive_vsync   : signal is true;
+    attribute keep of analyzer_positive_hsync   : signal is true;
+    attribute keep of analyzer_width            : signal is true;
+    attribute keep of analyzer_height           : signal is true;
+    attribute keep of analyzer_valid            : signal is true;
+    
+    
+    ----------------------------
+    --- LED colour extractor ---
+    ----------------------------
+    
+    -- Inputs
+    signal ledex_clk    : std_ulogic := '0';
+    signal ledex_rst    : std_ulogic := '0';
+    
+    signal ledex_cfg_addr   : std_ulogic_vector(3 downto 0) := "0000";
+    signal ledex_cfg_wr_en  : std_ulogic := '0';
+    signal ledex_cfg_data   : std_ulogic_vector(7 downto 0) := x"00";
+    
+    signal ledex_frame_vsync    : std_ulogic := '0';
+    signal ledex_frame_hsync    : std_ulogic := '0';
+    
+    signal ledex_frame_rgb  : std_ulogic_vector(23 downto 0) := x"000000";
+    
+    -- Outputs
+    signal ledex_led_vsync  : std_ulogic := '0';
+    signal ledex_led_valid  : std_ulogic := '0';  
+    signal ledex_led_num    : std_ulogic_vector(7 downto 0) := x"00";
+    signal ledex_led_rgb    : std_ulogic_vector(23 downto 0) := x"000000";
     
     
     -----------------------------
@@ -312,7 +360,7 @@ begin
     rx_pix_clk          <= rxclk_clk_out2;
     rx_pix_clk_x2       <= rxclk_clk_out1;
     rx_pix_clk_x10      <= rxclk_ioclk_out;
-    rx_rst              <= g_rst or not rx_det_stable(RX_SEL);
+    rx_rst              <= g_rst or not rx_det_stable(RX_SEL) or not rxclk_ioclk_locked;
     rx_serdesstrobe     <= rxclk_serdesstrobe;
     
     TMDS_DECODER_inst : entity work.TMDS_DECODER
@@ -338,27 +386,98 @@ begin
         );
     
     
-    -----------------------------
-    --- RX to TX0 passthrough ---
-    -----------------------------
+--    ---------------------------
+--    --- LED color extractor ---
+--    ---------------------------
+--    
+--    ledex_clk   <= rx_pix_clk;
+--    ledex_rst   <= rx_rst;
+--    
+--    ledex_cfg_addr  <= (others => '0');
+--    ledex_cfg_wr_en <= '0';
+--    ledex_cfg_data  <= (others => '0');
+--    
+--    ledex_frame_vsync   <= rx_vsync;
+--    ledex_frame_hsync   <= rx_hsync;
+--    
+--    ledex_frame_rgb <= rx_rgb;
+--    
+--    LED_COLOR_EXTRACTOR_inst : entity work.LED_COLOR_EXTRACTOR
+--        port map (
+--            CLK => ledex_clk,
+--            RST => ledex_rst,
+--            
+--            CFG_ADDR    => ledex_cfg_addr,
+--            CFG_WR_EN   => ledex_cfg_wr_en,
+--            CFG_DATA    => ledex_cfg_data,
+--            
+--            FRAME_VSYNC => ledex_frame_vsync,
+--            FRAME_HSYNC => ledex_frame_hsync,
+--            
+--            FRAME_RGB   => ledex_frame_rgb,
+--            
+--            LED_VSYNC   => ledex_led_vsync,
+--            LED_VALID   => ledex_led_valid,
+--            LED_NUM     => ledex_led_num,
+--            LED_RGB     => ledex_led_rgb
+--        );
     
-    rxpt_pix_clk    <= rx_pix_clk;
-    rxpt_rst        <= rx_rst;
     
-    rxpt_rx_raw_data        <= rx_raw_data;
-    rxpt_rx_raw_data_valid  <= rx_raw_data_valid;
+    ----------------------
+    --- video analyzer ---
+    ----------------------
     
-    TMDS_PASSTHROUGH_inst : entity work.TMDS_PASSTHROUGH
+    analyzer_clk    <= rx_pix_clk;
+    analyzer_rst    <= rx_rst;
+    
+    analyzer_start      <= rx_raw_data_valid;
+    analyzer_vsync      <= rx_vsync;
+    analyzer_hsync      <= rx_hsync;
+    analyzer_rgb_valid  <= rx_rgb_valid;
+    
+    VIDEO_ANALYZER_inst : entity work.VIDEO_ANALYZER
         port map (
-            PIX_CLK => rxpt_pix_clk,
-            RST     => rxpt_rst,
+            CLK => analyzer_clk,
+            RST => analyzer_rst,
             
-            RX_RAW_DATA         => rxpt_rx_raw_data,
-            RX_RAW_DATA_VALID   => rxpt_rx_raw_data_valid,
+            START       => analyzer_start,
+            VSYNC       => analyzer_vsync,
+            HSYNC       => analyzer_hsync,
+            RGB_VALID   => analyzer_rgb_valid,
             
-            TX_CHANNELS_OUT => rxpt_tx_channels_out
+            POSITIVE_VSYNC  => analyzer_positive_vsync,
+            POSITIVE_HSYNC  => analyzer_positive_hsync,
+            WIDTH           => analyzer_width,
+            HEIGHT          => analyzer_height,
+            VALID           => analyzer_valid
         );
     
+    
+--    -----------------------------
+--    --- RX to TX0 passthrough ---
+--    -----------------------------
+--    
+--    rxpt_pix_clk    <= rx_pix_clk;
+--    rxpt_rst        <= rx_rst;
+--    
+--    rxpt_rx_raw_data        <= rx_raw_data;
+--    rxpt_rx_raw_data_valid  <= rx_raw_data_valid;
+--    
+--    TMDS_PASSTHROUGH_inst : entity work.TMDS_PASSTHROUGH
+--        port map (
+--            PIX_CLK => rxpt_pix_clk,
+--            RST     => rxpt_rst,
+--            
+--            RX_RAW_DATA         => rxpt_rx_raw_data,
+--            RX_RAW_DATA_VALID   => rxpt_rx_raw_data_valid,
+--            
+--            TX_CHANNELS_OUT => rxpt_tx_channels_out
+--        );
+    
+    
+    -----------------------------
+    --- IPROG reconfiguration ---
+    -----------------------------
     
     IPROG_RECONF_gen : if ENABLE_IPROG_RECONF generate
         type rx_bitfile_addrs_type is array(0 to 1)
@@ -372,10 +491,6 @@ begin
         signal iprog_clk    : std_ulogic := '0';
         signal iprog_en     : std_ulogic := '0';
     begin
-    
-        -----------------------------
-        --- IPROG reconfiguration ---
-        -----------------------------
         
         iprog_clk   <= g_clk;
         
@@ -402,6 +517,10 @@ begin
     
     end generate;
     
+    
+    ------------------
+    --- UART debug ---
+    ------------------
     
     UART_DEBUG_gen : if ENABLE_UART_DEBUG generate
         constant BOOT_DELAY_CYCLES  : natural := 1000;
@@ -433,11 +552,6 @@ begin
         
         USB_TXD     <= dbg_txd;
         USB_RTSN    <= dbg_full;
-        
-        
-        ------------------
-        --- UART debug ---
-        ------------------
         
         dbg_clk <= g_clk;
         dbg_rst <= g_rst;
