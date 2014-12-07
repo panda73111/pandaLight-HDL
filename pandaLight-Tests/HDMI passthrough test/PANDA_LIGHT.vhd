@@ -113,18 +113,21 @@ architecture rtl of PANDA_LIGHT is
     signal rx_pix_clk_x10   : std_ulogic := '0';
     signal rx_rst           : std_ulogic := '0';
     
-    signal rx_clk_locked    : std_ulogic := '0';
     signal rx_serdesstrobe  : std_ulogic := '0';
     
     -- Outputs
-    signal rx_enc_data          : std_ulogic_vector(14 downto 0) := (others => '0');
-    signal rx_enc_data_valid    : std_ulogic := '0';
+    signal rx_raw_data          : std_ulogic_vector(14 downto 0) := (others => '0');
+    signal rx_raw_data_valid    : std_ulogic := '0';
     
     signal rx_vsync             : std_ulogic := '0';
     signal rx_hsync             : std_ulogic := '0';
     signal rx_rgb               : std_ulogic_vector(23 downto 0) := x"000000";
+    signal rx_rgb_valid         : std_ulogic := '0';
     signal rx_aux_data          : std_ulogic_vector(8 downto 0) := (others => '0');
     signal rx_aux_data_valid    : std_ulogic := '0';
+    
+    attribute keep of rx_rgb        : signal is true;
+    attribute keep of rx_aux_data   : signal is true;
     
     
     -----------------------------
@@ -136,8 +139,8 @@ architecture rtl of PANDA_LIGHT is
     signal rxpt_rst     : std_ulogic := '0';
     
     -- Outputs
-    signal rxpt_rx_enc_data         : std_ulogic_vector(14 downto 0) := (others => '0');
-    signal rxpt_rx_enc_data_valid   : std_ulogic := '0';
+    signal rxpt_rx_raw_data         : std_ulogic_vector(14 downto 0) := (others => '0');
+    signal rxpt_rx_raw_data_valid   : std_ulogic := '0';
     
     signal rxpt_tx_channels_out : std_ulogic_vector(3 downto 0) := "0000";
     
@@ -169,9 +172,9 @@ begin
     g_rst   <= g_clk_stopped;
     
     PMOD0(0)    <= rx_vsync;
-    PMOD0(1)    <= not rx_vsync;
-    PMOD0(2)    <= rx_hsync;
-    PMOD0(3)    <= not rx_hsync;
+    PMOD0(1)    <= rx_hsync;
+    PMOD0(2)    <= rx_rgb_valid;
+    PMOD0(3)    <= rx_raw_data_valid;
     
     
     ------------------------------------
@@ -309,8 +312,7 @@ begin
     rx_pix_clk          <= rxclk_clk_out2;
     rx_pix_clk_x2       <= rxclk_clk_out1;
     rx_pix_clk_x10      <= rxclk_ioclk_out;
-    rx_rst              <= not rx_det_stable(RX_SEL);
-    rx_clk_locked       <= rxclk_ioclk_locked;
+    rx_rst              <= g_rst or not rx_det_stable(RX_SEL);
     rx_serdesstrobe     <= rxclk_serdesstrobe;
     
     TMDS_DECODER_inst : entity work.TMDS_DECODER
@@ -320,17 +322,17 @@ begin
             PIX_CLK_X10     => rx_pix_clk_x10,
             RST             => rx_rst,
             
-            CLK_LOCKED      => rx_clk_locked,
             SERDESSTROBE    => rx_serdesstrobe,
             
             CHANNELS_IN => rx_channels_in(RX_SEL*4 + 2 downto RX_SEL*4),
             
-            ENC_DATA        => rx_enc_data,
-            ENC_DATA_VALID  => rx_enc_data_valid,
+            RAW_DATA        => rx_raw_data,
+            RAW_DATA_VALID  => rx_raw_data_valid,
             
             VSYNC           => rx_vsync,
             HSYNC           => rx_hsync,
             RGB             => rx_rgb,
+            RGB_VALID       => rx_rgb_valid,
             AUX_DATA        => rx_aux_data,
             AUX_DATA_VALID  => rx_aux_data_valid
         );
@@ -343,16 +345,16 @@ begin
     rxpt_pix_clk    <= rx_pix_clk;
     rxpt_rst        <= rx_rst;
     
-    rxpt_rx_enc_data        <= rx_enc_data;
-    rxpt_rx_enc_data_valid  <= rx_enc_data_valid;
+    rxpt_rx_raw_data        <= rx_raw_data;
+    rxpt_rx_raw_data_valid  <= rx_raw_data_valid;
     
     TMDS_PASSTHROUGH_inst : entity work.TMDS_PASSTHROUGH
         port map (
             PIX_CLK => rxpt_pix_clk,
             RST     => rxpt_rst,
             
-            RX_ENC_DATA         => rxpt_rx_enc_data,
-            RX_ENC_DATA_VALID   => rxpt_rx_enc_data_valid,
+            RX_RAW_DATA         => rxpt_rx_raw_data,
+            RX_RAW_DATA_VALID   => rxpt_rx_raw_data_valid,
             
             TX_CHANNELS_OUT => rxpt_tx_channels_out
         );
@@ -370,13 +372,13 @@ begin
         signal iprog_clk    : std_ulogic := '0';
         signal iprog_en     : std_ulogic := '0';
     begin
-
+    
         -----------------------------
         --- IPROG reconfiguration ---
         -----------------------------
-
+        
         iprog_clk   <= g_clk;
-
+        
         iprog_enable_proc : process(g_clk)
         begin
             if rising_edge(g_clk) then
@@ -385,8 +387,8 @@ begin
                 rx_det_stable_q <= rx_det_stable;
             end if;
         end process;
-
-
+        
+        
         IPROG_RECONF_inst : entity work.iprog_reconf
             generic map (
                 START_ADDR      => rx_bitfile_addrs(1-RX_SEL),

@@ -21,8 +21,8 @@ entity TMDS_PASSTHROUGH is
         PIX_CLK : in std_ulogic;
         RST     : in std_ulogic;
         
-        RX_ENC_DATA         : in std_ulogic_vector(14 downto 0);
-        RX_ENC_DATA_VALID   : in std_ulogic;
+        RX_RAW_DATA         : in std_ulogic_vector(14 downto 0);
+        RX_RAW_DATA_VALID   : in std_ulogic;
         
         TX_CHANNELS_OUT : out std_ulogic_vector(3 downto 0)
     );
@@ -51,12 +51,12 @@ architecture rtl of TMDS_PASSTHROUGH is
     
 begin
     
-    serdes_rst  <= RST or not RX_ENC_DATA_VALID;
+    serdes_rst  <= RST or not RX_RAW_DATA_VALID;
     
     serdes_din(3)   <= tx_clk_v;
-    serdes_din(2)   <= RX_ENC_DATA(14 downto 10);
-    serdes_din(1)   <= RX_ENC_DATA(9 downto 5);
-    serdes_din(0)   <= RX_ENC_DATA(4 downto 0);
+    serdes_din(2)   <= RX_RAW_DATA(14 downto 10);
+    serdes_din(1)   <= RX_RAW_DATA(9 downto 5);
+    serdes_din(0)   <= RX_RAW_DATA(4 downto 0);
     
     tx_clk_v    <= "11111" when tx_clk='1' else "00000";
     
@@ -163,7 +163,7 @@ begin
             tx_clk  <= '0';
         elsif rising_edge(pix_clk_x2) then
             tx_clk  <= not tx_clk;
-            if RX_ENC_DATA_VALID='0' then
+            if RX_RAW_DATA_VALID='0' then
                 tx_clk  <= '0';
             end if;
         end if;
