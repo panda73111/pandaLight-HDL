@@ -46,27 +46,30 @@ architecture rtl of VIDEO_ANALYZER is
         INCREMENT_HEIGHT,
         WAIT_FOR_LINE_END,
         WAIT_FOR_LINE_BEGINNING,
-        CHECK
+        REVALIDATE,
+        FINISHED
     );
     
     type reg_type is record
         state       : state_type;
         vsync_pol   : std_ulogic;
         hsync_pol   : std_ulogic;
+        tmp_width   : unsigned(10 downto 0);
+        tmp_height  : unsigned(10 downto 0);
         width       : unsigned(10 downto 0);
         height      : unsigned(10 downto 0);
         valid       : std_ulogic;
-        check_cnt   : unsigned(10 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
         state       => WAIT_FOR_START,
         vsync_pol   => '0',
         hsync_pol   => '0',
+        tmp_width   => (others => '0'),
+        tmp_height  => (others => '0'),
         width       => (others => '0'),
         height      => (others => '0'),
-        valid       => '0',
-        check_cnt   => (others => '0')
+        valid       => '0'
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -99,7 +102,8 @@ begin
                 end if;
             
             when WAIT_FOR_RGB_VALID =>
-                r.valid := '0';
+                r.tmp_width     := (others => '0');
+                r.tmp_height    := (others => '0');
                 if RGB_VALID='1' then
                     r.vsync_pol := VSYNC;
                     r.hsync_pol := HSYNC;
@@ -123,16 +127,15 @@ begin
                 end if;
             
             when COUNT_PIXELS_IN_LINE =>
-                r.width := cr.width+1;
+                r.tmp_width := cr.tmp_width+1;
                 if RGB_VALID='0' then
                     -- falling edge of RGB_VALID
                     r.state := INCREMENT_HEIGHT;
                 end if;
             
             when INCREMENT_HEIGHT =>
-                r.check_cnt := cr.width; -- used for validation
-                r.height    := cr.height+1;
-                r.state     := WAIT_FOR_LINE_END;
+                r.tmp_height    := cr.tmp_height+1;
+                r.state         := WAIT_FOR_LINE_END;
             
             when WAIT_FOR_LINE_END =>
                 if RGB_VALID='0' then
@@ -147,19 +150,27 @@ begin
                 end if;
                 if pos_vsync='1' then
                     -- rising edge of positive VSYNC
-                    r.state := CHECK;
+                    r.state := FINISHED;
+                    if cr.valid='1' then
+                        r.state := REVALIDATE;
+                    end if;
                 end if;
             
-            when CHECK =>
-                -- idle state, check if current values match
-                -- or if the resolution has changed
+            when FINISHED =>
+                r.width     := cr.tmp_width;
+                r.height    := cr.tmp_height;
                 r.valid     := '1';
-                r.check_cnt := (others => '0');
-                if RGB_VALID='1' then
-                    r.check_cnt := cr.check_cnt+1;
-                elsif cr.check_cnt/=cr.width then
-                    r.state := WAIT_FOR_RGB_VALID;
+                r.state     := WAIT_FOR_RGB_VALID;
+            
+            when REVALIDATE =>
+                if
+                    cr.tmp_width/=cr.width or
+                    cr.tmp_height/=cr.height
+                then
+                    -- try again next frame
+                    r.valid := '0';
                 end if;
+                r.state := WAIT_FOR_RGB_VALID;
             
         end case;
         

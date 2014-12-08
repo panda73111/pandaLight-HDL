@@ -15,6 +15,7 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
+use work.help_funcs.all;
 
 ENTITY VIDEO_ANALYZER_tb IS
 END VIDEO_ANALYZER_tb;
@@ -36,8 +37,8 @@ ARCHITECTURE behavior OF VIDEO_ANALYZER_tb IS
     signal HEIGHT           : std_ulogic_vector(10 downto 0);
     signal VALID            : std_ulogic;
     
-    constant TEST_COUNT     : natural := 1;
-    constant FRAME_COUNT    : natural := 3;
+    constant TEST_COUNT     : natural := 3;
+    constant FRAME_COUNT    : natural := 5;
     
     type video_profile_type is record
         ver_pixels      : natural;
@@ -61,7 +62,7 @@ ARCHITECTURE behavior OF VIDEO_ANALYZER_tb IS
     type video_profiles_type is array(0 to TEST_COUNT-1) of video_profile_type;
     
     constant video_profiles : video_profiles_type := (
-        0 => (
+        0 => ( -- 640x480, 60Hz
             ver_pixels      => 640,
             hor_pixels      => 480,
             pixel_period    => 39.7 ns,
@@ -78,6 +79,42 @@ ARCHITECTURE behavior OF VIDEO_ANALYZER_tb IS
             v_front_porch   => 2,
             v_back_porch    => 25,
             v_sync_lines    => 2
+        ),
+        1 => ( -- 1024x768, 75Hz
+            ver_pixels      => 1024,
+            hor_pixels      => 768,
+            pixel_period    => 12.7 ns,
+            interlaced      => false,
+            negative_vsync  => false,
+            negative_hsync  => false,
+            top_border      => 0,
+            bottom_border   => 0,
+            left_border     => 0,
+            right_border    => 0,
+            h_front_porch   => 16,
+            h_back_porch    => 176,
+            h_sync_cycles   => 96,
+            v_front_porch   => 1,
+            v_back_porch    => 28,
+            v_sync_lines    => 3
+        ),
+        2 => ( -- 1280x720, 60Hz
+            ver_pixels      => 1280,
+            hor_pixels      => 720,
+            pixel_period    => 13.5 ns,
+            interlaced      => false,
+            negative_vsync  => false,
+            negative_hsync  => false,
+            top_border      => 0,
+            bottom_border   => 0,
+            left_border     => 0,
+            right_border    => 0,
+            h_front_porch   => 110,
+            h_back_porch    => 220,
+            h_sync_cycles   => 40,
+            v_front_porch   => 5,
+            v_back_porch    => 20,
+            v_sync_lines    => 5
         )
     );
     
@@ -185,6 +222,22 @@ BEGIN
                 end loop;
                 
             end loop;
+            
+            assert VALID='1'
+                report "Not yet valid analysis!"
+                severity FAILURE;
+            assert POSITIVE_VSYNC='0'
+                report "Wrong VSync polarity!"
+                severity FAILURE;
+            assert POSITIVE_HSYNC='0'
+                report "Wrong HSync polarity!"
+                severity FAILURE;
+            assert WIDTH=stdulv(vp.hor_pixels, WIDTH'length)
+                report "WIDTH doesn't match!"
+                severity FAILURE;
+            assert HEIGHT=stdulv(vp.ver_pixels, HEIGHT'length)
+                report "HEIGHT doesn't match!"
+                severity FAILURE;
         
         end loop;
         
