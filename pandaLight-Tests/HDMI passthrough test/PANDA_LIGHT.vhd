@@ -26,7 +26,7 @@ entity PANDA_LIGHT is
         RX_SEL              : natural range 0 to 1 := 1;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
-        ENABLE_UART_DEBUG   : boolean := true;
+        ENABLE_UART_DEBUG   : boolean := false;
         ENABLE_IPROG_RECONF : boolean := false
     );
     port (
