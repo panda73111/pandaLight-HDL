@@ -46,7 +46,7 @@ architecture rtl of VIDEO_ANALYZER is
         INCREMENT_HEIGHT,
         WAIT_FOR_LINE_END,
         WAIT_FOR_LINE_BEGINNING,
-        FINISHED
+        CHECK
     );
     
     type reg_type is record
@@ -56,6 +56,7 @@ architecture rtl of VIDEO_ANALYZER is
         width       : unsigned(10 downto 0);
         height      : unsigned(10 downto 0);
         valid       : std_ulogic;
+        check_cnt   : unsigned(10 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -64,7 +65,8 @@ architecture rtl of VIDEO_ANALYZER is
         hsync_pol   => '0',
         width       => (others => '0'),
         height      => (others => '0'),
-        valid       => '0'
+        valid       => '0',
+        check_cnt   => (others => '0')
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -97,6 +99,7 @@ begin
                 end if;
             
             when WAIT_FOR_RGB_VALID =>
+                r.valid := '0';
                 if RGB_VALID='1' then
                     r.vsync_pol := VSYNC;
                     r.hsync_pol := HSYNC;
@@ -127,6 +130,7 @@ begin
                 end if;
             
             when INCREMENT_HEIGHT =>
+                r.check_cnt := cr.width; -- used for validation
                 r.height    := cr.height+1;
                 r.state     := WAIT_FOR_LINE_END;
             
@@ -143,11 +147,19 @@ begin
                 end if;
                 if pos_vsync='1' then
                     -- rising edge of positive VSYNC
-                    r.state := FINISHED;
+                    r.state := CHECK;
                 end if;
             
-            when FINISHED =>
-                r.valid := '1';
+            when CHECK =>
+                -- idle state, check if current values match
+                -- or if the resolution has changed
+                r.valid     := '1';
+                r.check_cnt := (others => '0');
+                if RGB_VALID='1' then
+                    r.check_cnt := cr.check_cnt+1;
+                elsif cr.check_cnt/=cr.width then
+                    r.state := WAIT_FOR_RGB_VALID;
+                end if;
             
         end case;
         
