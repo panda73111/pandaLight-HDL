@@ -34,17 +34,16 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_DECODER_tb IS
     signal decoder_pix_clk_x10  : std_ulogic := '0';
     signal decoder_rst          : std_ulogic := '0';
     
-    signal decoder_clk_locked   : std_ulogic := '0';
     signal decoder_serdesstrobe : std_ulogic := '0';
-    
     signal decoder_channels_in  : std_ulogic_vector(2 downto 0) := "000";
 
     -- Outputs
-    signal decoder_vsync            : std_ulogic := '0';
-    signal decoder_hsync            : std_ulogic := '0';
-    signal decoder_rgb              : std_ulogic_vector(23 downto 0) := x"000000";
-    signal decoder_aux_data         : std_ulogic_vector(8 downto 0) := (others => '0');
-    signal decoder_aux_data_valid   : std_ulogic := '0';
+    signal decoder_vsync        : std_ulogic := '0';
+    signal decoder_hsync        : std_ulogic := '0';
+    signal decoder_rgb          : std_ulogic_vector(23 downto 0) := x"000000";
+    signal decoder_rgb_valid    : std_ulogic := '0';
+    signal decoder_aux          : std_ulogic_vector(8 downto 0) := (others => '0');
+    signal decoder_aux_valid    : std_ulogic := '0';
     
     
     ------------------------------
@@ -87,7 +86,6 @@ BEGIN
     decoder_pix_clk_x2      <= clk_man_clk_out1;
     decoder_pix_clk_x10     <= clk_man_ioclk_out;
     decoder_rst             <= g_rst;
-    decoder_clk_locked      <= clk_man_ioclk_locked;
     decoder_serdesstrobe    <= clk_man_serdesstrobe;
     
     TMDS_DECODER_inst : entity work.TMDS_DECODER
@@ -96,15 +94,15 @@ BEGIN
             PIX_CLK_X2      => decoder_pix_clk_x2,
             PIX_CLK_X10     => decoder_pix_clk_x10,
             RST             => decoder_rst,
-            CLK_LOCKED      => decoder_clk_locked,
             SERDESSTROBE    => decoder_serdesstrobe,
             CHANNELS_IN     => decoder_channels_in,
             
-            HSYNC           => decoder_hsync,
-            VSYNC           => decoder_vsync,
-            RGB             => decoder_rgb,
-            AUX_DATA        => decoder_aux_data,
-            AUX_DATA_VALID  => decoder_aux_data_valid
+            HSYNC       => decoder_hsync,
+            VSYNC       => decoder_vsync,
+            RGB         => decoder_rgb,
+            RGB_VALID   => decoder_rgb_valid,
+            AUX         => decoder_aux,
+            AUX_VALID   => decoder_aux_valid
         );
     
     clk_man_clk_in  <= g_clk;

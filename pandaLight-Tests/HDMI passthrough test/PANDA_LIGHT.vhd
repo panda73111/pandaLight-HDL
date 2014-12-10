@@ -119,12 +119,19 @@ architecture rtl of PANDA_LIGHT is
     signal rx_raw_data          : std_ulogic_vector(14 downto 0) := (others => '0');
     signal rx_raw_data_valid    : std_ulogic := '0';
     
-    signal rx_vsync             : std_ulogic := '0';
-    signal rx_hsync             : std_ulogic := '0';
-    signal rx_rgb               : std_ulogic_vector(23 downto 0) := x"000000";
-    signal rx_rgb_valid         : std_ulogic := '0';
-    signal rx_aux_data          : std_ulogic_vector(8 downto 0) := (others => '0');
-    signal rx_aux_data_valid    : std_ulogic := '0';
+    signal rx_vsync     : std_ulogic := '0';
+    signal rx_hsync     : std_ulogic := '0';
+    signal rx_rgb       : std_ulogic_vector(23 downto 0) := x"000000";
+    signal rx_rgb_valid : std_ulogic := '0';
+    signal rx_aux       : std_ulogic_vector(8 downto 0) := (others => '0');
+    signal rx_aux_valid : std_ulogic := '0';
+    
+    attribute keep of rx_raw_data_valid : signal is true;
+    attribute keep of rx_vsync          : signal is true;
+    attribute keep of rx_hsync          : signal is true;
+    attribute keep of rx_rgb            : signal is true;
+    attribute keep of rx_rgb_valid      : signal is true;
+    attribute keep of rx_aux_valid      : signal is true;
     
     
     ----------------------
@@ -377,12 +384,12 @@ begin
             RAW_DATA        => rx_raw_data,
             RAW_DATA_VALID  => rx_raw_data_valid,
             
-            VSYNC           => rx_vsync,
-            HSYNC           => rx_hsync,
-            RGB             => rx_rgb,
-            RGB_VALID       => rx_rgb_valid,
-            AUX_DATA        => rx_aux_data,
-            AUX_DATA_VALID  => rx_aux_data_valid
+            VSYNC       => rx_vsync,
+            HSYNC       => rx_hsync,
+            RGB         => rx_rgb,
+            RGB_VALID   => rx_rgb_valid,
+            AUX         => rx_aux,
+            AUX_VALID   => rx_aux_valid
         );
     
     
