@@ -9,8 +9,6 @@
 --   Component that extracts a variable number of averaged pixel groups
 --   from an incoming video stream for the purpose of sending these colours
 --   to a LED stripe around a TV
--- Revision: 0
--- Revision 0.01 - File Created
 -- Additional Comments:
 --   Generic:
 --     R_BITS   : (1 to 12) Number of bits for the 'red' value in both frame and LED data
@@ -24,17 +22,16 @@
 --     CFG_WR_EN    : active high write enable of the configuration data
 --     CFG_DATA     : configuration data to be written
 --     
---     FRAME_VSYNC  : active high vertical sync of the incoming frame data
---     FRAME_HSYNC  : active high horizontal sync of the incoming frame data
+--     FRAME_VSYNC      : positive vsync of the incoming frame data
+--     FRAME_RGB_WR_EN  : active high write indication of the incoming frame data
+--     FRAME_RGB        : the RGB value of the current pixel
 --     
---     FRAME_RGB    : the RGB value of the current pixel
---     
---     LED_VSYNC    : high for all LEDs of one frame
+--     LED_VSYNC    : positive vsync of the outgoing LED data
 --     LED_VALID    : high while the LED colour components are valid
 --     LED_NUM      : number of the current LED, from the first top left LED clockwise
 --     LED_RGB      : LED RGB color
 --   
---   These configuration registers can only be set while FRAME_VSYNC is low and are reset
+--   These configuration registers can only be set while FRAME_VSYNC is high and are reset
 --   to zero when RST is high, using the CFG_* inputs:
 --   
 --    [0] = HOR_LED_CNT     : number of LEDs at each top and bottom side of the TV screen
@@ -75,10 +72,9 @@ entity LED_COLOR_EXTRACTOR is
         CFG_WR_EN   : in std_ulogic;
         CFG_DATA    : in std_ulogic_vector(7 downto 0);
         
-        FRAME_VSYNC : in std_ulogic;
-        FRAME_HSYNC : in std_ulogic;
-        
-        FRAME_RGB   : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
+        FRAME_VSYNC     : in std_ulogic;
+        FRAME_RGB_WR_EN : in std_ulogic;
+        FRAME_RGB       : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
         LED_VSYNC   : out std_ulogic := '0';
         LED_VALID   : out std_ulogic := '0';
@@ -123,6 +119,7 @@ architecture rtl of LED_COLOR_EXTRACTOR is
         array(0 to 1) of
         std_ulogic_vector(RGB_BITS-1 downto 0);
     
+    
     ---------------
     --- signals ---
     ---------------
@@ -140,10 +137,10 @@ architecture rtl of LED_COLOR_EXTRACTOR is
         : std_ulogic_vector(7 downto 0);
     
     -- configuration registers
-    signal hor_led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
-    signal ver_led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
+    signal hor_led_cnt  : std_ulogic_vector(7 downto 0) := x"00";
+    signal ver_led_cnt  : std_ulogic_vector(7 downto 0) := x"00";
     
-    signal frame_width      : std_ulogic_vector(15 downto 0) := x"0000";
+    signal frame_width  : std_ulogic_vector(15 downto 0) := x"0000";
     
 begin
     
@@ -166,7 +163,7 @@ begin
             ver_led_cnt     <= x"00";
             frame_width     <= x"0000";
         elsif rising_edge(CLK) then
-            if CFG_WR_EN='1' and FRAME_VSYNC='0' then
+            if CFG_WR_EN='1' and FRAME_VSYNC='1' then
                 case CFG_ADDR is
                     when "0000" => hor_led_cnt                  <= CFG_DATA;
                     when "0110" => ver_led_cnt                  <= CFG_DATA;
@@ -184,11 +181,11 @@ begin
             frame_x <= (others => '0');
             frame_y <= (others => '0');
         elsif rising_edge(CLK) then
-            if FRAME_VSYNC='0' then
+            if FRAME_VSYNC='1' then
                 frame_x <= (others => '0');
                 frame_y <= (others => '0');
             end if;
-            if FRAME_HSYNC='1' then
+            if FRAME_RGB_WR_EN='1' then
                 frame_x <= frame_x+1;
                 if frame_x=frame_width-1 then
                     frame_x <= (others => '0');
@@ -212,13 +209,12 @@ begin
             CFG_WR_EN   => CFG_WR_EN,
             CFG_DATA    => CFG_DATA,
             
-            FRAME_VSYNC => FRAME_VSYNC,
-            FRAME_HSYNC => FRAME_HSYNC,
+            FRAME_VSYNC     => FRAME_VSYNC,
+            FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
+            FRAME_RGB       => FRAME_RGB,
             
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
-            
-            FRAME_RGB   => FRAME_RGB,
             
             LED_VALID   => leds_valid(HOR),
             LED_NUM     => leds_num(HOR),
@@ -240,13 +236,12 @@ begin
             CFG_WR_EN   => CFG_WR_EN,
             CFG_DATA    => CFG_DATA,
             
-            FRAME_VSYNC => FRAME_VSYNC,
-            FRAME_HSYNC => FRAME_HSYNC,
+            FRAME_VSYNC     => FRAME_VSYNC,
+            FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
+            FRAME_RGB       => FRAME_RGB,
             
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
-            
-            FRAME_RGB   => FRAME_RGB,
             
             LED_VALID   => leds_valid(VER),
             LED_NUM     => leds_num(VER),
@@ -261,8 +256,8 @@ begin
             LED_VSYNC   <= '0';
             LED_VALID   <= '0';
         elsif rising_edge(CLK) then
-            if FRAME_VSYNC='1' then
-                LED_VSYNC   <= '1';
+            if FRAME_VSYNC='0' then
+                LED_VSYNC   <= '0';
             end if;
             LED_VALID   <= '0';
             if leds_valid(VER)='1' then
@@ -299,11 +294,11 @@ begin
                 end if;
             end loop;
             if
-                FRAME_VSYNC='0' and
+                FRAME_VSYNC='1' and
                 leds_valid="00" and
                 not ver_queued
             then
-                LED_VSYNC   <= '0';
+                LED_VSYNC   <= '1';
             end if;
         end if;
     end process;

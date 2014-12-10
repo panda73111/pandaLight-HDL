@@ -7,8 +7,6 @@
 -- Tool versions:  Xilinx ISE 14.7
 -- Description: 
 --
--- Revision: 0
--- Revision 0.01 - File Created
 -- Additional Comments:
 --  
 ----------------------------------------------------------------------------------

@@ -7,8 +7,6 @@
 -- Tool versions:  Xilinx ISE 14.7
 -- Description: 
 --
--- Revision: 0
--- Revision 0.01 - File Created
 -- Additional Comments: 
 --
 ----------------------------------------------------------------------------------
@@ -19,18 +17,11 @@ library UNISIM;
 use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
-library IEEE;
-use IEEE.std_logic_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
-use work.help_funcs.all;
-
 entity VER_SCANNER is
     generic (
-        R_BITS          : natural range 1 to 12 := 8;
-        G_BITS          : natural range 1 to 12 := 8;
-        B_BITS          : natural range 1 to 12 := 8
+        R_BITS  : natural range 1 to 12 := 8;
+        G_BITS  : natural range 1 to 12 := 8;
+        B_BITS  : natural range 1 to 12 := 8
     );
     port (
         CLK : in std_ulogic;
@@ -40,13 +31,12 @@ entity VER_SCANNER is
         CFG_WR_EN   : in std_ulogic;
         CFG_DATA    : in std_ulogic_vector(7 downto 0);
         
-        FRAME_VSYNC : in std_ulogic;
-        FRAME_HSYNC : in std_ulogic;
+        FRAME_VSYNC     : in std_ulogic;
+        FRAME_RGB_WR_EN : in std_ulogic;
+        FRAME_RGB       : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
         FRAME_X : in std_ulogic_vector(15 downto 0);
         FRAME_Y : in std_ulogic_vector(15 downto 0);
-        
-        FRAME_RGB   : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
         LED_VALID   : out std_ulogic := '0';
         LED_NUM     : out std_ulogic_vector(7 downto 0) := (others => '0');
@@ -68,6 +58,7 @@ architecture rtl of VER_SCANNER is
     
     constant X  : natural := 0;
     constant Y  : natural := 1;
+    
     
     -------------
     --- types ---
@@ -139,7 +130,6 @@ architecture rtl of VER_SCANNER is
     signal ov_buf_do            : std_ulogic_vector(RGB_BITS-1 downto 0);
     
     -- configuration registers
---    signal led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
     signal led_width    : std_ulogic_vector(7 downto 0) := x"00";
     signal led_height   : std_ulogic_vector(7 downto 0) := x"00";
     signal led_step     : std_ulogic_vector(7 downto 0) := x"00";
@@ -200,7 +190,6 @@ begin
     cfg_proc : process(RST, CLK)
     begin
         if RST='1' then
---            led_cnt     <= x"00";
             led_width   <= x"00";
             led_height  <= x"00";
             led_step    <= x"00";
@@ -208,9 +197,8 @@ begin
             led_offs    <= x"00";
             frame_width <= x"0000";
         elsif rising_edge(CLK) then
-            if CFG_WR_EN='1' and FRAME_VSYNC='0' then
+            if CFG_WR_EN='1' and FRAME_VSYNC='1' then
                 case CFG_ADDR is
---                    when "0110" => led_cnt                  <= CFG_DATA;
                     when "0111" => led_width                <= CFG_DATA;
                     when "1000" => led_height               <= CFG_DATA;
                     when "1001" => led_step                 <= CFG_DATA;
@@ -247,7 +235,7 @@ begin
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, FRAME_WIDTH, FRAME_VSYNC, FRAME_HSYNC, FRAME_X, FRAME_Y,
+    stm_proc : process(RST, cur_reg, FRAME_WIDTH, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_X, FRAME_Y,
         LED_WIDTH, LED_HEIGHT, LED_STEP, LED_OFFS, FRAME_RGB, buf_do, ov_buf_do, overlaps,
         abs_overlap, next_inner_y, first_leds_pos
     )
@@ -269,7 +257,7 @@ begin
                 tr.inner_coords(Y)  := (others => '0');
                 tr.buf_di           := FRAME_RGB;
                 if
-                    FRAME_HSYNC='1' and
+                    FRAME_RGB_WR_EN='1' and
                     FRAME_X=stdulv(first_leds_pos(cr.side)(X)) and
                     FRAME_Y=stdulv(first_leds_pos(cr.side)(Y))
                 then
@@ -295,7 +283,7 @@ begin
                     tr.ov_buf_di    := FRAME_RGB;
                 end if;
                 if
-                    FRAME_HSYNC='1' and
+                    FRAME_RGB_WR_EN='1' and
                     FRAME_X=stdulv(cr.led_pos(X)) and
                     FRAME_Y>=stdulv(cr.led_pos(Y))
                 then
@@ -313,7 +301,7 @@ begin
                     -- use the buffered color average
                     tr.buf_di   := led_arith_mean(FRAME_RGB, ov_buf_do);
                 end if;
-                if FRAME_HSYNC='1' then
+                if FRAME_RGB_WR_EN='1' then
                     tr.buf_wr_en        := '1';
                     tr.inner_coords(X)  := cr.inner_coords(X)+1;
                     if cr.inner_coords(X)=LED_WIDTH-2 then
@@ -327,7 +315,7 @@ begin
             when RIGHT_BORDER_PIXEL =>
                 tr.inner_coords(X)  := (others => '0');
                 tr.buf_di           := led_arith_mean(FRAME_RGB, buf_do);
-                if FRAME_HSYNC='1' then
+                if FRAME_RGB_WR_EN='1' then
                     tr.buf_wr_en    := '1';
                     tr.state        := SIDE_SWITCH;
                     if cr.side=R then
@@ -351,12 +339,12 @@ begin
             
             when LAST_PIXEL =>
                 tr.inner_coords(X)  := (others => '0');
-                if FRAME_HSYNC='1' then
+                if FRAME_RGB_WR_EN='1' then
                     -- give out the LED color
                     tr.led_valid    := '1';
                     tr.led_rgb      := led_arith_mean(FRAME_RGB, buf_do);
                     
-                    tr.state         := SIDE_SWITCH;
+                    tr.state    := SIDE_SWITCH;
                     if cr.side=R then
                         tr.led_pos(Y)   := cr.led_pos(Y)+uns(LED_STEP);
                         tr.state        := LINE_SWITCH;
@@ -374,7 +362,7 @@ begin
             
         end case;
         
-        if RST='1' or FRAME_VSYNC='0' then
+        if RST='1' or FRAME_VSYNC='1' then
             tr  := reg_type_def;
         end if;
         

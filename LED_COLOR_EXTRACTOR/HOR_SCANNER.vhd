@@ -7,8 +7,6 @@
 -- Tool versions:  Xilinx ISE 14.7
 -- Description: 
 --
--- Revision: 0
--- Revision 0.01 - File Created
 -- Additional Comments: 
 --   Any LED area must be within the FRAME!
 --   The minimum LED area is 1x3 pixel in size!
@@ -22,9 +20,9 @@ use work.help_funcs.all;
 
 entity HOR_SCANNER is
     generic (
-        R_BITS          : natural range 1 to 12 := 8;
-        G_BITS          : natural range 1 to 12 := 8;
-        B_BITS          : natural range 1 to 12 := 8
+        R_BITS  : natural range 1 to 12 := 8;
+        G_BITS  : natural range 1 to 12 := 8;
+        B_BITS  : natural range 1 to 12 := 8
     );
     port (
         CLK : in std_ulogic;
@@ -34,13 +32,12 @@ entity HOR_SCANNER is
         CFG_WR_EN   : in std_ulogic;
         CFG_DATA    : in std_ulogic_vector(7 downto 0);
         
-        FRAME_VSYNC : in std_ulogic;
-        FRAME_HSYNC : in std_ulogic;
+        FRAME_VSYNC     : in std_ulogic;
+        FRAME_RGB_WR_EN : in std_ulogic;
+        FRAME_RGB       : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
         FRAME_X : in std_ulogic_vector(15 downto 0);
         FRAME_Y : in std_ulogic_vector(15 downto 0);
-        
-        FRAME_RGB   : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
         LED_VALID   : out std_ulogic := '0';
         LED_NUM     : out std_ulogic_vector(7 downto 0) := x"00";
@@ -62,6 +59,7 @@ architecture rtl of HOR_SCANNER is
     
     constant X  : natural := 0;
     constant Y  : natural := 1;
+    
     
     -------------
     --- types ---
@@ -204,14 +202,14 @@ begin
             led_offs    <= x"00";
             frame_height    <= x"0000";
         elsif rising_edge(CLK) then
-            if CFG_WR_EN='1' and FRAME_VSYNC='0' then
+            if CFG_WR_EN='1' and FRAME_VSYNC='1' then
                 case CFG_ADDR is
-                    when "0000" => led_cnt                  <= CFG_DATA;
-                    when "0001" => led_width                <= CFG_DATA;
-                    when "0010" => led_height               <= CFG_DATA;
-                    when "0011" => led_step                 <= CFG_DATA;
-                    when "0100" => led_pad                  <= CFG_DATA;
-                    when "0101" => led_offs                 <= CFG_DATA;
+                    when "0000" => led_cnt                      <= CFG_DATA;
+                    when "0001" => led_width                    <= CFG_DATA;
+                    when "0010" => led_height                   <= CFG_DATA;
+                    when "0011" => led_step                     <= CFG_DATA;
+                    when "0100" => led_pad                      <= CFG_DATA;
+                    when "0101" => led_offs                     <= CFG_DATA;
                     when "1110" => frame_height(15 downto 8)    <= CFG_DATA;
                     when "1111" => frame_height(7 downto 0)     <= CFG_DATA;
                     when others => null;
@@ -250,7 +248,7 @@ begin
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, frame_height, FRAME_VSYNC, FRAME_HSYNC, FRAME_X, FRAME_Y,
+    stm_proc : process(RST, cur_reg, frame_height, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_X, FRAME_Y,
         led_cnt, led_width, led_height, led_step, led_offs, FRAME_RGB, buf_do, buf_ov_do,
         overlaps, abs_overlap, next_inner_x, first_leds_pos
     )
@@ -272,7 +270,7 @@ begin
                 r.inner_coords(Y)   := (others => '0');
                 r.buf_di            := FRAME_RGB;
                 if
-                    FRAME_HSYNC='1' and
+                    FRAME_RGB_WR_EN='1' and
                     FRAME_X=stdulv(first_leds_pos(cr.side)(X)) and
                     FRAME_Y=stdulv(first_leds_pos(cr.side)(Y))
                 then
@@ -285,7 +283,7 @@ begin
                 r.buf_di            := FRAME_RGB;
                 r.buf_ov_wr_en      := '0';
                 if
-                    FRAME_HSYNC='1' and
+                    FRAME_RGB_WR_EN='1' and
                     FRAME_X=stdulv(cr.led_pos(X))
                 then
                     r.buf_wr_en := '1';
@@ -294,7 +292,7 @@ begin
             
             when MAIN_PIXEL =>
                 r.buf_di    := led_arith_mean(FRAME_RGB, buf_do);
-                if FRAME_HSYNC='1' then
+                if FRAME_RGB_WR_EN='1' then
                     r.buf_wr_en         := '1';
                     r.inner_coords(X)   := cr.inner_coords(X)+1;
                     if overlaps and next_inner_x=0 then
@@ -315,7 +313,7 @@ begin
                 if overlaps then
                     r.inner_coords(X)   := abs_overlap;
                 end if;
-                if FRAME_HSYNC='1' then
+                if FRAME_RGB_WR_EN='1' then
                     r.buf_wr_en     := '1';
                     r.led_pos(X)    := uns(cr.led_pos(X)+led_step);
                     r.state         := LEFT_BORDER_PIXEL;
@@ -328,7 +326,7 @@ begin
                             -- begin processing the next overlapping LED
                             r.buf_ov_wr_en  := '1';
                         end if;
-                        r.state         := MAIN_PIXEL;
+                        r.state := MAIN_PIXEL;
                     end if;
                     if cr.buf_p=led_cnt-1 then
                         -- finished one line of all LED areas
@@ -347,7 +345,7 @@ begin
                 if overlaps then
                     r.inner_coords(X)   := abs_overlap;
                 end if;
-                if FRAME_HSYNC='1' then
+                if FRAME_RGB_WR_EN='1' then
                     -- give out the LED color
                     r.led_valid     := '1';
                     r.led_rgb       := led_arith_mean(FRAME_RGB, buf_do);
@@ -383,7 +381,7 @@ begin
             r.buf_ov_di := FRAME_RGB;
         end if;
         
-        if RST='1' or FRAME_VSYNC='0' then
+        if RST='1' or FRAME_VSYNC='1' then
             r   := reg_type_def;
         end if;
         

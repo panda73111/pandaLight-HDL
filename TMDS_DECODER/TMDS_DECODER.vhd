@@ -105,15 +105,6 @@ architecture rtl of TMDS_DECODER is
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal watchdog             : unsigned(13 downto 0) := (others => '0');
     
-    attribute keep  : boolean;
-    attribute keep of chs_data          : signal is true;
-    attribute keep of chs_data_valid    : signal is true;
-    attribute keep of chs_ctl           : signal is true;
-    attribute keep of chs_rgb           : signal is true;
-    attribute keep of is_ch_ctl         : signal is true;
-    attribute keep of is_ch_terc4       : signal is true;
-    attribute keep of cur_reg           : signal is true;
-    
     subtype ctl_type is std_ulogic_vector(9 downto 0);
     subtype terc4_type is std_ulogic_vector(9 downto 0);
     subtype gb_type is std_ulogic_vector(9 downto 0);
