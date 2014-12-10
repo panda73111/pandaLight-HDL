@@ -87,6 +87,8 @@ architecture rtl of PANDA_LIGHT is
     signal rx_channels_in   : std_ulogic_vector(7 downto 0) := x"00";
     signal tx_channels_out  : std_ulogic_vector(3 downto 0) := "0000";
     
+    signal analyzer_valid_q : std_ulogic := '0';
+    
     ----------------------------------
     --- HDMI ISerDes clock manager ---
     ----------------------------------
@@ -189,6 +191,25 @@ architecture rtl of PANDA_LIGHT is
     signal rxpt_rx_raw_data_valid   : std_ulogic := '0';
     
     signal rxpt_tx_channels_out : std_ulogic_vector(3 downto 0) := "0000";
+    
+    
+    --------------------
+    --- configurator ---
+    --------------------
+    
+    -- Inputs
+    signal conf_clk : std_ulogic := '0';
+    signal conf_rst : std_ulogic := '0';
+    
+    signal conf_configure       : std_ulogic := '0';
+    signal conf_frame_width     : std_ulogic_vector(10 downto 0) := (others => '0');
+    signal conf_frame_height    : std_ulogic_vector(10 downto 0) := (others => '0');
+    
+    -- Outputs
+    signal conf_cfg_sel_ledex   : std_ulogic := '0';
+    signal conf_cfg_addr        : std_ulogic_vector(3 downto 0) := "0000";
+    signal conf_cfg_wr_en       : std_ulogic := '0';
+    signal conf_cfg_data        : std_ulogic_vector(7 downto 0) := x"00";
     
 begin
     
@@ -421,12 +442,12 @@ begin
     ledex_clk   <= rx_pix_clk;
     ledex_rst   <= not analyzer_valid;
     
-    ledex_cfg_addr  <= (others => '0');
-    ledex_cfg_wr_en <= '0';
-    ledex_cfg_data  <= (others => '0');
+    ledex_cfg_addr  <= conf_cfg_addr;
+    ledex_cfg_wr_en <= conf_cfg_wr_en and conf_cfg_sel_ledex;
+    ledex_cfg_data  <= conf_cfg_data;
     
     ledex_frame_vsync       <= analyzer_positive_vsync;
-    ledex_frame_rgb_valid   <= rx_rgb_valid;
+    ledex_frame_rgb_wr_en   <= rx_rgb_valid;
     ledex_frame_rgb         <= rx_rgb;
     
     LED_COLOR_EXTRACTOR_inst : entity work.LED_COLOR_EXTRACTOR
@@ -471,11 +492,48 @@ begin
 --        );
     
     
+    -------------------
+    -- configurator ---
+    -------------------
+    
+    conf_clk    <= rx_pix_clk;
+    conf_rst    <= rx_rst;
+    
+    conf_configure  <= analyzer_valid and not analyzer_valid_q;
+    
+    conf_frame_width    <= analyzer_width;
+    conf_frame_height   <= analyzer_height;
+    
+    process(rx_pix_clk)
+    begin
+        if rising_edge(rx_pix_clk) then
+            analyzer_valid_q    <= analyzer_valid;
+        end if;
+    end process;
+    
+    CONFIGURATOR_inst : entity work.CONFIGURATOR
+        port map (
+            CLK => conf_clk,
+            RST => conf_rst,
+            
+            CONFIGURE   => conf_configure,
+            
+            FRAME_WIDTH     => conf_frame_width,
+            FRAME_HEIGHT    => conf_frame_height,
+            
+            CFG_SEL_LEDEX   => conf_cfg_sel_ledex,
+            
+            CFG_ADDR    => conf_cfg_addr,
+            CFG_WR_EN   => conf_cfg_wr_en,
+            CFG_DATA    => conf_cfg_data
+        );
+    
     -----------------------------
     --- IPROG reconfiguration ---
     -----------------------------
     
     IPROG_RECONF_gen : if ENABLE_IPROG_RECONF generate
+    
         type rx_bitfile_addrs_type is array(0 to 1)
             of std_ulogic_vector(23 downto 0);
         
@@ -483,9 +541,11 @@ begin
             RX0_BITFILE_ADDR,
             RX1_BITFILE_ADDR
         );
+        
         -- Inputs
         signal iprog_clk    : std_ulogic := '0';
         signal iprog_en     : std_ulogic := '0';
+        
     begin
         
         iprog_clk   <= g_clk;
@@ -519,6 +579,7 @@ begin
     ------------------
     
     UART_DEBUG_gen : if ENABLE_UART_DEBUG generate
+        
         constant BOOT_DELAY_CYCLES  : natural := 1000;
         constant STATUS_MSG_CYCLES  : natural := 50_000_000; -- 1 sec
         
@@ -528,6 +589,7 @@ begin
             IDLE,
             PRINT_STATUS
         );
+        
         signal state            : state_type := WAIT_FOR_BOOT;
         signal boot_msg_delay   : natural range 0 to BOOT_DELAY_CYCLES-1 := 0;
         signal cycle_cnt        : natural range 0 to STATUS_MSG_CYCLES-1 := 0;
@@ -544,6 +606,7 @@ begin
         signal dbg_busy : std_ulogic := '0';
         signal dbg_full : std_ulogic := '0';
         signal dbg_txd  : std_ulogic := '0';
+        
     begin
         
         USB_TXD     <= dbg_txd;
