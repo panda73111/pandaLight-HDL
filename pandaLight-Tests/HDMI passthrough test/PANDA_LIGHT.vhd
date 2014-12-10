@@ -126,13 +126,6 @@ architecture rtl of PANDA_LIGHT is
     signal rx_aux       : std_ulogic_vector(8 downto 0) := (others => '0');
     signal rx_aux_valid : std_ulogic := '0';
     
-    attribute keep of rx_raw_data_valid : signal is true;
-    attribute keep of rx_vsync          : signal is true;
-    attribute keep of rx_hsync          : signal is true;
-    attribute keep of rx_rgb            : signal is true;
-    attribute keep of rx_rgb_valid      : signal is true;
-    attribute keep of rx_aux_valid      : signal is true;
-    
     
     ----------------------
     --- video analyzer ---
@@ -154,12 +147,6 @@ architecture rtl of PANDA_LIGHT is
     signal analyzer_height          : std_ulogic_vector(10 downto 0) := (others => '0');
     signal analyzer_valid           : std_ulogic := '0';
     
-    attribute keep of analyzer_positive_vsync   : signal is true;
-    attribute keep of analyzer_positive_hsync   : signal is true;
-    attribute keep of analyzer_width            : signal is true;
-    attribute keep of analyzer_height           : signal is true;
-    attribute keep of analyzer_valid            : signal is true;
-    
     
     ----------------------------
     --- LED colour extractor ---
@@ -173,16 +160,20 @@ architecture rtl of PANDA_LIGHT is
     signal ledex_cfg_wr_en  : std_ulogic := '0';
     signal ledex_cfg_data   : std_ulogic_vector(7 downto 0) := x"00";
     
-    signal ledex_frame_vsync    : std_ulogic := '0';
-    signal ledex_frame_hsync    : std_ulogic := '0';
-    
-    signal ledex_frame_rgb  : std_ulogic_vector(23 downto 0) := x"000000";
+    signal ledex_frame_vsync        : std_ulogic := '0';
+    signal ledex_frame_rgb_wr_en    : std_ulogic := '0';
+    signal ledex_frame_rgb          : std_ulogic_vector(23 downto 0) := x"000000";
     
     -- Outputs
     signal ledex_led_vsync  : std_ulogic := '0';
     signal ledex_led_valid  : std_ulogic := '0';  
     signal ledex_led_num    : std_ulogic_vector(7 downto 0) := x"00";
     signal ledex_led_rgb    : std_ulogic_vector(23 downto 0) := x"000000";
+    
+    attribute keep of ledex_led_vsync   : signal is true;
+    attribute keep of ledex_led_valid   : signal is true;
+    attribute keep of ledex_led_num     : signal is true;
+    attribute keep of ledex_led_rgb     : signal is true;
     
     
     -----------------------------
@@ -227,9 +218,9 @@ begin
     g_rst   <= g_clk_stopped;
     
     PMOD0(0)    <= rx_vsync;
-    PMOD0(1)    <= rx_hsync;
-    PMOD0(2)    <= rx_rgb_valid;
-    PMOD0(3)    <= rx_raw_data_valid;
+    PMOD0(1)    <= rx_rgb_valid;
+    PMOD0(2)    <= ledex_led_vsync;
+    PMOD0(3)    <= ledex_led_valid;
     
     
     ------------------------------------
@@ -393,43 +384,6 @@ begin
         );
     
     
---    ---------------------------
---    --- LED color extractor ---
---    ---------------------------
---    
---    ledex_clk   <= rx_pix_clk;
---    ledex_rst   <= rx_rst;
---    
---    ledex_cfg_addr  <= (others => '0');
---    ledex_cfg_wr_en <= '0';
---    ledex_cfg_data  <= (others => '0');
---    
---    ledex_frame_vsync   <= rx_vsync;
---    ledex_frame_hsync   <= rx_hsync;
---    
---    ledex_frame_rgb <= rx_rgb;
---    
---    LED_COLOR_EXTRACTOR_inst : entity work.LED_COLOR_EXTRACTOR
---        port map (
---            CLK => ledex_clk,
---            RST => ledex_rst,
---            
---            CFG_ADDR    => ledex_cfg_addr,
---            CFG_WR_EN   => ledex_cfg_wr_en,
---            CFG_DATA    => ledex_cfg_data,
---            
---            FRAME_VSYNC => ledex_frame_vsync,
---            FRAME_HSYNC => ledex_frame_hsync,
---            
---            FRAME_RGB   => ledex_frame_rgb,
---            
---            LED_VSYNC   => ledex_led_vsync,
---            LED_VALID   => ledex_led_valid,
---            LED_NUM     => ledex_led_num,
---            LED_RGB     => ledex_led_rgb
---        );
-    
-    
     ----------------------
     --- video analyzer ---
     ----------------------
@@ -457,6 +411,41 @@ begin
             WIDTH           => analyzer_width,
             HEIGHT          => analyzer_height,
             VALID           => analyzer_valid
+        );
+    
+    
+    ---------------------------
+    --- LED color extractor ---
+    ---------------------------
+    
+    ledex_clk   <= rx_pix_clk;
+    ledex_rst   <= not analyzer_valid;
+    
+    ledex_cfg_addr  <= (others => '0');
+    ledex_cfg_wr_en <= '0';
+    ledex_cfg_data  <= (others => '0');
+    
+    ledex_frame_vsync       <= analyzer_positive_vsync;
+    ledex_frame_rgb_valid   <= rx_rgb_valid;
+    ledex_frame_rgb         <= rx_rgb;
+    
+    LED_COLOR_EXTRACTOR_inst : entity work.LED_COLOR_EXTRACTOR
+        port map (
+            CLK => ledex_clk,
+            RST => ledex_rst,
+            
+            CFG_ADDR    => ledex_cfg_addr,
+            CFG_WR_EN   => ledex_cfg_wr_en,
+            CFG_DATA    => ledex_cfg_data,
+            
+            FRAME_VSYNC     => ledex_frame_vsync,
+            FRAME_RGB_WR_EN => ledex_frame_rgb_wr_en,
+            FRAME_RGB       => ledex_frame_rgb,
+            
+            LED_VSYNC   => ledex_led_vsync,
+            LED_VALID   => ledex_led_valid,
+            LED_NUM     => ledex_led_num,
+            LED_RGB     => ledex_led_rgb
         );
     
     
