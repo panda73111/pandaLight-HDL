@@ -16,6 +16,7 @@ LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
 use work.help_funcs.all;
+use work.video_profiles.all;
 
 ENTITY VIDEO_ANALYZER_tb IS
 END VIDEO_ANALYZER_tb;
@@ -35,88 +36,11 @@ ARCHITECTURE behavior OF VIDEO_ANALYZER_tb IS
     signal POSITIVE_HSYNC   : std_ulogic;
     signal WIDTH            : std_ulogic_vector(10 downto 0);
     signal HEIGHT           : std_ulogic_vector(10 downto 0);
+    signal INTERLACED       : std_ulogic;
     signal VALID            : std_ulogic;
     
-    constant TEST_COUNT     : natural := 3;
-    constant FRAME_COUNT    : natural := 5;
-    
-    type video_profile_type is record
-        ver_pixels      : natural;
-        hor_pixels      : natural;
-        pixel_period    : time;
-        interlaced      : boolean;
-        negative_vsync  : boolean;
-        negative_hsync  : boolean;
-        top_border      : natural; -- lines
-        bottom_border   : natural; -- lines
-        left_border     : natural; -- pixels
-        right_border    : natural; -- pixels
-        h_front_porch   : natural; -- pixels
-        h_back_porch    : natural; -- pixels
-        h_sync_cycles   : natural; -- pixels
-        v_front_porch   : natural; -- lines
-        v_back_porch    : natural; -- lines
-        v_sync_lines    : natural; -- lines
-    end record;
-    
-    type video_profiles_type is array(0 to TEST_COUNT-1) of video_profile_type;
-    
-    constant video_profiles : video_profiles_type := (
-        0 => ( -- 640x480, 60Hz
-            ver_pixels      => 640,
-            hor_pixels      => 480,
-            pixel_period    => 39.7 ns,
-            interlaced      => false,
-            negative_vsync  => true,
-            negative_hsync  => true,
-            top_border      => 8,
-            bottom_border   => 8,
-            left_border     => 8,
-            right_border    => 8,
-            h_front_porch   => 8,
-            h_back_porch    => 40,
-            h_sync_cycles   => 96,
-            v_front_porch   => 2,
-            v_back_porch    => 25,
-            v_sync_lines    => 2
-        ),
-        1 => ( -- 1024x768, 75Hz
-            ver_pixels      => 1024,
-            hor_pixels      => 768,
-            pixel_period    => 12.7 ns,
-            interlaced      => false,
-            negative_vsync  => false,
-            negative_hsync  => false,
-            top_border      => 0,
-            bottom_border   => 0,
-            left_border     => 0,
-            right_border    => 0,
-            h_front_porch   => 16,
-            h_back_porch    => 176,
-            h_sync_cycles   => 96,
-            v_front_porch   => 1,
-            v_back_porch    => 28,
-            v_sync_lines    => 3
-        ),
-        2 => ( -- 1280x720, 60Hz
-            ver_pixels      => 1280,
-            hor_pixels      => 720,
-            pixel_period    => 13.5 ns,
-            interlaced      => false,
-            negative_vsync  => false,
-            negative_hsync  => false,
-            top_border      => 0,
-            bottom_border   => 0,
-            left_border     => 0,
-            right_border    => 0,
-            h_front_porch   => 110,
-            h_back_porch    => 220,
-            h_sync_cycles   => 40,
-            v_front_porch   => 5,
-            v_back_porch    => 20,
-            v_sync_lines    => 5
-        )
-    );
+    constant TEST_COUNT     : natural := VIDEO_PROFILE_COUNT;
+    constant FRAME_COUNT    : natural := 10;
     
     signal pix_clk      : std_ulogic := '0';
     signal pix_period   : time := 10 ns;
@@ -139,6 +63,7 @@ BEGIN
             POSITIVE_HSYNC  => POSITIVE_HSYNC,
             WIDTH           => WIDTH,
             HEIGHT          => HEIGHT,
+            INTERLACED      => INTERLACED,
             VALID           => VALID
         );
     
@@ -147,7 +72,7 @@ BEGIN
     -- Stimulus process
     stim_proc: process
         variable vp : video_profile_type;
-        variable total_ver_pixels, total_hor_pixels : natural;
+        variable total_ver_lines, total_hor_pixels : natural;
         variable pos_vsync, pos_hsync   : std_ulogic;
     begin
         -- hold reset state for 100 ns.
@@ -163,8 +88,12 @@ BEGIN
             
             report "Starting test " & natural'image(test_index);
             vp                  := video_profiles(test_index);
-            total_ver_pixels    := vp.v_sync_lines + vp.v_front_porch + vp.top_border + vp.ver_pixels + vp.bottom_border + vp.v_back_porch;
-            total_hor_pixels    := vp.h_sync_cycles + vp.h_front_porch + vp.left_border + vp.hor_pixels + vp.right_border + vp.h_back_porch;
+            
+            total_ver_lines     := vp.v_sync_lines + vp.v_front_porch + vp.top_border + vp.height +
+                                    vp.bottom_border + vp.v_back_porch + sel(vp.interlaced, 1, 0);
+            
+            total_hor_pixels    := vp.h_sync_cycles + vp.h_front_porch + vp.left_border + vp.width +
+                                    vp.right_border + vp.h_back_porch;
             
             pix_period  <= video_profiles(test_index).pixel_period;
             START       <= '1';
@@ -174,14 +103,20 @@ BEGIN
             
             for frame_index in 0 to FRAME_COUNT-1 loop
                 
-                for y in 0 to total_ver_pixels-1 loop
+                for y in 0 to total_ver_lines-1 loop
+                    
+                    -- interlaced video has 1 more vblank line every other frame
+                    next when vp.interlaced and (frame_index mod 2)=0 and y=vp.v_sync_lines;
+                    
                     for x in 0 to total_hor_pixels-1 loop
                         
-                        if y < vp.v_sync_lines then
-                            -- vsync period
-                            pos_vsync   := '1';
-                        else
-                            pos_vsync   := '0';
+                        if not vp.interlaced or (frame_index mod 2)=0 or x >= total_hor_pixels/2 then
+                            if y < vp.v_sync_lines then
+                                -- vsync period
+                                pos_vsync   := '1';
+                            else
+                                pos_vsync   := '0';
+                            end if;
                         end if;
                         
                         if x < vp.h_sync_cycles then
@@ -192,10 +127,10 @@ BEGIN
                             pos_hsync   := '0';
                         elsif x < vp.h_sync_cycles + vp.h_front_porch + vp.left_border then
                             -- left border period
-                        elsif x < vp.h_sync_cycles + vp.h_front_porch + vp.left_border + vp.hor_pixels then
+                        elsif x < vp.h_sync_cycles + vp.h_front_porch + vp.left_border + vp.width then
                             if
                                 y >= vp.v_sync_lines + vp.v_front_porch + vp.top_border and
-                                y < vp.v_sync_lines + vp.v_front_porch + vp.top_border + vp.ver_pixels
+                                y < vp.v_sync_lines + vp.v_front_porch + vp.top_border + vp.height
                             then
                                 -- active pixels
                                 RGB_VALID   <= '1';
@@ -232,11 +167,14 @@ BEGIN
             assert POSITIVE_HSYNC='0'
                 report "Wrong HSync polarity!"
                 severity FAILURE;
-            assert WIDTH=stdulv(vp.hor_pixels, WIDTH'length)
+            assert WIDTH=stdulv(vp.width, WIDTH'length)
                 report "WIDTH doesn't match!"
                 severity FAILURE;
-            assert HEIGHT=stdulv(vp.ver_pixels, HEIGHT'length)
+            assert HEIGHT=stdulv(vp.height, HEIGHT'length)
                 report "HEIGHT doesn't match!"
+                severity FAILURE;
+            assert INTERLACED=sel(vp.interlaced, '1', '0')
+                report "Interlacing not detected!"
                 severity FAILURE;
         
         end loop;

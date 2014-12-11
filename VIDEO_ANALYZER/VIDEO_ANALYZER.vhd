@@ -30,6 +30,7 @@ entity VIDEO_ANALYZER is
         POSITIVE_HSYNC  : out std_ulogic := '0';
         WIDTH           : out std_ulogic_vector(10 downto 0) := (others => '0');
         HEIGHT          : out std_ulogic_vector(10 downto 0) := (others => '0');
+        INTERLACED      : out std_ulogic := '0';
         VALID           : out std_ulogic := '0'
     );
 end VIDEO_ANALYZER;
@@ -40,6 +41,7 @@ architecture rtl of VIDEO_ANALYZER is
         WAIT_FOR_START,
         WAIT_FOR_RGB_VALID,
         WAIT_FOR_FRAME_END,
+        CHECK_IF_INTERLACED,
         WAIT_FOR_FRAME_BEGINNING,
         WAIT_FOR_FIRST_LINE_BEGINNING,
         COUNT_PIXELS_IN_LINE,
@@ -58,7 +60,9 @@ architecture rtl of VIDEO_ANALYZER is
         tmp_height  : unsigned(10 downto 0);
         width       : unsigned(10 downto 0);
         height      : unsigned(10 downto 0);
+        interlaced  : std_ulogic;
         valid       : std_ulogic;
+        first_run   : boolean;
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -69,7 +73,9 @@ architecture rtl of VIDEO_ANALYZER is
         tmp_height  => (others => '0'),
         width       => (others => '0'),
         height      => (others => '0'),
-        valid       => '0'
+        interlaced  => '0',
+        valid       => '0',
+        first_run   => true
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -83,6 +89,7 @@ begin
     POSITIVE_HSYNC  <= pos_hsync;
     WIDTH           <= stdulv(cur_reg.width);
     HEIGHT          <= stdulv(cur_reg.height);
+    INTERLACED      <= cur_reg.interlaced;
     VALID           <= cur_reg.valid;
     
     pos_vsync   <= VSYNC xor cur_reg.vsync_pol;
@@ -113,7 +120,17 @@ begin
             when WAIT_FOR_FRAME_END =>
                 if pos_vsync='1' then
                     r.state := WAIT_FOR_FRAME_BEGINNING;
+                    if cr.valid='0' then
+                        r.state := CHECK_IF_INTERLACED;
+                    end if;
                 end if;
+            
+            when CHECK_IF_INTERLACED =>
+                if pos_hsync='0' then
+                    -- vsync inbetween two hsync periods
+                    r.interlaced    := '1';
+                end if;
+                r.state := WAIT_FOR_FRAME_BEGINNING;
             
             when WAIT_FOR_FRAME_BEGINNING =>
                 if pos_vsync='0' then
@@ -157,9 +174,12 @@ begin
                 end if;
             
             when FINISHED =>
+                if not cr.first_run then
+                    r.valid     := '1';
+                end if;
                 r.width     := cr.tmp_width;
                 r.height    := cr.tmp_height;
-                r.valid     := '1';
+                r.first_run := false;
                 r.state     := WAIT_FOR_RGB_VALID;
             
             when REVALIDATE =>
@@ -168,7 +188,9 @@ begin
                     cr.tmp_height/=cr.height
                 then
                     -- try again next frame
-                    r.valid := '0';
+                    r.first_run     := true;
+                    r.interlaced    := '0';
+                    r.valid         := '0';
                 end if;
                 r.state := WAIT_FOR_RGB_VALID;
             

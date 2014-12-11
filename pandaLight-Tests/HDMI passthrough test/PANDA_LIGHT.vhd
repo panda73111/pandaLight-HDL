@@ -147,6 +147,7 @@ architecture rtl of PANDA_LIGHT is
     signal analyzer_positive_hsync  : std_ulogic := '0';
     signal analyzer_width           : std_ulogic_vector(10 downto 0) := (others => '0');
     signal analyzer_height          : std_ulogic_vector(10 downto 0) := (others => '0');
+    signal analyzer_interlaced      : std_ulogic := '0';
     signal analyzer_valid           : std_ulogic := '0';
     
     
@@ -431,6 +432,7 @@ begin
             POSITIVE_HSYNC  => analyzer_positive_hsync,
             WIDTH           => analyzer_width,
             HEIGHT          => analyzer_height,
+            INTERLACED      => analyzer_interlaced,
             VALID           => analyzer_valid
         );
     
