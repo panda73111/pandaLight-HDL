@@ -6,8 +6,6 @@
 -- Description:    Encoder of a single TMDS channel compliant to the
 --                 HDMI 1.4 specification
 --
--- Revision: 0
--- Revision 0.01 - File Created
 -- Additional Comments: 
 --  ports:
 --   ENCODING : 0 = Preamble
@@ -21,6 +19,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 library UNISIM;
 use UNISIM.VComponents.all;
+use work.help_funcs.all;
 
 entity TMDS_CHANNEL_ENCODER is
     generic (
@@ -58,17 +57,26 @@ architecture rtl of TMDS_CHANNEL_ENCODER is
     signal din_enc_disp         : signed(3 downto 0) := (others => '0'); 
     signal total_disp           : signed(3 downto 0) := (others => '0');
     
-    function terc4 (din : unsigned(3 downto 0)) return unsigned
-    is
-        type terc4_table_type is array(0 to 15) of unsigned(9 downto 0);
-        constant terc4_table    : terc4_table_type := (
-            "1010011100", "1001100011", "1011100100", "1011100010",
-            "0101110001", "0100011110", "0110001110", "0100111100",
-            "1011001100", "0100111001", "0110011100", "1011000110",
-            "1010001110", "1001110001", "0101100011", "1011000011"
-        );
+    function terc4 (din : unsigned(3 downto 0)) return unsigned is
     begin
-        return terc4_table(to_integer(din));
+        case din is
+            when "0000" =>  return "1010011100";
+            when "0001" =>  return "1001100011";
+            when "0010" =>  return "1011100100";
+            when "0011" =>  return "1011100010";
+            when "0100" =>  return "0101110001";
+            when "0101" =>  return "0100011110";
+            when "0110" =>  return "0110001110";
+            when "0111" =>  return "0100111100";
+            when "1000" =>  return "1011001100";
+            when "1001" =>  return "0100111001";
+            when "1010" =>  return "0110011100";
+            when "1011" =>  return "1011000110";
+            when "1100" =>  return "1010001110";
+            when "1101" =>  return "1001110001";
+            when "1110" =>  return "0101100011";
+            when others =>  return "1011000011";
+        end case;
     end function;
     
 begin
@@ -288,7 +296,7 @@ begin
                     data_out    := terc4(din_uns(3 downto 0));
                 
                 when others =>
-                    null;
+                    data_out    := (others => '0');
                 
             end case;
             gearbox_x1_data <= std_ulogic_vector(data_out);
