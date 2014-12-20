@@ -7,16 +7,12 @@
 -- 
 -- VHDL Test Bench Created by ISE for module: TMDS_CHANNEL_ENCODER
 -- 
--- Revision: 0
--- Revision 0.01 - File Created
 -- Additional Comments:
 --
 --------------------------------------------------------------------------------
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
-library work;
-use work.txt_util.all;
 use work.help_funcs.all;
 
 ENTITY TMDS_CHANNEL_ENCODER_tb IS
@@ -28,17 +24,36 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_ENCODER_tb IS
     ------ TMDS channel encoder ------
     ----------------------------------
     
-    type encoders_data_in_type is array(0 to 2) of std_ulogic_vector(7 downto 0);
-    type encoders_channel_out_type is array(0 to 2) of std_ulogic_vector(1 downto 0);
+    type encoders_rgb_type is
+        array(0 to 2)
+        of std_ulogic_vector(7 downto 0);
+    
+    type encoders_ctl_type is
+        array(0 to 2)
+        of std_ulogic_vector(1 downto 0);
+    
+    type encoders_aux_type is
+        array(0 to 2)
+        of std_ulogic_vector(3 downto 0);
+        
+    type encoders_channel_out_type is
+        array(0 to 2)
+        of std_ulogic_vector(1 downto 0);
     
     -- Inputs
     signal encoders_pix_clk         : std_ulogic := '0';
     signal encoders_pix_clk_x2      : std_ulogic := '0';
     signal encoders_pix_clk_x10     : std_ulogic := '0';
     signal encoders_rst             : std_ulogic := '0';
+    
     signal encoders_clk_locked      : std_ulogic := '0';
     signal encoders_serdesstrobe    : std_ulogic := '0';
-    signal encoders_data_in         : encoders_data_in_type := (others => x"00");
+    
+    signal encoders_hsync           : std_ulogic_vector(2 downto 0) := "000";
+    signal encoders_vsync           : std_ulogic_vector(2 downto 0) := "000";
+    signal encoders_rgb             : encoders_rgb_type := (others => x"00");
+    signal encoders_ctl             : encoders_ctl_type := (others => "00");
+    signal encoders_aux             : encoders_aux_type := (others => x"0");
     signal encoders_encoding        : std_ulogic_vector(2 downto 0) := "000";
 
     -- Outputs
@@ -79,11 +94,13 @@ ARCHITECTURE rtl OF TMDS_CHANNEL_ENCODER_tb IS
     type encoders_dec_vid_data_type is array(0 to 2) of std_ulogic_vector(7 downto 0);
     signal encoders_deser_data      : encoders_deser_data_type := (others => (others => '0'));
     signal encoders_dec_vid_data    : encoders_dec_vid_data_type := (others => (others => '0'));
+    
+    signal chs_synchronized : std_ulogic_vector(2 downto 0) := "000";
 
 BEGIN
     
-    encoders_pix_clk        <= clk_man_clk_out0;
-    encoders_pix_clk_x2     <= clk_man_clk_out1;
+    encoders_pix_clk        <= clk_man_clk_out1;
+    encoders_pix_clk_x2     <= clk_man_clk_out2;
     encoders_pix_clk_x10    <= clk_man_ioclk_out;
     encoders_rst            <= g_rst;
     encoders_clk_locked     <= clk_man_ioclk_locked;
@@ -101,7 +118,11 @@ BEGIN
                 RST             => encoders_rst,
                 CLK_LOCKED      => encoders_clk_locked,
                 SERDESSTROBE    => encoders_serdesstrobe,
-                DATA_IN         => encoders_data_in(i),
+                HSYNC           => encoders_hsync(i),
+                VSYNC           => encoders_vsync(i),
+                CTL             => encoders_ctl(i),
+                RGB             => encoders_rgb(i),
+                AUX             => encoders_aux(i),
                 ENCODING        => encoders_encoding,
                 
                 CHANNEL_OUT_P   => encoders_channel_out(i)(0),
@@ -116,11 +137,11 @@ BEGIN
             CLK_IN_PERIOD   => g_clk_period_real,
             MULTIPLIER      => pix_clk_mult * 10,
             PREDIVISOR      => pix_clk_div,
-            DIVISOR0        => 10, -- pixel clock
-            DIVISOR1        => 5,  -- serdes clock = pixel clock * 2
-            DIVISOR2        => 1,  -- bit clock
-            DATA_CLK_SELECT => 1,  -- clock out 1
-            IO_CLK_SELECT   => 2   -- clock out 2
+            DIVISOR0        => 1,  -- bit clock
+            DIVISOR1        => 10, -- pixel clock
+            DIVISOR2        => 5,  -- serdes clock = pixel clock * 2
+            DATA_CLK_SELECT => 2,  -- clock out 1
+            IO_CLK_SELECT   => 0   -- clock out 2
         )
         port map (
             CLK_IN          => clk_man_clk_in,
@@ -153,34 +174,59 @@ BEGIN
         
         wait until clk_man_ioclk_locked = '1' and rising_edge(g_clk);
         
-        encoders_encoding   <= "010";
-        for i in -255 to 255 loop
+        -- synchronisation using control period
+        encoders_encoding   <= "000";
+        while chs_synchronized/="111" loop
             wait until rising_edge(encoders_pix_clk);
-            for ch_i in 0 to 2 loop
---                encoders_data_in(ch_i)  <= std_ulogic_vector(to_unsigned(abs i, 8));
-                encoders_data_in(ch_i)  <= x"00";
-            end loop;
         end loop;
         
-        wait;
+        -- dummy pixel values
+        encoders_encoding   <= "010";
+        for i in -255 to 255 loop
+            for ch_i in 0 to 2 loop
+                encoders_rgb(ch_i)  <= stdulv(abs i, 8);
+            end loop;
+            wait until rising_edge(encoders_pix_clk);
+        end loop;
+        
+        wait for 10 us;
+        report "NONE. All tests finished successfully."
+            severity FAILURE;
     end process;
     
-    ch_deser_procs_gen : for i in 0 to 2 generate
+    ch_deser_procs_gen : for ch_i in 0 to 2 generate
+        
         deser_proc : process
+            constant CTL_00         : std_ulogic_vector(9 downto 0) := "1101010100";
             variable temp_data      : std_ulogic_vector(9 downto 0) := (others => '0');
             variable temp_dec_data  : std_ulogic_vector(7 downto 0) := (others => '0');
+            variable counter        : signed(8 downto 0) := (others => '0');
+            procedure read_data is
+            begin
+                for bit_i in 0 to 9 loop
+                    temp_data(bit_i)    := encoders_channel_out(ch_i)(0);
+                    wait until rising_edge(encoders_pix_clk_x10);
+                end loop;
+            end procedure;
         begin
+            read_data;
+            while temp_data/=CTL_00 loop
+                -- bitslip
+                wait until rising_edge(encoders_pix_clk_x10);
+                read_data;
+            end loop;
+            chs_synchronized(ch_i)  <= '1';
+            report "Channel " & natural'image(ch_i) & ": synchronized";
             
-            wait until falling_edge(encoders_serdesstrobe);
-            wait until rising_edge(encoders_pix_clk_x10);
+            counter := sig(-255, counter'length);
             
             loop
-                for bit_i in 0 to 9 loop
-                    wait until rising_edge(encoders_pix_clk_x10);
-                    temp_data(bit_i)    := encoders_channel_out(i)(0);
+                read_data;
+                while temp_data=CTL_00 loop
+                    read_data;
                 end loop;
                 
-                encoders_deser_data(i)  <= temp_data;
+                encoders_deser_data(ch_i)  <= temp_data;
                 
                 if temp_data(9) = '1' then
                     temp_data(7 downto 0)   := not temp_data(7 downto 0);
@@ -205,11 +251,20 @@ BEGIN
                     temp_dec_data(7)    := temp_data(7) xnor temp_data(6);
                 end if;
                 
-                encoders_dec_vid_data(i)    <= temp_dec_data;
+                encoders_dec_vid_data(ch_i) <= temp_dec_data;
+                assert temp_dec_data=stdulv(abs int(counter), 8)
+                    report "Counter value doesn't match!"
+                    severity FAILURE;
                 
+                if counter=255 then
+                    report "Channel " & natural'image(ch_i) & ": counter test finished successfully.";
+                    wait;
+                end if;
+                
+                counter := counter+1;
             end loop;
-            
         end process;
+        
     end generate;
 
 END;
