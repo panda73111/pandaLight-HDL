@@ -68,7 +68,6 @@ architecture rtl of TMDS_DECODER is
         WAIT_FOR_CONTROL,
         CONTROL,
         VIDEO_LGB,
-        VIDEO_TGB,
         VIDEO,
         DATA_PACKET_LGB,
         DATA_PACKET_TGB,
@@ -305,11 +304,8 @@ begin
                 r.state := VIDEO;
             
             when VIDEO =>
-                if isVideoGb(chs_data) then
-                    -- video data trailing guard band
-                    r.state     := VIDEO_TGB;
-                elsif is_ch_ctl(0)='1' then
-                    -- DVI mode, no guard bands
+                -- (there's no video data trailing guard band)
+                if is_ch_ctl(0)='1' then
                     r.rgb_valid := '0';
                     r.vsync     := chs_ctl(0)(1);
                     r.hsync     := chs_ctl(0)(0);
@@ -318,9 +314,6 @@ begin
                     -- video pixel
                     r.rgb_valid := '1';
                 end if;
-            
-            when VIDEO_TGB =>
-                r.state := CONTROL;
             
             when DATA_PACKET_LGB =>
                 r.state := DATA_PACKET;
