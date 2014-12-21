@@ -119,7 +119,7 @@ begin
     
     DELAY_QUEUE_inst : entity work.DELAY_QUEUE
         generic map (
-            CYCLES  => 12, -- 8 [Preamble] + 2 [guard band] + 2 [state machine]
+            CYCLES  => sel(DVI_MODE, 2, 12), -- 8 [Preamble] + 2 [guard band] + 2 [state machine]
             WIDTH   => 24
         )
         port map (
@@ -151,11 +151,17 @@ begin
             when CONTROL_PERIOD =>
                 r.encoding      := "000";
                 r.cycle_count   := uns(1, COUNT_BITS);
-                if RGB_ENABLE='1' then
-                    r.state := VIDEO_PREAMBLE;
-                end if;
-                if AUX_ENABLE='1' then
-                    r.state := DATA_ISLAND_PREAMBLE;
+                if DVI_MODE then
+                    if RGB_ENABLE='1' then
+                        r.state := VIDEO;
+                    end if;
+                else
+                    if RGB_ENABLE='1' then
+                        r.state := VIDEO_PREAMBLE;
+                    end if;
+                    if AUX_ENABLE='1' then
+                        r.state := DATA_ISLAND_PREAMBLE;
+                    end if;
                 end if;
             
             when VIDEO_PREAMBLE =>
@@ -174,14 +180,20 @@ begin
             
             when VIDEO =>
                 r.encoding  := "010";
-                if RGB_ENABLE='0' then
-                    if cr.cycle_count(4)='1' then
-                        -- 10 cycles after RGB_ENABLE falling edge
-                        -- (10 cycle pixel buffer is empty)
-                        r.state     := CONTROL_PERIOD;
+                if DVI_MODE then
+                    if RGB_ENABLE='0' then
+                        r.state := CONTROL_PERIOD;
                     end if;
                 else
-                    r.cycle_count   := uns(6, COUNT_BITS);
+                    if RGB_ENABLE='0' then
+                        if cr.cycle_count(4)='1' then
+                            -- 10 cycles after RGB_ENABLE falling edge
+                            -- (10 cycle pixel buffer is empty)
+                            r.state     := CONTROL_PERIOD;
+                        end if;
+                    else
+                        r.cycle_count   := uns(6, COUNT_BITS);
+                    end if;
                 end if;
             
             when DATA_ISLAND_PREAMBLE =>

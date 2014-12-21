@@ -18,6 +18,7 @@ use work.video_profiles.all;
 
 ENTITY TMDS_ENCODER_tb IS
     generic (
+        DVI_MODE        : boolean := true;
         FIRST_PROFILE   : natural := 0;
         LAST_PROFILE    : natural := VIDEO_PROFILE_COUNT-1;
         FRAME_COUNT     : natural := 5; -- frames of each video resolution
@@ -77,17 +78,24 @@ ARCHITECTURE rtl OF TMDS_ENCODER_tb IS
     signal pixclk_vsync     : std_ulogic := '0';
     signal pixclk_rgb_en    : std_ulogic := '0';
     signal pixclk_rgb       : std_ulogic_vector(23 downto 0) := x"000000";
-
+    
+    signal rst_encoder  : std_ulogic := '0';
+    
 BEGIN
+    
+    rst_encoder <= RST or not CLK_LOCKED;
     
     vp  <= VIDEO_PROFILES(int(profile));
     
     TMDS_ENCODER_inst : entity work.TMDS_ENCODER
+        generic map (
+            DVI_MODE    => DVI_MODE
+        )
         port map (
             PIX_CLK     => PIX_CLK,
             PIX_CLK_X2  => PIX_CLK_X2,
             PIX_CLK_X10 => PIX_CLK_X10,
-            RST         => RST or not CLK_LOCKED,
+            RST         => rst_encoder,
             
             SERDESSTROBE    => SERDESSTROBE,
             CLK_LOCKED      => CLK_LOCKED,
