@@ -51,9 +51,6 @@ ARCHITECTURE rtl OF TMDS_ENCODER_tb IS
     signal AUX_ENABLE   : std_ulogic := '0';
     
     -- Outputs
-    signal RGB_ACK  : std_ulogic;
-    signal AUX_ACK  : std_ulogic;
-    
     signal CHANNELS_OUT_P   : std_ulogic_vector(2 downto 0);
     signal CHANNELS_OUT_N   : std_ulogic_vector(2 downto 0);
     
@@ -75,6 +72,11 @@ ARCHITECTURE rtl OF TMDS_ENCODER_tb IS
     signal g_clk    : std_ulogic := '0';
     
     signal vp   : video_profile_type;
+    
+    signal pixclk_hsync     : std_ulogic := '0';
+    signal pixclk_vsync     : std_ulogic := '0';
+    signal pixclk_rgb_en    : std_ulogic := '0';
+    signal pixclk_rgb       : std_ulogic_vector(23 downto 0) := x"000000";
 
 BEGIN
     
@@ -85,20 +87,17 @@ BEGIN
             PIX_CLK     => PIX_CLK,
             PIX_CLK_X2  => PIX_CLK_X2,
             PIX_CLK_X10 => PIX_CLK_X10,
-            RST         => RST,
+            RST         => RST or not CLK_LOCKED,
             
             SERDESSTROBE    => SERDESSTROBE,
             CLK_LOCKED      => CLK_LOCKED,
             
-            HSYNC       => HSYNC,
-            VSYNC       => VSYNC,
-            RGB         => RGB,
-            RGB_ENABLE  => RGB_ENABLE,
-            AUX         => AUX,
-            AUX_ENABLE  => AUX_ENABLE,
-            
-            RGB_ACK => RGB_ACK,
-            AUX_ACK => AUX_ACK,
+            HSYNC       => pixclk_hsync,
+            VSYNC       => pixclk_vsync,
+            RGB         => pixclk_rgb,
+            RGB_ENABLE  => pixclk_rgb_en,
+            AUX         => (others => '0'),
+            AUX_ENABLE  => '0',
             
             CHANNELS_OUT_P  => CHANNELS_OUT_P,
             CHANNELS_OUT_N  => CHANNELS_OUT_N
@@ -149,7 +148,17 @@ BEGIN
     
     
     g_clk   <= not g_clk after g_clk_period/2;
-
+    
+    sync_proc : process(PIX_CLK)
+    begin
+        if rising_edge(PIX_CLK) then
+            pixclk_hsync    <= HSYNC;
+            pixclk_vsync    <= VSYNC;
+            pixclk_rgb_en   <= RGB_ENABLE;
+            pixclk_rgb      <= RGB;
+        end if;
+    end process;
+    
     -- Stimulus process
     stim_proc: process
     begin		

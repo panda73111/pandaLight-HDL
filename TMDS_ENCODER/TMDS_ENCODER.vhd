@@ -35,9 +35,6 @@ entity TMDS_ENCODER is
         AUX         : in std_ulogic_vector(8 downto 0);
         AUX_ENABLE  : in std_ulogic;
         
-        RGB_ACK : out std_ulogic := '0';
-        AUX_ACK : out std_ulogic := '0';
-        
         CHANNELS_OUT_P  : out std_ulogic_vector(2 downto 0) := "111";
         CHANNELS_OUT_N  : out std_ulogic_vector(2 downto 0) := "111"
     );
@@ -52,6 +49,10 @@ architecture rtl of TMDS_ENCODER is
     type chs_aux_type is
         array(0 to 2) of
         std_ulogic_vector(3 downto 0);
+    
+    type data_buffer_type is
+        array(0 to 15) of
+        std_ulogic_vector(23 downto 0);
     
     type state_type is (
         CONTROL_PERIOD,
@@ -70,8 +71,6 @@ architecture rtl of TMDS_ENCODER is
         cycle_count : unsigned(5 downto 0);
         chs_ctl     : chs_ctl_type;
         chs_aux     : chs_aux_type;
-        rgb_ack     : std_ulogic;
-        aux_ack     : std_ulogic;
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -79,19 +78,17 @@ architecture rtl of TMDS_ENCODER is
         encoding    => "000",
         cycle_count => (others => '0'),
         chs_ctl     => (others => "00"),
-        chs_aux     => (others => x"0"),
-        rgb_ack     => '0',
-        aux_ack     => '0'
+        chs_aux     => (others => x"0")
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     
     signal chs_aux  : chs_aux_type := (others => x"0");
+    signal buf_di, buf_do   : std_ulogic_vector(23 downto 0) := x"000000";
     
 begin
     
-    RGB_ACK <= cur_reg.rgb_ack;
-    AUX_ACK <= cur_reg.aux_ack;
+    buf_di  <= "000000000000000" & AUX when AUX_ENABLE='1' else RGB;
     
     TMDS_CHANNEL_ENCODERs_generate : for ch_i in 0 to 2 generate
         
@@ -110,7 +107,7 @@ begin
                 HSYNC           => HSYNC,
                 VSYNC           => VSYNC,
                 CTL             => cur_reg.chs_ctl(ch_i),
-                RGB             => RGB(ch_i*8+7 downto ch_i*8),
+                RGB             => buf_do(ch_i*8+7 downto ch_i*8),
                 AUX             => cur_reg.chs_aux(ch_i),
                 ENCODING        => cur_reg.encoding,
                 
@@ -120,20 +117,32 @@ begin
         
     end generate;
     
-    stm_proc : process(cur_reg, RST, RGB_ENABLE, AUX_ENABLE, AUX, VSYNC, HSYNC)
+    DELAY_QUEUE_inst : entity work.DELAY_QUEUE
+        generic map (
+            CYCLES  => 12, -- 8 [Preamble] + 2 [guard band] + 2 [state machine]
+            WIDTH   => 24
+        )
+        port map (
+            CLK => PIX_CLK,
+            RST => RST,
+            
+            DIN => buf_di,
+            
+            DOUT    => buf_do
+        );
+    
+    stm_proc : process(cur_reg, RST, RGB_ENABLE, AUX_ENABLE, AUX, VSYNC, HSYNC, buf_do)
         alias cr is cur_reg;
         constant COUNT_BITS : natural := reg_type.cycle_count'length;
         variable r          : reg_type := reg_type_def;
     begin
         r               := cr;
-        r.rgb_ack       := '0';
-        r.aux_ack       := '0';
         r.chs_ctl(0)    := VSYNC & HSYNC;
         r.chs_ctl(1)    := "01";
         r.chs_ctl(2)    := "00";
         r.chs_aux(0)    := "11" & VSYNC & HSYNC;
-        r.chs_aux(1)    := AUX(7 downto 4);
-        r.chs_aux(2)    := AUX(3 downto 0);
+        r.chs_aux(1)    := buf_do(7 downto 4);
+        r.chs_aux(2)    := buf_do(3 downto 0);
         
         r.cycle_count   := cr.cycle_count+1;
         
@@ -160,16 +169,19 @@ begin
                 r.encoding  := "001";
                 if cr.cycle_count(1)='1' then
                     -- after 2 cycles
-                    r.rgb_ack   := '1';
                     r.state     := VIDEO;
                 end if;
             
             when VIDEO =>
                 r.encoding  := "010";
-                r.rgb_ack   := '1';
                 if RGB_ENABLE='0' then
-                    r.rgb_ack   := '0';
-                    r.state     := CONTROL_PERIOD;
+                    if cr.cycle_count(4)='1' then
+                        -- 10 cycles after RGB_ENABLE falling edge
+                        -- (10 cycle pixel buffer is empty)
+                        r.state     := CONTROL_PERIOD;
+                    end if;
+                else
+                    r.cycle_count   := uns(6, COUNT_BITS);
                 end if;
             
             when DATA_ISLAND_PREAMBLE =>
@@ -184,7 +196,6 @@ begin
                 r.encoding  := "011";
                 if cr.cycle_count(1)='1' then
                     -- after 2 cycles
-                    r.aux_ack       := '1';
                     r.chs_aux(0)(3) := '1';
                     r.cycle_count   := (others => '0');
                     r.state         := DATA_ISLAND;
@@ -192,7 +203,6 @@ begin
             
             when DATA_ISLAND =>
                 r.encoding  := "100";
-                r.aux_ack   := '1';
                 if cr.cycle_count(4)='1' then
                     -- after 32 cycles
                     r.cycle_count   := uns(1, COUNT_BITS);
