@@ -36,13 +36,72 @@ ARCHITECTURE rtl OF test_tmds_encoder IS
     
     constant VP : video_profile_type := VIDEO_PROFILES(PROFILE);
     
+    constant TOTAL_VER_LINES    : natural := VP.v_sync_lines + VP.v_front_porch + VP.top_border + VP.height +
+                                                VP.bottom_border + VP.v_back_porch;
+    
+    constant TOTAL_HOR_PIXELS   : natural := VP.h_sync_cycles + VP.h_front_porch + VP.left_border + VP.width +
+                                                VP.right_border + VP.h_back_porch;
+    
+    constant V_SYNC_END     : natural := VP.v_sync_lines;
+    constant V_RGB_START    : natural := VP.v_sync_lines+VP.v_front_porch+VP.top_border;
+    constant V_RGB_END      : natural := VP.v_sync_lines+VP.v_front_porch+VP.top_border+VP.height;
+    
+    constant H_SYNC_END     : natural := VP.h_sync_cycles;
+    constant H_RGB_START    : natural := VP.h_sync_cycles+VP.h_front_porch+VP.left_border;
+    constant H_RGB_END      : natural := VP.h_sync_cycles+VP.h_front_porch+VP.left_border+VP.width;
+    
+    type decoder_enc_data_type is
+        array(0 to 2) of
+        std_ulogic_vector(9 downto 0);
+    
+    constant data_island_gb : decoder_enc_data_type := (
+        "0000000000", "0100110011", "0100110011"
+        );
+    constant video_data_gb : decoder_enc_data_type := (
+        "1011001100", "0100110011", "1011001100"
+        );
+    
     signal pix_clk  : std_ulogic := '0';
     
     signal pix_clk_period   : time := 10 ns * VP.clk10_mult / VP.clk10_div;
     signal chs_out, chs_out_delayed : std_ulogic_vector(2 downto 0) := "111";
     
-    signal pos_hsync, pos_vsync : std_ulogic;
+    signal pos_hsync, pos_vsync : std_ulogic := '0';
     signal hsync, vsync         : std_ulogic;
+    
+    function ctrl (din : std_ulogic_vector(1 downto 0))
+        return std_ulogic_vector is
+    begin
+        case din is
+            when "00"   => return "1101010100";
+            when "01"   => return "0010101011";
+            when "10"   => return "0101010100";
+            when others => return "1010101011";
+        end case;
+    end function;
+    
+    function terc4 (din : std_ulogic_vector(3 downto 0))
+        return std_ulogic_vector is
+    begin
+        case din is
+            when "0000" =>  return "1010011100";
+            when "0001" =>  return "1001100011";
+            when "0010" =>  return "1011100100";
+            when "0011" =>  return "1011100010";
+            when "0100" =>  return "0101110001";
+            when "0101" =>  return "0100011110";
+            when "0110" =>  return "0110001110";
+            when "0111" =>  return "0100111100";
+            when "1000" =>  return "1011001100";
+            when "1001" =>  return "0100111001";
+            when "1010" =>  return "0110011100";
+            when "1011" =>  return "1011000110";
+            when "1100" =>  return "1010001110";
+            when "1101" =>  return "1001110001";
+            when "1110" =>  return "0101100011";
+            when others =>  return "1011000011";
+        end case;
+    end function;
 
 BEGIN
     
@@ -63,68 +122,8 @@ BEGIN
     
     process
         
-        constant TOTAL_VER_LINES    : natural := VP.v_sync_lines + VP.v_front_porch + VP.top_border + VP.height +
-                                                    VP.bottom_border + VP.v_back_porch;
-        
-        constant TOTAL_HOR_PIXELS   : natural := VP.h_sync_cycles + VP.h_front_porch + VP.left_border + VP.width +
-                                                    VP.right_border + VP.h_back_porch;
-        
-        constant V_SYNC_END     : natural := VP.v_sync_lines;
-        constant V_RGB_START    : natural := VP.v_sync_lines+VP.v_front_porch+VP.top_border;
-        constant V_RGB_END      : natural := VP.v_sync_lines+VP.v_front_porch+VP.top_border+VP.height;
-        
-        constant H_SYNC_END     : natural := VP.h_sync_cycles;
-        constant H_RGB_START    : natural := VP.h_sync_cycles+VP.h_front_porch+VP.left_border;
-        constant H_RGB_END      : natural := VP.h_sync_cycles+VP.h_front_porch+VP.left_border+VP.width;
-        
-        type decoder_enc_data_type is
-            array(0 to 2) of
-            std_ulogic_vector(9 downto 0);
-        
-        constant data_island_gb : decoder_enc_data_type := (
-            "0000000000", "0100110011", "0100110011"
-            );
-        constant video_data_gb : decoder_enc_data_type := (
-            "1011001100", "0100110011", "1011001100"
-            );
-        
-        function ctrl (din : std_ulogic_vector(1 downto 0))
-            return std_ulogic_vector is
-        begin
-            case din is
-                when "00"   => return "1101010100";
-                when "01"   => return "0010101011";
-                when "10"   => return "0101010100";
-                when others => return "1010101011";
-            end case;
-        end function;
-        
-        function terc4 (din : std_ulogic_vector(3 downto 0))
-            return std_ulogic_vector is
-        begin
-            case din is
-                when "0000" =>  return "1010011100";
-                when "0001" =>  return "1001100011";
-                when "0010" =>  return "1011100100";
-                when "0011" =>  return "1011100010";
-                when "0100" =>  return "0101110001";
-                when "0101" =>  return "0100011110";
-                when "0110" =>  return "0110001110";
-                when "0111" =>  return "0100111100";
-                when "1000" =>  return "1011001100";
-                when "1001" =>  return "0100111001";
-                when "1010" =>  return "0110011100";
-                when "1011" =>  return "1011000110";
-                when "1100" =>  return "1010001110";
-                when "1101" =>  return "1001110001";
-                when "1110" =>  return "0101100011";
-                when others =>  return "1011000011";
-            end case;
-        end function;
-        
         procedure shift_out (constant ch0, ch1, ch2 : in std_ulogic_vector) is
         begin
---            report hstr(ch0) & " | " & hstr(ch1) & " | " & hstr(ch2);
             -- shift out LSB first
             for bit_i in ch0'reverse_range loop
                 chs_out(0)  <= ch0(bit_i);
@@ -170,7 +169,9 @@ BEGIN
             
             for y in 1 to TOTAL_VER_LINES loop
                 
-                if y >= V_SYNC_END then
+                report "line " & natural'image(y);
+                
+                if y > V_SYNC_END then
                     pos_vsync   <= '0';
                 end if;
                 
@@ -209,7 +210,7 @@ BEGIN
                 pos_hsync   <= '0';
                 shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), VP.h_front_porch+VP.top_border-10);
                 
-                if y >= V_RGB_START then
+                if y > V_RGB_START and y <= V_RGB_END then
                     
                     -- video data
                     

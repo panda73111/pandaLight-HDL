@@ -76,6 +76,9 @@ architecture rtl of CONFIGURATOR is
 begin
     
     CFG_SEL_LEDEX   <= cur_reg.cfg_sel_ledex;
+    CFG_ADDR        <= cur_reg.cfg_addr;
+    CFG_WR_EN       <= cur_reg.cfg_wr_en;
+    CFG_DATA        <= cur_reg.cfg_data;
     
     stm_proc : process(RST, cur_reg, CONFIGURE, FRAME_WIDTH, FRAME_HEIGHT)
         alias cr is cur_reg;
