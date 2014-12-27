@@ -207,6 +207,14 @@ begin
                 CHANNELS_OUT_N  => RX_CHANNELS_IN_N(3 downto 0)
             );
         
+        process
+        begin
+            wait for 100 ns;
+            RX_DET  <= "01";
+            
+            wait;
+        end process;
+        
     end generate;
     
 end;

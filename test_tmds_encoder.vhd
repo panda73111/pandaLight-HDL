@@ -39,21 +39,24 @@ ARCHITECTURE rtl OF test_tmds_encoder IS
     signal pix_clk  : std_ulogic := '0';
     
     signal pix_clk_period   : time := 10 ns * VP.clk10_mult / VP.clk10_div;
-    signal chs_out          : std_ulogic_vector(2 downto 0) := "000";
+    signal chs_out, chs_out_delayed : std_ulogic_vector(2 downto 0) := "111";
     
     signal pos_hsync, pos_vsync : std_ulogic;
     signal hsync, vsync         : std_ulogic;
 
 BEGIN
     
-    CHANNELS_OUT_P(0)   <= transport chs_out(0) after CH0_PHASE / 360.0 * pix_clk_period;
-    CHANNELS_OUT_P(1)   <= transport chs_out(1) after CH1_PHASE / 360.0 * pix_clk_period;
-    CHANNELS_OUT_P(2)   <= transport chs_out(2) after CH2_PHASE / 360.0 * pix_clk_period;
+    CHANNELS_OUT_P(2 downto 0)  <= chs_out_delayed;
+    CHANNELS_OUT_N(2 downto 0)  <= not chs_out_delayed;
+    
     CHANNELS_OUT_P(3)   <= pix_clk;
+    CHANNELS_OUT_N(3)   <= not pix_clk;
     
-    CHANNELS_OUT_N  <= not CHANNELS_OUT_P;
+    chs_out_delayed(0)   <= transport chs_out(0) after CH0_PHASE / 360.0 * pix_clk_period;
+    chs_out_delayed(1)   <= transport chs_out(1) after CH1_PHASE / 360.0 * pix_clk_period;
+    chs_out_delayed(2)   <= transport chs_out(2) after CH2_PHASE / 360.0 * pix_clk_period;
     
-    pix_clk <= not pix_clk after pix_clk_period;
+    pix_clk <= not pix_clk after pix_clk_period/2;
     
     hsync   <= not pos_hsync when VP.negative_hsync else pos_hsync;
     vsync   <= not pos_vsync when VP.negative_vsync else pos_vsync;
@@ -61,14 +64,14 @@ BEGIN
     process
         
         constant TOTAL_VER_LINES    : natural := VP.v_sync_lines + VP.v_front_porch + VP.top_border + VP.height +
-                                                    VP.bottom_border + VP.v_back_porch + cur_reg.extra_blank_line;
+                                                    VP.bottom_border + VP.v_back_porch;
         
         constant TOTAL_HOR_PIXELS   : natural := VP.h_sync_cycles + VP.h_front_porch + VP.left_border + VP.width +
                                                     VP.right_border + VP.h_back_porch;
         
         constant V_SYNC_END     : natural := VP.v_sync_lines;
-        constant V_RGB_START    : natural := VP.v_sync_lines+VP.v_front_porch+VP.top_border+cur_reg.extra_blank_line;
-        constant V_RGB_END      : natural := VP.v_sync_lines+VP.v_front_porch+VP.top_border+cur_reg.extra_blank_line+VP.height;
+        constant V_RGB_START    : natural := VP.v_sync_lines+VP.v_front_porch+VP.top_border;
+        constant V_RGB_END      : natural := VP.v_sync_lines+VP.v_front_porch+VP.top_border+VP.height;
         
         constant H_SYNC_END     : natural := VP.h_sync_cycles;
         constant H_RGB_START    : natural := VP.h_sync_cycles+VP.h_front_porch+VP.left_border;
@@ -85,8 +88,8 @@ BEGIN
             "1011001100", "0100110011", "1011001100"
             );
         
-        function ctrl (din : std_ulogic_vector(3 downto 0))
-            return std_ulogic_vector(9 downto 0) is
+        function ctrl (din : std_ulogic_vector(1 downto 0))
+            return std_ulogic_vector is
         begin
             case din is
                 when "00"   => return "1101010100";
@@ -97,7 +100,7 @@ BEGIN
         end function;
         
         function terc4 (din : std_ulogic_vector(3 downto 0))
-            return std_ulogic_vector(9 downto 0) is
+            return std_ulogic_vector is
         begin
             case din is
                 when "0000" =>  return "1010011100";
@@ -153,6 +156,10 @@ BEGIN
         variable packet : decoder_enc_data_type;
         
     begin
+        assert not VP.interlaced
+            report "Interlaced profiles are not yet supported by this testbench!"
+            severity FAILURE;
+        
         -- send some noise
         wait for 0.7 * pix_clk_period;
         shift_out("10101110", "11001010", "00101010", 2);
