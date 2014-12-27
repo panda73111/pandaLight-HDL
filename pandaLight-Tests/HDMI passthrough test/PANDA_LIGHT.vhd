@@ -23,7 +23,7 @@ entity PANDA_LIGHT is
         G_CLK_MULT          : natural range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
         G_CLK_DIV           : natural range 1 to 256 := 2;
         G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
-        RX_SEL              : natural range 0 to 1 := 1;
+        RX_SEL              : natural range 0 to 1 := 0;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
         ENABLE_UART_DEBUG   : boolean := false;

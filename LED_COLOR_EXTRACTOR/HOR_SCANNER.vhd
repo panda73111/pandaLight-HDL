@@ -315,7 +315,7 @@ begin
                 end if;
                 if FRAME_RGB_WR_EN='1' then
                     r.buf_wr_en     := '1';
-                    r.led_pos(X)    := uns(cr.led_pos(X)+led_step);
+                    r.led_pos(X)    := cr.led_pos(X)+led_step;
                     r.state         := LEFT_BORDER_PIXEL;
                     r.buf_p         := cr.buf_p+1;
                     if cr.buf_p=led_cnt-1 then
@@ -351,7 +351,7 @@ begin
                     r.led_rgb       := led_arith_mean(FRAME_RGB, buf_do);
                     r.led_num       := stdulv(cr.buf_p, 8);
                     
-                    r.led_pos(X)    := uns(cr.led_pos(X)+led_step);
+                    r.led_pos(X)    := cr.led_pos(X)+led_step;
                     r.buf_p         := cr.buf_p+1;
                     r.state         := LEFT_BORDER_PIXEL;
                     if overlaps then

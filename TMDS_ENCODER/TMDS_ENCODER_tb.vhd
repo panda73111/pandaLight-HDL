@@ -18,7 +18,7 @@ use work.video_profiles.all;
 
 ENTITY TMDS_ENCODER_tb IS
     generic (
-        DVI_MODE        : boolean := true;
+        DVI_MODE        : boolean := false;
         FIRST_PROFILE   : natural := 0;
         LAST_PROFILE    : natural := VIDEO_PROFILE_COUNT-1;
         FRAME_COUNT     : natural := 5; -- frames of each video resolution
