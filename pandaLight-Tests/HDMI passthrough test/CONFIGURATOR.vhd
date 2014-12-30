@@ -66,7 +66,7 @@ architecture rtl of CONFIGURATOR is
     constant reg_type_def   : reg_type := (
         state           => WAIT_FOR_START,
         cfg_sel_ledex   => '0',
-        cfg_addr        => "0000",
+        cfg_addr        => "1111",
         cfg_wr_en       => '0',
         cfg_data        => x"00"
     );
@@ -91,7 +91,7 @@ begin
         case cr.state is
             
             when WAIT_FOR_START =>
-                r.cfg_addr  := (others => '0');
+                r.cfg_addr  := (others => '1');
                 if CONFIGURE='1' then
                     r.state := CONFIGURE_LEDEX;
                 end if;

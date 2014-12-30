@@ -184,6 +184,8 @@ begin
         
         process
         begin
+            tfg_profile <= "000";
+            
             g_rst   <= '1';
             enc_rst <= '1';
             wait for 200 ns;
@@ -202,6 +204,9 @@ begin
     not_HARDWARE_ENCODER_gen : if not HARDWARE_ENCODER generate
         
         test_tmds_encoder_inst : entity work.test_tmds_encoder
+            generic map (
+                PROFILE => 0
+            )
             port map (
                 CHANNELS_OUT_P  => RX_CHANNELS_IN_P(3 downto 0),
                 CHANNELS_OUT_N  => RX_CHANNELS_IN_N(3 downto 0)
