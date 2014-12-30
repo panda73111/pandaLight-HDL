@@ -186,8 +186,6 @@ begin
     
     HSYNC       <= cur_reg.hsync;
     VSYNC       <= cur_reg.vsync;
-    RGB         <= chs_rgb(2) & chs_rgb(1) & chs_rgb(0);
-    AUX         <= chs_terc4(0)(2) & chs_terc4(1) & chs_terc4(2);
     RGB_VALID   <= cur_reg.rgb_valid;
     AUX_VALID   <= cur_reg.aux_valid;
     
@@ -255,6 +253,14 @@ begin
                                 '0' when others;
         
     end generate;
+    
+    data_sync_proc : process(PIX_CLK)
+    begin
+        if rising_edge(PIX_CLK) then
+            RGB <= chs_rgb(2) & chs_rgb(1) & chs_rgb(0);
+            AUX <= chs_terc4(0)(2) & chs_terc4(1) & chs_terc4(2);
+        end if;
+    end process;
     
     stm_proc : process(RST, cur_reg, chs_data, chs_data_valid, chs_ctl, chs_terc4, is_ch_ctl)
         alias cr is cur_reg;
