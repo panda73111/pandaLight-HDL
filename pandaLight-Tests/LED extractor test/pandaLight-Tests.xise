@@ -49,7 +49,9 @@
     </file>
     <file xil_pn:name="TMDS_PASSTHROUGH.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="0"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
+      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="9"/>
+      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="9"/>
+      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="9"/>
     </file>
     <file xil_pn:name="../../TMDS_DECODER/TMDS_DECODER.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="21"/>
@@ -57,7 +59,9 @@
     </file>
     <file xil_pn:name="../../../universal-HDL/CLK_MAN/OSERDES2_CLK_MAN.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="26"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
+      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="11"/>
+      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="11"/>
+      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="11"/>
     </file>
     <file xil_pn:name="../../../universal-HDL/BIDIR_REPEAT_BUFFER/BIDIR_REPEAT_BUFFER.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="20"/>
@@ -127,11 +131,15 @@
     </file>
     <file xil_pn:name="../../TMDS_ENCODER/TMDS_ENCODER.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="27"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="93"/>
+      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="28"/>
+      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="28"/>
+      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="28"/>
     </file>
     <file xil_pn:name="../../../universal-HDL/VIDEO_TIMING_GEN/VIDEO_TIMING_GEN.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="12"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="94"/>
+      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="29"/>
+      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="29"/>
+      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="29"/>
     </file>
     <file xil_pn:name="../../../universal-HDL/video_profiles.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="6"/>
@@ -139,15 +147,21 @@
     </file>
     <file xil_pn:name="../../TMDS_CHANNEL_ENCODER/TMDS_CHANNEL_ENCODER.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="22"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="96"/>
+      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="31"/>
+      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="31"/>
+      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="31"/>
     </file>
     <file xil_pn:name="../../../universal-HDL/FIFO/DELAY_QUEUE.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="17"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="97"/>
+      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="32"/>
+      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="32"/>
+      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="32"/>
     </file>
     <file xil_pn:name="../../test_tmds_encoder.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="28"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="102"/>
+      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="33"/>
+      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="33"/>
+      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="33"/>
     </file>
   </files>
 
