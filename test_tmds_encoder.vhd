@@ -36,19 +36,19 @@ ARCHITECTURE rtl OF test_tmds_encoder IS
     
     constant VP : video_profile_type := VIDEO_PROFILES(PROFILE);
     
-    constant TOTAL_VER_LINES    : natural := VP.v_sync_lines + VP.v_front_porch + VP.top_border + VP.height +
-                                                VP.bottom_border + VP.v_back_porch;
+    constant TOTAL_VER_LINES    : natural := VP.v_sync_lines + VP.v_front_porch + VP.height +
+                                                VP.v_back_porch;
     
-    constant TOTAL_HOR_PIXELS   : natural := VP.h_sync_cycles + VP.h_front_porch + VP.left_border + VP.width +
-                                                VP.right_border + VP.h_back_porch;
+    constant TOTAL_HOR_PIXELS   : natural := VP.h_sync_cycles + VP.h_front_porch + VP.width +
+                                                VP.h_back_porch;
     
     constant V_SYNC_END     : natural := VP.v_sync_lines;
-    constant V_RGB_START    : natural := VP.v_sync_lines+VP.v_front_porch+VP.top_border;
-    constant V_RGB_END      : natural := VP.v_sync_lines+VP.v_front_porch+VP.top_border+VP.height;
+    constant V_RGB_START    : natural := VP.v_sync_lines+VP.v_front_porch;
+    constant V_RGB_END      : natural := VP.v_sync_lines+VP.v_front_porch+VP.height;
     
     constant H_SYNC_END     : natural := VP.h_sync_cycles;
-    constant H_RGB_START    : natural := VP.h_sync_cycles+VP.h_front_porch+VP.left_border;
-    constant H_RGB_END      : natural := VP.h_sync_cycles+VP.h_front_porch+VP.left_border+VP.width;
+    constant H_RGB_START    : natural := VP.h_sync_cycles+VP.h_front_porch;
+    constant H_RGB_END      : natural := VP.h_sync_cycles+VP.h_front_porch+VP.width;
     
     type decoder_enc_data_type is
         array(0 to 2) of
@@ -61,9 +61,9 @@ ARCHITECTURE rtl OF test_tmds_encoder IS
         "1011001100", "0100110011", "1011001100"
         );
     
-    signal pix_clk  : std_ulogic := '0';
+    constant PIX_CLK_PERIOD : time := VP.pixel_period;
     
-    signal pix_clk_period   : time := 10 ns * VP.clk10_mult / VP.clk10_div;
+    signal pix_clk  : std_ulogic := '0';
     signal chs_out, chs_out_delayed : std_ulogic_vector(2 downto 0) := "111";
     
     signal pos_hsync, pos_vsync : std_ulogic := '0';
@@ -115,7 +115,7 @@ BEGIN
     chs_out_delayed(1)   <= transport chs_out(1) after CH1_PHASE / 360.0 * pix_clk_period;
     chs_out_delayed(2)   <= transport chs_out(2) after CH2_PHASE / 360.0 * pix_clk_period;
     
-    pix_clk <= not pix_clk after pix_clk_period/2;
+    pix_clk <= not pix_clk after PIX_CLK_PERIOD/2;
     
     hsync   <= not pos_hsync when VP.negative_hsync else pos_hsync;
     vsync   <= not pos_vsync when VP.negative_vsync else pos_vsync;
@@ -129,7 +129,7 @@ BEGIN
                 chs_out(0)  <= ch0(bit_i);
                 chs_out(1)  <= ch1(bit_i);
                 chs_out(2)  <= ch2(bit_i);
-                wait for pix_clk_period / 10;
+                wait for PIX_CLK_PERIOD / 10;
             end loop;
         end procedure;
         
@@ -160,7 +160,7 @@ BEGIN
             severity FAILURE;
         
         -- send some noise
-        wait for 0.7 * pix_clk_period;
+        wait for 0.7 * PIX_CLK_PERIOD;
         shift_out("10101110", "11001010", "00101010", 2);
         
         loop
@@ -175,40 +175,13 @@ BEGIN
                     pos_vsync   <= '0';
                 end if;
                 
-                -- control period (minimum length of 12 pixels)
+                -- control period, hsync
                 pos_hsync   <= '1';
-                shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), 12);
-                
-                -- one null packet
-                
-                -- preamble
-                shift_out(ctrl(vsync & hsync), ctrl("10"), ctrl("10"), 8);
-                -- data island leading guard band
-                packet      := data_island_gb;
-                packet(0)   := terc4("11" & vsync & hsync);
-                shift_out(packet, 2);
-                
-                -- packet header and body
-                packet(0)   := terc4("00" & vsync & hsync);
-                packet(1)   := terc4("0000");
-                packet(2)   := terc4("0000");
-                shift_out(packet);
-                packet(0)   := terc4("10" & vsync & hsync);
-                for pkt_i in 1 to 31 loop
-                    shift_out(packet);
-                end loop;
-                
-                -- data island trailing guard band
-                packet      := data_island_gb;
-                packet(0)   := terc4("11" & vsync & hsync);
-                shift_out(packet, 2);
-                
-                -- control period, hblank
-                shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), VP.h_sync_cycles-12-8-2-32-2);
+                shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), VP.h_sync_cycles);
                 
                 -- horizontal front porch
                 pos_hsync   <= '0';
-                shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), VP.h_front_porch+VP.top_border-10);
+                shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), VP.h_front_porch-10);
                 
                 if y > V_RGB_START and y <= V_RGB_END then
                     
@@ -235,12 +208,39 @@ BEGIN
                 else
                     
                     -- control period, vblank
-                    shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), VP.width);
+                    shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), VP.width+10);
                     
                 end if;
                 
-                -- control period, horizontal back porch
-                shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), VP.bottom_border+VP.h_back_porch);
+                -- horizontal back porch (minimum length of 12 pixels)
+                shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), 12);
+                
+                -- one null packet
+                
+                -- preamble
+                shift_out(ctrl(vsync & hsync), ctrl("10"), ctrl("10"), 8);
+                -- data island leading guard band
+                packet      := data_island_gb;
+                packet(0)   := terc4("11" & vsync & hsync);
+                shift_out(packet, 2);
+                
+                -- packet header and body
+                packet(0)   := terc4("00" & vsync & hsync);
+                packet(1)   := terc4("0000");
+                packet(2)   := terc4("0000");
+                shift_out(packet);
+                packet(0)   := terc4("10" & vsync & hsync);
+                for pkt_i in 1 to 31 loop
+                    shift_out(packet);
+                end loop;
+                
+                -- data island trailing guard band
+                packet      := data_island_gb;
+                packet(0)   := terc4("11" & vsync & hsync);
+                shift_out(packet, 2);
+                
+                -- control period, rest of hblank
+                shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), VP.h_back_porch-12-8-2-32-2);
                 
             end loop;
         end loop;
