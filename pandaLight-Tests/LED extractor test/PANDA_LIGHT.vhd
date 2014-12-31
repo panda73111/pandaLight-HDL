@@ -23,7 +23,7 @@ entity PANDA_LIGHT is
         G_CLK_MULT          : natural range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
         G_CLK_DIV           : natural range 1 to 256 := 2;
         G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
-        RX_SEL              : natural range 0 to 1 := 0;
+        RX_SEL              : natural range 0 to 1 := 1;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
         ENABLE_UART_DEBUG   : boolean := false;
@@ -72,6 +72,8 @@ architecture rtl of PANDA_LIGHT is
     signal g_rst    : std_ulogic := '0';
     
     signal g_clk_stopped    : std_ulogic := '0';
+    
+    signal conf_calculation_finished_q  : std_ulogic := '0';
     
     
     ----------------------------
@@ -202,15 +204,20 @@ architecture rtl of PANDA_LIGHT is
     signal conf_clk : std_ulogic := '0';
     signal conf_rst : std_ulogic := '0';
     
-    signal conf_configure       : std_ulogic := '0';
+    signal conf_calculate       : std_ulogic := '0';
+    signal conf_configure_ledex : std_ulogic := '0';
+    
     signal conf_frame_width     : std_ulogic_vector(10 downto 0) := (others => '0');
     signal conf_frame_height    : std_ulogic_vector(10 downto 0) := (others => '0');
     
     -- Outputs
     signal conf_cfg_sel_ledex   : std_ulogic := '0';
+    
     signal conf_cfg_addr        : std_ulogic_vector(3 downto 0) := "0000";
     signal conf_cfg_wr_en       : std_ulogic := '0';
     signal conf_cfg_data        : std_ulogic_vector(7 downto 0) := x"00";
+    
+    signal conf_calculation_finished    : std_ulogic := '0';
     
 begin
     
@@ -501,7 +508,8 @@ begin
     conf_clk    <= rx_pix_clk;
     conf_rst    <= rx_rst;
     
-    conf_configure  <= analyzer_valid and not analyzer_valid_q;
+    conf_calculate          <= analyzer_valid and not analyzer_valid_q;
+    conf_configure_ledex    <= conf_calculation_finished and not conf_calculation_finished_q;
     
     conf_frame_width    <= analyzer_width;
     conf_frame_height   <= analyzer_height;
@@ -509,7 +517,8 @@ begin
     process(rx_pix_clk)
     begin
         if rising_edge(rx_pix_clk) then
-            analyzer_valid_q    <= analyzer_valid;
+            analyzer_valid_q            <= analyzer_valid;
+            conf_calculation_finished_q <= conf_calculation_finished;
         end if;
     end process;
     
@@ -518,7 +527,8 @@ begin
             CLK => conf_clk,
             RST => conf_rst,
             
-            CONFIGURE   => conf_configure,
+            CALCULATE       => conf_calculate,
+            CONFIGURE_LEDEX => conf_configure_ledex,
             
             FRAME_WIDTH     => conf_frame_width,
             FRAME_HEIGHT    => conf_frame_height,
@@ -527,7 +537,9 @@ begin
             
             CFG_ADDR    => conf_cfg_addr,
             CFG_WR_EN   => conf_cfg_wr_en,
-            CFG_DATA    => conf_cfg_data
+            CFG_DATA    => conf_cfg_data,
+            
+            CALCULATION_FINISHED    => conf_calculation_finished
         );
     
     -----------------------------
