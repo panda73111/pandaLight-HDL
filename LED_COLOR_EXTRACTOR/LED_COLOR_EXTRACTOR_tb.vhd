@@ -9,8 +9,6 @@
 -- 
 -- VHDL Test Bench Created by ISE for module: LED_COLOR_EXTRACTOR
 -- 
--- Revision: 0
--- Revision 0.01 - File Created
 -- Additional Comments:
 --
 --------------------------------------------------------------------------------
@@ -21,62 +19,82 @@ library UNISIM;
 use UNISIM.VComponents.all;
 use work.help_funcs.all;
 use work.txt_util.all;
+use work.video_profiles.all;
 
 ENTITY LED_COLOR_EXTRACTOR_tb IS
+    generic (
+        R_BITS  : natural range 1 to 12 := 8;
+        G_BITS  : natural range 1 to 12 := 8;
+        B_BITS  : natural range 1 to 12 := 8
+    );
 END LED_COLOR_EXTRACTOR_tb;
 
 ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS 
     
-    constant R_BITS          : natural range 1 to 12 := 8;
-    constant G_BITS          : natural range 1 to 12 := 8;
-    constant B_BITS          : natural range 1 to 12 := 8;
-    
     -- Inputs
-    signal clk, rst : std_ulogic := '0';
+    signal CLK  : std_ulogic := '0';
+    signal RST  : std_ulogic := '0';
     
-    signal cfg_addr     : std_ulogic_vector(3 downto 0) := "0000";
-    signal cfg_wr_en    : std_ulogic := '0';
-    signal cfg_data     : std_ulogic_vector(7 downto 0) := x"00";
+    signal CFG_ADDR     : std_ulogic_vector(3 downto 0) := "0000";
+    signal CFG_WR_EN    : std_ulogic := '0';
+    signal CFG_DATA     : std_ulogic_vector(7 downto 0) := x"00";
     
-    signal frame_vsync, frame_hsync     : std_ulogic := '0';
-    
-    signal frame_r  : std_ulogic_vector(R_BITS-1 downto 0) := (others => '0');
-    signal frame_g  : std_ulogic_vector(G_BITS-1 downto 0) := (others => '0');
-    signal frame_b  : std_ulogic_vector(B_BITS-1 downto 0) := (others => '0');
+    signal FRAME_VSYNC      : std_ulogic := '0';
+    signal FRAME_RGB_WR_EN  : std_ulogic := '0';
+    signal FRAME_RGB        : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
 
     --Outputs
-    signal led_vsync    : std_ulogic := '0';
-    signal led_valid    : std_ulogic := '0';
-    signal led_num      : std_ulogic_vector(7 downto 0) := (others => '0');
-    signal led_r        : std_ulogic_vector(R_BITS-1 downto 0) := (others => '0');
-    signal led_g        : std_ulogic_vector(G_BITS-1 downto 0) := (others => '0');
-    signal led_b        : std_ulogic_vector(B_BITS-1 downto 0) := (others => '0');
+    signal LED_VSYNC    : std_ulogic := '0';
+    signal LED_VALID    : std_ulogic := '0';
+    signal LED_NUM      : std_ulogic_vector(7 downto 0) := (others => '0');
+    signal LED_RGB      : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
+
 
     -- Clock period definitions
-    constant clk_period : time := 10 ns; -- 100 MHz
+    constant G_CLK_PERIOD       : time := 10 ns; -- 100 MHz
+    constant G_CLK_PERIOD_REAL  : real := real(G_CLK_PERIOD / 1 ps) / real(1 ns / 1 ps);
+    
+    signal g_clk            : std_ulogic := '0';
+    signal rst_extr         : std_ulogic := '0';
+    signal pix_clk          : std_ulogic := '0';
+    signal pix_clk_locked   : std_ulogic := '0';
     
     signal frame_width, frame_height    : std_ulogic_vector(15 downto 0) := x"0000";
     
+    signal vp       : video_profile_type;
+    signal profile  : std_ulogic_vector(log2(VIDEO_PROFILE_COUNT)-1 downto 0) := (others => '0');
+    
 BEGIN
     
-    test_frame_gen_inst : entity work.test_camera
+    CLK         <= pix_clk;
+    rst_extr    <= RST or not pix_clk_locked;
+    
+    vp  <= VIDEO_PROFILES(nat(profile));
+    
+    frame_width     <= stdulv( vp.width, 16);
+    frame_height    <= stdulv(vp.height, 16);
+    
+    TEST_FRAME_GEN_inst : entity work.TEST_FRAME_GEN
     generic map (
+        CLK_IN_PERIOD   => G_CLK_PERIOD_REAL,
         FRAME_STEP      => 0,
         R_BITS          => R_BITS,
         G_BITS          => G_BITS,
         B_BITS          => B_BITS
     )
     port map (
-        CLK => clk,
-        RST => rst,
+        CLK_IN  => g_clk,
+        RST     => RST,
         
-        WIDTH   => frame_width,
-        HEIGHT  => frame_height,
-        HSYNC   => frame_hsync,
-        VSYNC   => frame_vsync,
-        R       => frame_r,
-        G       => frame_g,
-        B       => frame_b
+        PROFILE => profile,
+        
+        CLK_OUT         => pix_clk,
+        CLK_OUT_LOCKED  => pix_clk_locked,
+        
+        POSITIVE_VSYNC  => frame_vsync,
+        
+        RGB_ENABLE  => FRAME_RGB_WR_EN,
+        RGB         => FRAME_RGB
     );
     
     led_ppm_visualizer_inst : entity work.led_ppm_visualizer
@@ -89,19 +107,21 @@ BEGIN
         B_BITS          => B_BITS
     )
     port map (
-        CLK => clk,
-        RST => rst,
+        CLK => CLK,
+        RST => rst_extr,
         
-        CFG_ADDR    => cfg_addr,
-        CFG_WR_EN   => cfg_wr_en,
-        CFG_DATA    => cfg_data,
+        CFG_ADDR    => CFG_ADDR,
+        CFG_WR_EN   => CFG_WR_EN,
+        CFG_DATA    => CFG_DATA,
         
-        LED_VSYNC   => led_vsync,
-        LED_VALID   => led_valid,
-        LED_NUM     => led_num,
-        LED_R       => led_r,
-        LED_G       => led_g,
-        LED_B       => led_b
+        FRAME_VSYNC     => FRAME_VSYNC,
+        FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
+        FRAME_RGB       => FRAME_RGB,
+        
+        LED_VSYNC   => LED_VSYNC,
+        LED_VALID   => LED_VALID,
+        LED_NUM     => LED_NUM,
+        LED_RGB     => LED_RGB
     );
     
     LED_COLOR_EXTRACTOR_inst : entity work.LED_COLOR_EXTRACTOR
@@ -111,30 +131,25 @@ BEGIN
         B_BITS          => B_BITS
     )
     port map (
-        CLK => clk,
-        RST => rst,
+        CLK => CLK,
+        RST => rst_extr,
         
-        CFG_ADDR    => cfg_addr,
-        CFG_WR_EN   => cfg_wr_en,
-        CFG_DATA    => cfg_data,
+        CFG_ADDR    => CFG_ADDR,
+        CFG_WR_EN   => CFG_WR_EN,
+        CFG_DATA    => CFG_DATA,
         
-        FRAME_VSYNC     => frame_vsync,
-        FRAME_HSYNC     => frame_hsync,
+        FRAME_VSYNC     => FRAME_VSYNC,
+        FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
+        FRAME_RGB       => FRAME_RGB,
         
-        FRAME_R => frame_r,
-        FRAME_G => frame_g,
-        FRAME_B => frame_b,
-        
-        LED_VSYNC   => led_vsync,
-        LED_VALID   => led_valid,
-        LED_NUM     => led_num,
-        LED_R       => led_r,
-        LED_G       => led_g,
-        LED_B       => led_b
+        LED_VSYNC   => LED_VSYNC,
+        LED_VALID   => LED_VALID,
+        LED_NUM     => LED_NUM,
+        LED_RGB     => LED_RGB
     );
 
     -- clock generation
-    clk <= not clk after clk_period / 2;
+    g_clk   <= not g_clk after G_CLK_PERIOD / 2;
     
     
     -- Stimulus process
@@ -149,25 +164,27 @@ BEGIN
         procedure write_config (cfg : in cfg_type) is
         begin
             cfg_wr_en   <= '1';
-            for i in 0 to 15 loop
+            for i in cfg_type'range loop
                 cfg_addr    <= stdulv(i, 4);
                 cfg_data    <= cfg(i);
-                wait until rising_edge(clk);
+                wait until rising_edge(CLK);
             end loop;
             cfg_wr_en   <= '0';
-            wait until rising_edge(clk);
+            wait until rising_edge(CLK);
         end procedure;
         
     begin
         
-        frame_width     <= stdulv(1280, 16);
-        frame_height    <= stdulv(720,  16);
-        
         -- hold reset state for 100 ns.
         rst <= '1';
-        wait for 100 ns;
+        wait for 200 ns;
         rst <= '0';
-        wait until rising_edge(clk);
+        wait until rising_edge(pix_clk_locked);
+        
+        profile <= stdulv(VIDEO_PROFILE_1280_720p_60, profile'length);
+        wait until rising_edge(pix_clk_locked);
+        
+        wait until rising_edge(FRAME_VSYNC);
         
         -- Test 1: Standard 50 LED configuration, no overlap, no edges
         
@@ -192,8 +209,7 @@ BEGIN
         write_config(cfg);
         
         for i in 1 to 5 loop
-            wait until rising_edge(clk) and frame_vsync='1';
-            wait until rising_edge(clk) and frame_vsync='0';
+            wait until rising_edge(FRAME_VSYNC);
         end loop;
         
         -- Test 1 finished
