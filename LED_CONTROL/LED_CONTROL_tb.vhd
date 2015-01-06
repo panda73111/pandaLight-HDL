@@ -11,8 +11,6 @@
 -- 
 -- Dependencies:
 -- 
--- Revision: 0
--- Revision 0.01 - File Created
 -- Additional Comments:
 --  
 --------------------------------------------------------------------------------
@@ -30,45 +28,47 @@ END LED_CONTROL_tb;
 ARCHITECTURE behavior OF LED_CONTROL_tb IS
 
     --Inputs
-    signal clk  : std_ulogic := '0';
-    signal rst  : std_ulogic := '0';
+    signal CLK  : std_ulogic := '0';
+    signal RST  : std_ulogic := '0';
     
-    signal mode         : std_ulogic_vector(1 downto 0) := (others => '0');
-    signal vsync        : std_ulogic := '0';
-    signal rgb          : std_ulogic_vector(23 downto 0) := (others => '0');
-    signal rgb_wr_en    : std_ulogic := '0';
+    signal MODE         : std_ulogic_vector(1 downto 0) := (others => '0');
+    
+    signal LED_VSYNC        : std_ulogic := '0';
+    signal LED_RGB          : std_ulogic_vector(23 downto 0) := (others => '0');
+    signal LED_RGB_WR_EN    : std_ulogic := '0';
 
     --outputs
-    signal leds_clk     : std_ulogic;
-    signal leds_data    : std_ulogic;
+    signal LEDS_CLK     : std_ulogic;
+    signal LEDS_DATA    : std_ulogic;
 
     -- clock period definitions
-    constant clk_period : time := 10 ns;
+    constant CLK_PERIOD : time := 10 ns;
     
-    constant clk_period_real    : real := real(clk_period / 1 ps) / real(1 ns / 1 ps);
+    constant CLK_PERIOD_REAL    : real := real(clk_period / 1 ps) / real(1 ns / 1 ps);
 
 BEGIN
     
     -- clock generation
-    clk <= not clk after clk_period / 2;
+    CLK <= not CLK after CLK_PERIOD / 2;
 
     LED_CONTROL_inst : entity work.LED_CONTROL
         generic map (
-            CLK_IN_PERIOD           => clk_period_real,
+            CLK_IN_PERIOD           => CLK_PERIOD_REAL,
             -- 1 MHz, 100 LEDs: 2.9 ms latency, ~344 fps
             WS2801_LEDS_CLK_PERIOD  => 1000.0
         )
         port map (
-            CLK => clk,
-            RST => rst,
+            CLK => CLK,
+            RST => RST,
             
-            MODE        => mode,
-            VSYNC       => vsync,
-            RGB         => rgb,
-            RGB_WR_EN   => rgb_wr_en,
+            MODE        => MODE,
             
-            LEDS_CLK    => leds_clk,
-            LEDS_DATA   => leds_data
+            LED_VSYNC       => LED_VSYNC,
+            LED_RGB         => LED_RGB,
+            LED_RGB_WR_EN   => LED_RGB_WR_EN,
+            
+            LEDS_CLK    => LEDS_CLK,
+            LEDS_DATA   => LEDS_DATA
         );
     
     -- Stimulus process
@@ -76,18 +76,18 @@ BEGIN
         variable r, g, b    : std_ulogic_vector(7 downto 0);
     begin
         -- hold reset state for 100 ns.
-        rst <= '1';
+        RST <= '1';
         wait for 100 ns;
-        rst <= '0';
-        wait for clk_period*10;
-        wait until rising_edge(clk);
+        RST <= '0';
+        wait for CLK_PERIOD*10;
+        wait until rising_edge(CLK);
 
         -- set 100 test colors
         
         for mode_i in 0 to 2 loop
             
-            mode    <= stdulv(mode_i, 2);
-            vsync   <= '1';
+            MODE        <= stdulv(mode_i, 2);
+            LED_VSYNC   <= '0';
             
             r   := x"FF";
             g   := x"00";
@@ -95,11 +95,11 @@ BEGIN
             
             for i in 0 to 99 loop
                 
-                rgb         <= r & g & b;
-                rgb_wr_en   <= '1';
-                wait until rising_edge(clk);
-                rgb_wr_en   <= '0';
-                wait for clk_period*100;
+                LED_RGB         <= r & g & b;
+                LED_RGB_WR_EN   <= '1';
+                wait until rising_edge(CLK);
+                LED_RGB_WR_EN   <= '0';
+                wait for CLK_PERIOD*100;
                 
                 r   := r-1;
                 g   := g+1;
@@ -107,13 +107,14 @@ BEGIN
                 
             end loop;
             
-            vsync   <= '0';
-            wait for 100*24*2.5 us + 100*clk_period;
-            wait until rising_edge(clk);
+            LED_VSYNC   <= '1';
+            wait for 100*24*2.5 us + 100*CLK_PERIOD;
+            wait until rising_edge(CLK);
         
         end loop;
         
-        report "NONE. All tests successful, quitting" severity FAILURE;
+        report "NONE. All tests successful, quitting"
+            severity FAILURE;
     end process;
 
 END;

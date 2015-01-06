@@ -44,6 +44,7 @@ end LED_CONTROL;
 architecture rtl of LED_CONTROL is
     
     signal led_vsync_q  : std_ulogic := '0';
+    signal led_vsync_qq : std_ulogic := '0';
     signal frame_end    : std_ulogic := '0';
     
     signal ws2801_rst       : std_ulogic := '0';
@@ -77,7 +78,7 @@ begin
     ws2811_start    <= '1' when frame_end='1' and (MODE="01" or MODE="10") else '0';
     
     ws2811_slow_mode    <= '1' when MODE="10" else '0';
-    frame_end           <= not LED_VSYNC and led_vsync_q;
+    frame_end           <= led_vsync_q and not led_vsync_qq;
     fifo_rd_en          <= ws2801_rgb_rd_en or ws2811_rgb_rd_en;
     
     FIFO_inst : entity work.ASYNC_FIFO
@@ -137,7 +138,9 @@ begin
     process(CLK)
     begin
         if rising_edge(CLK) then
-            led_vsync_q <= LED_VSYNC;
+            -- for some reason, simulation doesn't work using only 1 cycle delay
+            led_vsync_q     <= LED_VSYNC;
+            led_vsync_qq    <= led_vsync_q;
         end if;
     end process;
     
