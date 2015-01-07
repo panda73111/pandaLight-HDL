@@ -119,7 +119,7 @@
     <file xil_pn:name="chipscope_LED_COLOR_EXTRACTOR.cdc" xil_pn:type="FILE_CDC">
       <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
     </file>
-    <file xil_pn:name="CONFIGURATOR.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="../../CONFIGURATOR/CONFIGURATOR.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="3"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="20"/>
     </file>
@@ -166,12 +166,6 @@
     <file xil_pn:name="../../../universal-HDL/ITERATIVE_MULTIPLIER/ITERATIVE_MULTIPLIER.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="2"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="7"/>
-    </file>
-    <file xil_pn:name="CONFIGURATOR_tb.vhd" xil_pn:type="FILE_VHDL">
-      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="4"/>
-      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="41"/>
-      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="41"/>
-      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="41"/>
     </file>
   </files>
 

@@ -19,13 +19,13 @@ library UNISIM;
 use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
-ENTITY LED_COLOR_EXTRACTOR_tb IS
+ENTITY CONFIGURATOR_tb IS
     generic (
         FRAME_SIZE_BITS : natural := 11
     );
-END LED_COLOR_EXTRACTOR_tb;
+END CONFIGURATOR_tb;
 
-ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS 
+ARCHITECTURE behavior OF CONFIGURATOR_tb IS 
     
     -- Inputs
     signal CLK  : std_ulogic := '0';
@@ -98,6 +98,21 @@ BEGIN
         wait for 100 ns;
         rst <= '0';
         wait until rising_edge(CLK);
+        
+        settings    := (
+            HOR_LED_CNT             => stdulv( 16, 8),
+            HOR_LED_SCALED_WIDTH    => stdulv( 96, 8), -- 720p: 60 pixel
+            HOR_LED_SCALED_HEIGHT   => stdulv(226, 8), -- 720p: 80 pixel
+            HOR_LED_SCALED_STEP     => stdulv(128, 8), -- 720p: 80 pixel
+            HOR_LED_SCALED_PAD      => stdulv( 15, 8), -- 720p:  5 pixel
+            HOR_LED_SCALED_OFFS     => stdulv( 16, 8), -- 720p: 10 pixel
+            VER_LED_CNT             => stdulv(  9, 8),
+            VER_LED_SCALED_WIDTH    => stdulv(128, 8), -- 720p: 80 pixel
+            VER_LED_SCALED_HEIGHT   => stdulv(169, 8), -- 720p: 60 pixel
+            VER_LED_SCALED_STEP     => stdulv(226, 8), -- 720p: 80 pixel
+            VER_LED_SCALED_PAD      => stdulv(  8, 8), -- 720p:  5 pixel
+            VER_LED_SCALED_OFFS     => stdulv( 29, 8)  -- 720p: 10 pixel
+        );
         
         LED_COUNT           <= stdulv(100, 8);
         START_LED_NUM       <= stdulv(50, 8);
