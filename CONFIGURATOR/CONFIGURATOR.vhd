@@ -61,13 +61,20 @@ entity CONFIGURATOR is
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
-        CALCULATE       : in std_ulogic;
-        CONFIGURE_LEDEX : in std_ulogic;
+        CALCULATE           : in std_ulogic;
+        CONFIGURE_LEDEX     : in std_ulogic;
+        CONFIGURE_LEDCOR    : in std_ulogic;
         
         FRAME_WIDTH     : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
         FRAME_HEIGHT    : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
         
+        LED_COUNT       : in std_ulogic_vector(7 downto 0);
+        START_LED_NUM   : in std_ulogic_vector(7 downto 0);
+        FRAME_DELAY     : in std_ulogic_vector(7 downto 0);
+        RGB_MODE        : in std_ulogic_vector(2 downto 0);
+        
         CFG_SEL_LEDEX   : out std_ulogic := '0';
+        CFG_SEL_LEDCOR  : out std_ulogic := '0';
         
         CFG_ADDR    : out std_ulogic_vector(3 downto 0) := "0000";
         CFG_WR_EN   : out std_ulogic := '0';
@@ -86,12 +93,14 @@ architecture rtl of CONFIGURATOR is
         CALCULATING_WAIT_FOR_ABSOLUTE_HOR_VALUE,
         CALCULATING_ABSOLUTE_VER_VALUES,
         CALCULATING_WAIT_FOR_ABSOLUTE_VER_VALUE,
-        CONFIGURING_LEDEX
+        CONFIGURING_LEDEX,
+        CONFIGURING_LEDCOR
     );
     
     type reg_type is record
         state                   : state_type;
         cfg_sel_ledex           : std_ulogic;
+        cfg_sel_ledcor          : std_ulogic;
         cfg_addr                : std_ulogic_vector(3 downto 0);
         cfg_wr_en               : std_ulogic;
         cfg_data                : std_ulogic_vector(7 downto 0);
@@ -109,6 +118,7 @@ architecture rtl of CONFIGURATOR is
     constant reg_type_def   : reg_type := (
         state                   => WAITING_FOR_START,
         cfg_sel_ledex           => '0',
+        cfg_sel_ledcor          => '0',
         cfg_addr                => "1111",
         cfg_wr_en               => '0',
         cfg_data                => x"00",
@@ -139,6 +149,7 @@ architecture rtl of CONFIGURATOR is
 begin
     
     CFG_SEL_LEDEX           <= cur_reg.cfg_sel_ledex;
+    CFG_SEL_LEDCOR          <= cur_reg.cfg_sel_ledcor;
     CFG_ADDR                <= cur_reg.cfg_addr;
     CFG_WR_EN               <= cur_reg.cfg_wr_en;
     CFG_DATA                <= cur_reg.cfg_data;
@@ -179,13 +190,14 @@ begin
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, CALCULATE, CONFIGURE_LEDEX, FRAME_WIDTH, FRAME_HEIGHT,
-        multiplier_valid, multiplier_result, buf_do)
+    stm_proc : process(RST, cur_reg, CALCULATE, CONFIGURE_LEDEX, CONFIGURE_LEDCOR,
+        FRAME_WIDTH, FRAME_HEIGHT, multiplier_valid, multiplier_result, buf_do)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
         r                   := cr;
         r.cfg_sel_ledex     := '0';
+        r.cfg_sel_ledcor    := '0';
         r.cfg_wr_en         := '0';
         r.multiplier_start  := '0';
         r.buf_wr_en         := '0';
@@ -203,6 +215,9 @@ begin
                 end if;
                 if CONFIGURE_LEDEX='1' then
                     r.state := CONFIGURING_LEDEX;
+                end if;
+                if CONFIGURE_LEDCOR='1' then
+                    r.state := CONFIGURING_LEDCOR;
                 end if;
             
             when CALCULATING_LED_SCALE =>
@@ -282,6 +297,18 @@ begin
                     when "1101" =>  r.cfg_data  := FRAME_WIDTH(7 downto 0);
                     when "1110" =>  r.cfg_data  := "00000" & FRAME_HEIGHT(10 downto 8);
                     when others =>  r.cfg_data  := FRAME_HEIGHT(7 downto 0);
+                                    r.state     := WAITING_FOR_START;
+                end case;
+            
+            when CONFIGURING_LEDCOR =>
+                r.cfg_sel_ledcor    := '1';
+                r.cfg_wr_en         := '1';
+                r.cfg_addr          := cr.cfg_addr+1;
+                case cr.cfg_addr+1 is
+                    when "0000" =>  r.cfg_data  := LED_COUNT;
+                    when "0001" =>  r.cfg_data  := START_LED_NUM;
+                    when "0010" =>  r.cfg_data  := FRAME_DELAY;
+                    when "0011" =>  r.cfg_data  := "00000" & RGB_MODE;
                                     r.state     := WAITING_FOR_START;
                 end case;
             

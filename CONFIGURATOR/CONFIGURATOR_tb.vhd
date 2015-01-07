@@ -33,12 +33,19 @@ ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS
     
     signal CALCULATE        : std_ulogic := '0';
     signal CONFIGURE_LEDEX  : std_ulogic := '0';
+    signal CONFIGURE_LEDCOR : std_ulogic := '0';
     
     signal FRAME_WIDTH  : std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0) := (others => '0');
     signal FRAME_HEIGHT : std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0) := (others => '0');
     
+    signal LED_COUNT        : std_ulogic_vector(7 downto 0) := x"00";
+    signal START_LED_NUM    : std_ulogic_vector(7 downto 0) := x"00";
+    signal FRAME_DELAY      : std_ulogic_vector(7 downto 0) := x"00";
+    signal RGB_MODE         : std_ulogic_vector(2 downto 0) := "000";
+    
     -- Outputs
     signal CFG_SEL_LEDEX    : std_ulogic;
+    signal CFG_SEL_LEDCOR   : std_ulogic;
     
     signal CFG_ADDR     : std_ulogic_vector(3 downto 0);
     signal CFG_WR_EN    : std_ulogic;
@@ -59,13 +66,20 @@ BEGIN
             CLK => CLK,
             RST => RST,
             
-            CALCULATE       => CALCULATE,
-            CONFIGURE_LEDEX => CONFIGURE_LEDEX,
+            CALCULATE           => CALCULATE,
+            CONFIGURE_LEDEX     => CONFIGURE_LEDEX,
+            CONFIGURE_LEDCOR    => CONFIGURE_LEDCOR,
             
             FRAME_WIDTH     => FRAME_WIDTH,
             FRAME_HEIGHT    => FRAME_HEIGHT,
             
+            LED_COUNT       => LED_COUNT,
+            START_LED_NUM   => START_LED_NUM,
+            FRAME_DELAY     => FRAME_DELAY,
+            RGB_MODE        => RGB_MODE,
+            
             CFG_SEL_LEDEX   => CFG_SEL_LEDEX,
+            CFG_SEL_LEDCOR  => CFG_SEL_LEDCOR,
             
             CFG_ADDR    => CFG_ADDR,
             CFG_WR_EN   => CFG_WR_EN,
@@ -84,6 +98,15 @@ BEGIN
         wait for 100 ns;
         rst <= '0';
         wait until rising_edge(CLK);
+        
+        LED_COUNT           <= stdulv(100, 8);
+        START_LED_NUM       <= stdulv(50, 8);
+        FRAME_DELAY         <= stdulv(10, 8);
+        RGB_MODE            <= "000";
+        CONFIGURE_LEDCOR    <= '1';
+        wait until rising_edge(CLK);
+        CONFIGURE_LEDCOR    <= '0';
+        wait for CLK_PERIOD*100;
         
         FRAME_WIDTH     <= stdulv(1280, FRAME_SIZE_BITS);
         FRAME_HEIGHT    <= stdulv( 720, FRAME_SIZE_BITS);
