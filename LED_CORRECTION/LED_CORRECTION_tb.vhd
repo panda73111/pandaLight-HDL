@@ -92,7 +92,6 @@ BEGIN
             cfg_data    <= data;
             wait until rising_edge(clk);
             cfg_wr_en   <= '0';
-            wait until rising_edge(clk);
         end procedure;
     begin
         -- hold reset state for 100 ns.
@@ -103,6 +102,7 @@ BEGIN
         wait until rising_edge(clk);
         
         -- set 50 test colors
+        led_in_vsync    <= '1';
         configure("00", stdulv(50, 8));
         
         for mode_i in 0 to 5 loop
@@ -121,7 +121,7 @@ BEGIN
                     configure("10", stdulv(frame_delay, 8));
                     
                     for frame_i in 0 to 199 loop
-                        led_in_vsync    <= '1';
+                        led_in_vsync    <= '0';
                         
                         r   := x"FF";
                         g   := x"00";
@@ -143,7 +143,7 @@ BEGIN
                             
                         end loop;
                         
-                        led_in_vsync   <= '0';
+                        led_in_vsync   <= '1';
                         wait for 100*clk_period;
                         wait until rising_edge(clk);
                     end loop;

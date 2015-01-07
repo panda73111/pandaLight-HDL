@@ -8,7 +8,19 @@
 -- Description: 
 --  
 -- Additional Comments: 
---  
+--   These configuration registers can only be set while LED_IN_VSYNC is high and are reset
+--   to zero when RST is high, using the CFG_* inputs:
+--   
+--    [0] = LED_COUNT      : The number of LEDs around the TV
+--    [1] = START_LED_NUM  : The index (from top left clockwise) of the first LED in the chain
+--    [2] = FRAME_DELAY    : The number of frames to be buffered before being transmitted
+--    [3] = RGB_MODE       : The LED RGB channel order:
+--                             0 = R G B
+--                             1 = R B G
+--                             2 = G R B
+--                             3 = G B R
+--                             4 = B R G
+--                             5 = B G R
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -113,7 +125,7 @@ architecture rtl of LED_CORRECTION is
     
 begin
     
-    LED_OUT_VSYNC   <= cur_reg.out_valid;
+    LED_OUT_VSYNC   <= not cur_reg.out_valid;
     LED_OUT_RGB     <= led_buf_dout;
     LED_OUT_VALID   <= cur_reg.out_valid;
     
@@ -146,7 +158,7 @@ begin
             frame_delay     <= x"00";
             rgb_mode        <= "000";
         elsif rising_edge(CLK) then
-            if CFG_WR_EN='1' and LED_IN_VSYNC='0' then
+            if CFG_WR_EN='1' and LED_IN_VSYNC='1' then
                 case CFG_ADDR is
                     when "00"   => led_count        <= CFG_DATA;
                     when "01"   => start_led_num    <= CFG_DATA;
@@ -198,7 +210,7 @@ begin
                 if frame_delay=0 then
                     r.start_read    := true;
                 end if;
-                if LED_IN_VSYNC='0' then
+                if LED_IN_VSYNC='1' then
                     r.state := WAIT_FOR_LED;
                 end if;
             
@@ -207,7 +219,7 @@ begin
                     r.state := WRITE_LED;
                 end if;
                 if
-                    LED_IN_VSYNC='0' and
+                    LED_IN_VSYNC='1' and
                     not cr.finished_read
                 then
                     r.state := CHECK_DELAY_START;
@@ -226,14 +238,14 @@ begin
                 r.finished_read := false;
                 r.din           := in_rgb_corrected;
                 r.wr_en         := '1';
-                r.wr_p          := cr.wr_frame_p+int(LED_IN_NUM);
+                r.wr_p          := nat(LED_IN_NUM+cr.wr_frame_p);
                 r.state         := WAIT_FOR_LED;
             
             when BEGIN_READ_LEDS =>
                 r.start_read    := true;
                 r.rd_led_cnt    := 0;
-                r.rd_led_i      := int(start_led_num);
-                r.rd_p          := cr.rd_frame_p+int(start_led_num);
+                r.rd_led_i      := nat(start_led_num);
+                r.rd_p          := nat(start_led_num+cr.rd_frame_p);
                 r.state         := WAIT_FOR_DATA;
             
             when WAIT_FOR_DATA =>
@@ -252,7 +264,7 @@ begin
                 end if;
                 if cr.rd_led_i=led_count-1 then
                     r.rd_led_i  := 0;
-                    r.rd_p      := cr.rd_frame_p+int(start_led_num);
+                    r.rd_p      := nat(start_led_num+cr.rd_frame_p);
                 end if;
                 if cr.rd_led_cnt=led_count-1 then
                     r.state := CHANGE_FRAME;
@@ -261,11 +273,11 @@ begin
             when CHANGE_FRAME =>
                 r.finished_read := true;
                 r.wr_frame_i    := cr.wr_frame_i+1;
-                r.wr_frame_p    := cr.wr_frame_p+int(led_count);
+                r.wr_frame_p    := nat(led_count+cr.wr_frame_p);
                 if cr.start_read then
                     r.rd_frame_i    := cr.rd_frame_i+1;
-                    r.rd_frame_p    := cr.rd_frame_p+int(led_count);
-                    r.rd_p          := cr.rd_p+int(led_count);
+                    r.rd_frame_p    := nat(led_count+cr.rd_frame_p);
+                    r.rd_p          := nat(led_count+cr.rd_p);
                 end if;
                 if cr.wr_frame_i=frame_delay then
                     r.wr_frame_i    := 0;
