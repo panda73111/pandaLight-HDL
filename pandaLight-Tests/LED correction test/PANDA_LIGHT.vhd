@@ -22,10 +22,10 @@ entity PANDA_LIGHT is
         G_CLK_MULT      : natural range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
         G_CLK_DIV       : natural range 1 to 256 := 2;
         G_CLK_PERIOD    : real := 20.0; -- 50 MHz in nano seconds
-        LED_COUNT       : natural := 50;
+        LED_COUNT       : natural := 25;
         PAUSE_CYCLES    : natural := 416_666-50; -- 120 Hz
         START_LED_NUM   : natural := 10;
-        FRAME_DELAY     : natural := 160
+        FRAME_DELAY     : natural := 120
     );
     port (
         CLK20   : in std_ulogic;
@@ -164,7 +164,7 @@ begin
     LED_CORRECTION_inst : entity work.LED_CORRECTION
         generic map (
             MAX_LED_COUNT   => 128,
-            MAX_BUFFER_SIZE => 256
+            MAX_FRAME_COUNT => 128
         )
         port map (
             CLK => lcor_clk,
