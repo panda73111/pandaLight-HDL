@@ -135,7 +135,7 @@ begin
             RD_ADDR => led_buf_rd_addr,
             WR_ADDR => led_buf_wr_addr,
             WR_EN   => LED_IN_WR_EN,
-            DIN     => LED_IN_RGB,
+            DIN     => in_rgb_corrected,
             
             DOUT    => led_buf_dout
         );
@@ -230,7 +230,7 @@ begin
             when BEGINNING_READING_LEDS =>
                 r.reading_leds  := true;
                 r.rd_led_cnt    := (others => '0');
-                r.rd_led_i      := uns(start_led_num);
+                r.rd_led_i      := resize(uns(start_led_num), LED_COUNT_BITS);
                 r.rd_p          := uns(start_led_num+cr.rd_frame_p);
                 r.state         := WAITING_FOR_BUFFER;
             
