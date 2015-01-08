@@ -336,7 +336,7 @@ begin
                     when "0000" =>  r.cfg_data  := cr.led_count;    r.buf_rd_p  := BUF_I_START_LED_NUM;
                     when "0001" =>  r.cfg_data  := buf_do;          r.buf_rd_p  := BUF_I_FRAME_DELAY;
                     when "0010" =>  r.cfg_data  := buf_do;          r.buf_rd_p  := BUF_I_RGB_MODE;
-                    when "0011" =>  r.cfg_data  := buf_do;
+                    when others =>  r.cfg_data  := buf_do;
                                     r.state     := WAITING_FOR_START;
                 end case;
             
