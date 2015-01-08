@@ -54,9 +54,9 @@ BEGIN
     
     LED_CORRECTION_inst : entity work.LED_CORRECTION
         generic map (
-            MAX_LED_COUNT   => 100,
+            MAX_LED_COUNT   => 128,
              -- 32 frames = ~1 second of delay at 30 fps
-            MAX_BUFFER_SIZE => 32*128
+            MAX_FRAME_COUNT => 32
         )
         port map (
             CLK => clk,
@@ -127,21 +127,19 @@ BEGIN
                         g   := x"00";
                         b   := x"7F";
                         
+                        led_in_wr_en    <= '1';
                         for led_i in 0 to 49 loop
                             
                             led_in_num  <= stdulv(led_i, 8);
-                            
-                            led_in_rgb      <= r & g & b;
-                            led_in_wr_en    <= '1';
+                            led_in_rgb  <= r & g & b;
                             wait until rising_edge(clk);
-                            led_in_wr_en    <= '0';
-                            wait for clk_period*10;
                             
                             r   := r-1;
                             g   := g+1;
                             b   := b+1;
                             
                         end loop;
+                        led_in_wr_en    <= '0';
                         
                         led_in_vsync   <= '1';
                         wait for 100*clk_period;

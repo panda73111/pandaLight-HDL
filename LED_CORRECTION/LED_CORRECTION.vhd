@@ -32,7 +32,7 @@ use work.help_funcs.all;
 entity LED_CORRECTION is
     generic (
         MAX_LED_COUNT   : natural;
-        MAX_BUFFER_SIZE : natural
+        MAX_FRAME_COUNT : natural
     );
     port (
         CLK : in std_ulogic;
@@ -55,61 +55,51 @@ end LED_CORRECTION;
 
 architecture rtl of LED_CORRECTION is
     
-    constant MAX_FRAME_COUNT    : natural := MAX_BUFFER_SIZE/MAX_LED_COUNT;
-    constant BUF_ADDR_BITS      : natural := log2(MAX_BUFFER_SIZE);
-    
-    type led_buf_type is
-        array (0 to MAX_BUFFER_SIZE-1) of
-        std_ulogic_vector(23 downto 0);
-    
-    signal led_buf              : led_buf_type;
+    constant BUFFER_SIZE        : natural := MAX_FRAME_COUNT*MAX_LED_COUNT;
+    constant FRAME_COUNT_BITS   : natural := log2(MAX_FRAME_COUNT);
+    constant LED_COUNT_BITS     : natural := log2(MAX_LED_COUNT);
+    constant BUF_ADDR_BITS      : natural := log2(BUFFER_SIZE);
     
     type state_type is (
-        WAIT_FOR_BLANK,
-        WAIT_FOR_LED,
-        WRITE_LED,
-        CHECK_DELAY_START,
-        BEGIN_READ_LEDS,
-        WAIT_FOR_DATA,
-        READ_LED,
-        CHANGE_FRAME
+        WAITING_FOR_BLANK,
+        WAITING_FOR_LEDS,
+        WRITING_LEDS,
+        CHECKING_DELAY_START,
+        BEGINNING_READING_LEDS,
+        WAITING_FOR_BUFFER,
+        READING_LEDS,
+        CHANGING_FRAME
         );
     
     type reg_type is record
         state           : state_type;
-        wr_en           : std_ulogic;
-        din             : std_ulogic_vector(23 downto 0);
-        rd_p            : natural range 0 to MAX_BUFFER_SIZE-1;
-        wr_p            : natural range 0 to MAX_BUFFER_SIZE-1;
-        rd_led_i        : natural range 0 to MAX_LED_COUNT-1;
-        rd_led_cnt      : natural range 0 to MAX_LED_COUNT-1;
-        rd_frame_p      : natural range 0 to MAX_BUFFER_SIZE-1;
-        wr_frame_p      : natural range 0 to MAX_BUFFER_SIZE-1;
-        rd_frame_i      : natural range 0 to MAX_FRAME_COUNT-1;
-        wr_frame_i      : natural range 0 to MAX_FRAME_COUNT-1;
-        start_read      : boolean;
-        finished_read   : boolean;
+        rd_p            : unsigned(BUF_ADDR_BITS-1 downto 0);
+        rd_led_i        : unsigned(LED_COUNT_BITS-1 downto 0);
+        rd_led_cnt      : unsigned(LED_COUNT_BITS-1 downto 0);
+        rd_frame_p      : unsigned(BUF_ADDR_BITS-1 downto 0);
+        wr_frame_p      : unsigned(BUF_ADDR_BITS-1 downto 0);
+        rd_frame_i      : unsigned(FRAME_COUNT_BITS-1 downto 0);
+        wr_frame_i      : unsigned(FRAME_COUNT_BITS-1 downto 0);
+        reading_leds    : boolean;
+        frame_read      : boolean;
         out_valid       : std_ulogic;
     end record;
     
     constant reg_type_def   : reg_type := (
-        state           => WAIT_FOR_BLANK,
-        wr_en           => '0',
-        din             => x"000000",
-        rd_p            => 0,
-        wr_p            => 0,
-        rd_led_i        => 0,
-        rd_led_cnt      => 0,
-        rd_frame_p      => 0,
-        wr_frame_p      => 0,
-        rd_frame_i      => 0,
-        wr_frame_i      => 0,
-        start_read      => false,
-        finished_read   => true,
+        state           => WAITING_FOR_BLANK,
+        rd_p            => (others => '0'),
+        rd_led_i        => (others => '0'),
+        rd_led_cnt      => (others => '0'),
+        rd_frame_p      => (others => '0'),
+        wr_frame_p      => (others => '0'),
+        rd_frame_i      => (others => '0'),
+        wr_frame_i      => (others => '0'),
+        reading_leds    => false,
+        frame_read      => true,
         out_valid       => '0'
         );
     
-    signal stm_rst              : std_ulogic := '0';
+    signal rst_stm              : std_ulogic := '0';
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     
     signal led_buf_rd_addr  : std_ulogic_vector(BUF_ADDR_BITS-1 downto 0) := (others => '0');
@@ -129,23 +119,23 @@ begin
     LED_OUT_RGB     <= led_buf_dout;
     LED_OUT_VALID   <= cur_reg.out_valid;
     
-    stm_rst <= CFG_WR_EN;
+    rst_stm <= RST or CFG_WR_EN;
     
-    led_buf_rd_addr <= stdulv(cur_reg.rd_p, BUF_ADDR_BITS);
-    led_buf_wr_addr <= stdulv(cur_reg.wr_p, BUF_ADDR_BITS);
+    led_buf_rd_addr <= stdulv(cur_reg.rd_p);
+    led_buf_wr_addr <= LED_IN_NUM+cur_reg.wr_frame_p;
     
     DUAL_PORT_RAM_inst : entity work.DUAL_PORT_RAM
         generic map (
             WIDTH   => 24,
-            DEPTH   => MAX_BUFFER_SIZE
+            DEPTH   => BUFFER_SIZE
         )
         port map (
             CLK => CLK,
             
             RD_ADDR => led_buf_rd_addr,
             WR_ADDR => led_buf_wr_addr,
-            WR_EN   => cur_reg.wr_en,
-            DIN     => cur_reg.din,
+            WR_EN   => LED_IN_WR_EN,
+            DIN     => LED_IN_RGB,
             
             DOUT    => led_buf_dout
         );
@@ -185,124 +175,119 @@ begin
         end case;
     end process;
     
-    stm_proc : process(RST, stm_rst, cur_reg, LED_IN_VSYNC, LED_IN_NUM, LED_IN_RGB, LED_IN_WR_EN,
+    stm_proc : process(RST, rst_stm, cur_reg, LED_IN_VSYNC, LED_IN_NUM, LED_IN_RGB, LED_IN_WR_EN,
         led_count, start_led_num, frame_delay, in_rgb_corrected)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
         r           := cr;
-        r.wr_en     := '0';
         r.out_valid := '0';
         
         case cr.state is
             
-            when WAIT_FOR_BLANK =>
-                r.rd_p          := 0;
-                r.wr_p          := 0;
-                r.rd_led_i      := 0;
-                r.rd_led_cnt    := 0;
-                r.rd_frame_p    := 0;
-                r.wr_frame_p    := 0;
-                r.rd_frame_i    := 0;
-                r.wr_frame_i    := 0;
-                r.start_read    := false;
-                r.finished_read := true;
+            when WAITING_FOR_BLANK =>
+                r.rd_p          := (others => '0');
+                r.rd_led_i      := (others => '0');
+                r.rd_led_cnt    := (others => '0');
+                r.rd_frame_p    := (others => '0');
+                r.wr_frame_p    := (others => '0');
+                r.rd_frame_i    := (others => '0');
+                r.wr_frame_i    := (others => '0');
+                r.reading_leds  := false;
                 if frame_delay=0 then
-                    r.start_read    := true;
+                    r.reading_leds  := true;
                 end if;
                 if LED_IN_VSYNC='1' then
-                    r.state := WAIT_FOR_LED;
+                    r.state := WAITING_FOR_LEDS;
                 end if;
             
-            when WAIT_FOR_LED =>
+            when WAITING_FOR_LEDS =>
                 if LED_IN_WR_EN='1' then
-                    r.state := WRITE_LED;
+                    r.state := WRITING_LEDS;
                 end if;
                 if
                     LED_IN_VSYNC='1' and
-                    not cr.finished_read
+                    not cr.frame_read
                 then
-                    r.state := CHECK_DELAY_START;
+                    r.state := CHECKING_DELAY_START;
                 end if;
             
-            when CHECK_DELAY_START =>
-                r.state := CHANGE_FRAME;
+            when CHECKING_DELAY_START =>
+                r.state := CHANGING_FRAME;
                 if
                     cr.wr_frame_i=frame_delay or
-                    cr.start_read
+                    cr.reading_leds
                 then
-                    r.state := BEGIN_READ_LEDS;
+                    r.state := BEGINNING_READING_LEDS;
                 end if;
             
-            when WRITE_LED =>
-                r.finished_read := false;
-                r.din           := in_rgb_corrected;
-                r.wr_en         := '1';
-                r.wr_p          := nat(LED_IN_NUM+cr.wr_frame_p);
-                r.state         := WAIT_FOR_LED;
+            when WRITING_LEDS =>
+                r.frame_read    := false;
+                if LED_IN_VSYNC='1' then
+                    r.state := WAITING_FOR_LEDS;
+                end if;
             
-            when BEGIN_READ_LEDS =>
-                r.start_read    := true;
-                r.rd_led_cnt    := 0;
-                r.rd_led_i      := nat(start_led_num);
-                r.rd_p          := nat(start_led_num+cr.rd_frame_p);
-                r.state         := WAIT_FOR_DATA;
+            when BEGINNING_READING_LEDS =>
+                r.reading_leds  := true;
+                r.rd_led_cnt    := (others => '0');
+                r.rd_led_i      := uns(start_led_num);
+                r.rd_p          := uns(start_led_num+cr.rd_frame_p);
+                r.state         := WAITING_FOR_BUFFER;
             
-            when WAIT_FOR_DATA =>
+            when WAITING_FOR_BUFFER =>
                 r.out_valid     := '1';
-                r.rd_led_cnt    := 1;
+                r.rd_led_cnt    := uns(1, LED_COUNT_BITS);
                 r.rd_p          := cr.rd_p+1;
-                r.state         := READ_LED;
+                r.state         := READING_LEDS;
             
-            when READ_LED =>
+            when READING_LEDS =>
                 r.out_valid     := '1';
                 r.rd_p          := cr.rd_p+1;
                 r.rd_led_i      := cr.rd_led_i+1;
                 r.rd_led_cnt    := cr.rd_led_cnt+1;
                 if cr.rd_p=led_count-1 then
-                    r.rd_p  := 0;
+                    r.rd_p  := (others => '0');
                 end if;
                 if cr.rd_led_i=led_count-1 then
-                    r.rd_led_i  := 0;
-                    r.rd_p      := nat(start_led_num+cr.rd_frame_p);
+                    r.rd_led_i  := (others => '0');
+                    r.rd_p      := uns(start_led_num+cr.rd_frame_p);
                 end if;
                 if cr.rd_led_cnt=led_count-1 then
-                    r.state := CHANGE_FRAME;
+                    r.state := CHANGING_FRAME;
                 end if;
             
-            when CHANGE_FRAME =>
-                r.finished_read := true;
+            when CHANGING_FRAME =>
+                r.frame_read    := true;
                 r.wr_frame_i    := cr.wr_frame_i+1;
-                r.wr_frame_p    := nat(led_count+cr.wr_frame_p);
-                if cr.start_read then
+                r.wr_frame_p    := uns(led_count+cr.wr_frame_p);
+                if cr.reading_leds then
                     r.rd_frame_i    := cr.rd_frame_i+1;
-                    r.rd_frame_p    := nat(led_count+cr.rd_frame_p);
-                    r.rd_p          := nat(led_count+cr.rd_p);
+                    r.rd_frame_p    := uns(led_count+cr.rd_frame_p);
+                    r.rd_p          := uns(led_count+cr.rd_p);
                 end if;
                 if cr.wr_frame_i=frame_delay then
-                    r.wr_frame_i    := 0;
-                    r.wr_frame_p    := 0;
-                    r.wr_p          := 0;
+                    r.wr_frame_i    := (others => '0');
+                    r.wr_frame_p    := (others => '0');
                 end if;
                 if cr.rd_frame_i=frame_delay then
-                    r.rd_p          := 0;
-                    r.rd_frame_i    := 0;
-                    r.rd_frame_p    := 0;
+                    r.rd_p          := (others => '0');
+                    r.rd_frame_i    := (others => '0');
+                    r.rd_frame_p    := (others => '0');
                 end if;
-                r.state     := WAIT_FOR_LED;
+                r.state     := WAITING_FOR_LEDS;
             
         end case;
         
-        if (RST or stm_rst)='1' then
+        if rst_stm='1' then
             r   := reg_type_def;
         end if;
         
         next_reg    <= r;
     end process;
     
-    sync_stm_proc : process(RST, CLK)
+    sync_stm_proc : process(rst_stm, CLK)
     begin
-        if RST='1' then
+        if rst_stm='1' then
             cur_reg <= reg_type_def;
         elsif rising_edge(CLK) then
             cur_reg <= next_reg;
