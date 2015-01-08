@@ -20,14 +20,27 @@ use work.txt_util.all;
 
 entity PANDA_LIGHT is
     generic (
-        G_CLK_MULT          : natural range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
-        G_CLK_DIV           : natural range 1 to 256 := 2;
-        G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
-        RX_SEL              : natural range 0 to 1 := 1;
-        RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
-        RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
-        ENABLE_UART_DEBUG   : boolean := false;
-        ENABLE_IPROG_RECONF : boolean := false
+        G_CLK_MULT              : natural range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
+        G_CLK_DIV               : natural range 1 to 256 := 2;
+        G_CLK_PERIOD            : real := 20.0; -- 50 MHz in nano seconds
+        RX_SEL                  : natural range 0 to 1 := 1;
+        RX0_BITFILE_ADDR        : std_ulogic_vector(23 downto 0) := x"000000";
+        RX1_BITFILE_ADDR        : std_ulogic_vector(23 downto 0) := x"060000";
+        ENABLE_IPROG_RECONF     : boolean := false;
+        HOR_LED_COUNT           : natural :=  16; -- hor. LED count
+        HOR_LED_SCALED_WIDTH    : natural :=  96; -- hor. LED width,  720p: 60 pixel
+        HOR_LED_SCALED_HEIGHT   : natural := 226; -- hor. LED height, 720p: 80 pixel
+        HOR_LED_SCALED_STEP     : natural := 128; -- hor. LED step,   720p: 80 pixel
+        HOR_LED_SCALED_PAD      : natural :=  15; -- hor. LED pad,    720p:  5 pixel
+        HOR_LED_SCALED_OFFS     : natural :=  16; -- hor. LED offs,   720p: 10 pixel
+        VER_LED_COUNT           : natural :=   9; -- ver. LED count
+        VER_LED_SCALED_WIDTH    : natural := 128; -- ver. LED width,  720p: 80 pixel
+        VER_LED_SCALED_HEIGHT   : natural := 169; -- ver. LED height, 720p: 60 pixel
+        VER_LED_SCALED_STEP     : natural := 226; -- ver. LED step,   720p: 80 pixel
+        VER_LED_SCALED_PAD      : natural :=   8; -- ver. LED pad,    720p:  5 pixel
+        VER_LED_SCALED_OFFS     : natural :=  29; -- ver. LED offs,   720p: 10 pixel
+        START_LED_NUM           : natural :=   0;
+        FRAME_DELAY             : natural :=   0
     );
     port (
         CLK20   : in std_ulogic;
@@ -49,16 +62,6 @@ entity PANDA_LIGHT is
         TX_DET              : in std_ulogic := '0';
         TX_EN               : out std_ulogic := '0';
         
-        -- USB UART
-        USB_RXD     : in std_ulogic;
-        USB_TXD     : out std_ulogic := '0';
-        USB_CTSN    : in std_ulogic;
-        USB_RTSN    : out std_ulogic := '0';
-        USB_DSRN    : in std_ulogic;
-        USB_DTRN    : out std_ulogic := '0';
-        USB_DCDN    : out std_ulogic := '0';
-        USB_RIN     : out std_ulogic := '0';
-        
         -- PMOD
         PMOD0   : out std_ulogic_vector(3 downto 0) := "0000"
     );
@@ -73,8 +76,6 @@ architecture rtl of PANDA_LIGHT is
     
     signal g_clk_stopped    : std_ulogic := '0';
     
-    signal conf_calculation_finished_q  : std_ulogic := '0';
-    
     
     ----------------------------
     --- HDMI related signals ---
@@ -88,8 +89,6 @@ architecture rtl of PANDA_LIGHT is
     
     signal rx_channels_in   : std_ulogic_vector(7 downto 0) := x"00";
     signal tx_channels_out  : std_ulogic_vector(3 downto 0) := "0000";
-    
-    signal analyzer_valid_q : std_ulogic := '0';
     
     ----------------------------------
     --- HDMI ISerDes clock manager ---
@@ -204,20 +203,25 @@ architecture rtl of PANDA_LIGHT is
     signal conf_clk : std_ulogic := '0';
     signal conf_rst : std_ulogic := '0';
     
-    signal conf_calculate       : std_ulogic := '0';
-    signal conf_configure_ledex : std_ulogic := '0';
+    signal conf_calculate           : std_ulogic := '0';
+    signal conf_configure_ledex     : std_ulogic := '0';
+    signal conf_configure_ledcor    : std_ulogic := '0';
     
     signal conf_frame_width     : std_ulogic_vector(10 downto 0) := (others => '0');
     signal conf_frame_height    : std_ulogic_vector(10 downto 0) := (others => '0');
     
+    signal conf_settings_wr_en  : std_ulogic := '0';
+    signal conf_settings_data   : std_ulogic_vector(7 downto 0) := x"00";
+    
     -- Outputs
     signal conf_cfg_sel_ledex   : std_ulogic := '0';
+    signal conf_cfg_sel_ledcor  : std_ulogic := '0';
     
     signal conf_cfg_addr        : std_ulogic_vector(3 downto 0) := "0000";
     signal conf_cfg_wr_en       : std_ulogic := '0';
     signal conf_cfg_data        : std_ulogic_vector(7 downto 0) := x"00";
     
-    signal conf_calculation_finished    : std_ulogic := '0';
+    signal conf_idle    : std_ulogic := '0';
     
 begin
     
@@ -508,39 +512,117 @@ begin
     conf_clk    <= rx_pix_clk;
     conf_rst    <= rx_rst;
     
-    conf_calculate          <= analyzer_valid and not analyzer_valid_q;
-    conf_configure_ledex    <= conf_calculation_finished and not conf_calculation_finished_q;
-    
     conf_frame_width    <= analyzer_width;
     conf_frame_height   <= analyzer_height;
-    
-    process(rx_pix_clk)
-    begin
-        if rising_edge(rx_pix_clk) then
-            analyzer_valid_q            <= analyzer_valid;
-            conf_calculation_finished_q <= conf_calculation_finished;
-        end if;
-    end process;
     
     CONFIGURATOR_inst : entity work.CONFIGURATOR
         port map (
             CLK => conf_clk,
             RST => conf_rst,
             
-            CALCULATE       => conf_calculate,
-            CONFIGURE_LEDEX => conf_configure_ledex,
+            CALCULATE           => conf_calculate,
+            CONFIGURE_LEDEX     => conf_configure_ledex,
+            CONFIGURE_LEDCOR    => conf_configure_ledcor,
             
             FRAME_WIDTH     => conf_frame_width,
             FRAME_HEIGHT    => conf_frame_height,
             
             CFG_SEL_LEDEX   => conf_cfg_sel_ledex,
+            CFG_SEL_LEDCOR  => conf_cfg_sel_ledcor,
+            
+            SETTINGS_WR_EN  => conf_settings_wr_en,
+            SETTINGS_DATA   => conf_settings_data,
             
             CFG_ADDR    => conf_cfg_addr,
             CFG_WR_EN   => conf_cfg_wr_en,
             CFG_DATA    => conf_cfg_data,
             
-            CALCULATION_FINISHED    => conf_calculation_finished
+            IDLE    => conf_idle
         );
+    
+    configurator_stim_gen : if true generate
+        type state_type is (
+            INIT,
+            SENDING_SETTINGS,
+            CALCULATING,
+            CONF_LEDEX_WAITING_FOR_IDLE,
+            CONF_LEDEX_WAITING_FOR_LED_VSYNC,
+            CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR,
+            IDLE
+        );
+        signal state    : state_type := INIT;
+        signal counter  : unsigned(3 downto 0) := "1111";
+    begin
+        
+        configurator_stim_proc : process(g_clk, g_rst)
+        begin
+            if g_rst='1' then
+                conf_settings_wr_en     <= '0';
+                conf_settings_data      <= x"00";
+                conf_calculate          <= '0';
+                conf_configure_ledex    <= '0';
+                conf_configure_ledcor   <= '0';
+                counter                 <= "1111";
+            elsif rising_edge(g_clk) then
+                conf_settings_wr_en     <= '0';
+                conf_calculate          <= '0';
+                conf_configure_ledex    <= '0';
+                conf_configure_ledcor   <= '0';
+                
+                case state is
+                    
+                    when INIT =>
+                        state   <= SENDING_SETTINGS;
+                    
+                    when SENDING_SETTINGS =>
+                        counter             <= counter+1;
+                        conf_settings_wr_en <= '1';
+                        case counter+1 is
+                            when "0000" =>  conf_settings_data  <= stdulv(HOR_LED_COUNT, 8);
+                            when "0001" =>  conf_settings_data  <= stdulv(HOR_LED_SCALED_WIDTH, 8);
+                            when "0010" =>  conf_settings_data  <= stdulv(HOR_LED_SCALED_HEIGHT, 8);
+                            when "0011" =>  conf_settings_data  <= stdulv(HOR_LED_SCALED_STEP, 8);
+                            when "0100" =>  conf_settings_data  <= stdulv(HOR_LED_SCALED_PAD, 8);
+                            when "0101" =>  conf_settings_data  <= stdulv(HOR_LED_SCALED_OFFS, 8);
+                            when "0110" =>  conf_settings_data  <= stdulv(VER_LED_COUNT, 8);
+                            when "0111" =>  conf_settings_data  <= stdulv(VER_LED_SCALED_WIDTH, 8);
+                            when "1000" =>  conf_settings_data  <= stdulv(VER_LED_SCALED_HEIGHT, 8);
+                            when "1001" =>  conf_settings_data  <= stdulv(VER_LED_SCALED_STEP, 8);
+                            when "1010" =>  conf_settings_data  <= stdulv(VER_LED_SCALED_PAD, 8);
+                            when "1011" =>  conf_settings_data  <= stdulv(VER_LED_SCALED_OFFS, 8);
+                            when "1100" =>  conf_settings_data  <= stdulv(START_LED_NUM, 8);
+                            when "1101" =>  conf_settings_data  <= stdulv(FRAME_DELAY, 8);
+                            when others =>  conf_settings_data  <= x"00";
+                                            state   <= CALCULATING;
+                        end case;
+                    
+                    when CALCULATING =>
+                        conf_calculate  <= '1';
+                        state           <= CONF_LEDEX_WAITING_FOR_IDLE;
+                    
+                    when CONF_LEDEX_WAITING_FOR_IDLE =>
+                        if conf_idle='1' then
+                            state   <= CONF_LEDEX_WAITING_FOR_LED_VSYNC;
+                        end if;
+                    
+                    when CONF_LEDEX_WAITING_FOR_LED_VSYNC =>
+                        if ledex_frame_vsync='1' then
+                            state   <= CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR;
+                        end if;
+                    
+                    when CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR =>
+                        conf_configure_ledex    <= '1';
+                        state                   <= IDLE;
+                    
+                    when IDLE =>
+                        null;
+                    
+                end case;
+            end if;
+        end process;
+        
+    end generate;
+    
     
     -----------------------------
     --- IPROG reconfiguration ---
@@ -585,108 +667,6 @@ begin
                 EN  => iprog_en
             );
     
-    end generate;
-    
-    
-    ------------------
-    --- UART debug ---
-    ------------------
-    
-    UART_DEBUG_gen : if ENABLE_UART_DEBUG generate
-        
-        constant BOOT_DELAY_CYCLES  : natural := 1000;
-        constant STATUS_MSG_CYCLES  : natural := 50_000_000; -- 1 sec
-        
-        type state_type is (
-            WAIT_FOR_BOOT,
-            PRINT_BOOT_MSG,
-            IDLE,
-            PRINT_STATUS
-        );
-        
-        signal state            : state_type := WAIT_FOR_BOOT;
-        signal boot_msg_delay   : natural range 0 to BOOT_DELAY_CYCLES-1 := 0;
-        signal cycle_cnt        : natural range 0 to STATUS_MSG_CYCLES-1 := 0;
-        
-        -- Inputs
-        signal dbg_clk  : std_ulogic := '0';
-        signal dbg_rst  : std_ulogic := '0';
-        
-        signal dbg_msg      : string(1 to 128) := (others => nul);
-        signal dbg_wr_en    : std_ulogic := '0';
-        signal dbg_cts      : std_ulogic := '0';
-        
-        -- Outputs
-        signal dbg_busy : std_ulogic := '0';
-        signal dbg_full : std_ulogic := '0';
-        signal dbg_txd  : std_ulogic := '0';
-        
-    begin
-        
-        USB_TXD     <= dbg_txd;
-        USB_RTSN    <= dbg_full;
-        
-        dbg_clk <= g_clk;
-        dbg_rst <= g_rst;
-        
-        dbg_cts <= not USB_CTSN;
-        
-        process(g_rst, g_clk)
-        begin
-            if g_rst='1' then
-                dbg_wr_en       <= '0';
-                state           <= WAIT_FOR_BOOT;
-                boot_msg_delay  <= 0;
-                cycle_cnt       <= 0;
-            elsif rising_edge(g_clk) then
-                dbg_wr_en   <= '0';
-                case state is
-                    
-                    when WAIT_FOR_BOOT =>
-                        boot_msg_delay  <= boot_msg_delay+1;
-                        if boot_msg_delay=BOOT_DELAY_CYCLES-2 then
-                            state   <= PRINT_BOOT_MSG;
-                        end if;
-                    
-                    when PRINT_BOOT_MSG =>
-                        dbg_msg(1 to 11)    <= "RX" & natural'image(RX_SEL) & ": ready" & nul;
-                        dbg_wr_en           <= '1';
-                        state               <= IDLE;
-                    
-                    when IDLE =>
-                        cycle_cnt   <= cycle_cnt+1;
-                        if cycle_cnt=STATUS_MSG_CYCLES-2 then
-                            state   <= PRINT_STATUS;
-                        end if;
-                    
-                    when PRINT_STATUS =>
-                        cycle_cnt           <= 0;
-                        dbg_msg(1 to 7)     <= "RX" & natural'image(1-RX_SEL) & ":  " & nul;
-                        dbg_msg(6)          <= chr(rx_det_stable(1-RX_SEL));
-                        dbg_wr_en           <= '1';
-                        state               <= IDLE;
-                    
-                end case;
-            end if;
-        end process;
-        
-        UART_DEBUG_inst : entity work.UART_DEBUG
-            generic map (
-                CLK_IN_PERIOD   => G_CLK_PERIOD
-            )
-            port map (
-                CLK => dbg_clk,
-                RST => dbg_rst,
-                
-                MSG     => dbg_msg,
-                WR_EN   => dbg_wr_en,
-                CTS     => dbg_cts,
-                
-                BUSY    => dbg_busy,
-                FULL    => dbg_full,
-                TXD     => dbg_txd
-            );
-        
     end generate;
     
 end rtl;
