@@ -65,7 +65,7 @@ entity CONFIGURATOR is
         CFG_WR_EN   : out std_ulogic := '0';
         CFG_DATA    : out std_ulogic_vector(7 downto 0) := x"00";
         
-        CALCULATION_FINISHED    : out std_ulogic := '0'
+        IDLE    : out std_ulogic := '0'
     );
 end CONFIGURATOR;
 
@@ -117,7 +117,6 @@ architecture rtl of CONFIGURATOR is
         buf_wr_p                : std_ulogic_vector(4 downto 0);
         buf_di                  : std_ulogic_vector(7 downto 0);
         buf_wr_en               : std_ulogic;
-        calculation_finished    : std_ulogic;
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -136,8 +135,7 @@ architecture rtl of CONFIGURATOR is
         buf_rd_p                => "11111",
         buf_wr_p                => "11111",
         buf_di                  => x"00",
-        buf_wr_en               => '0',
-        calculation_finished    => '0'
+        buf_wr_en               => '0'
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -155,12 +153,12 @@ architecture rtl of CONFIGURATOR is
     
 begin
     
-    CFG_SEL_LEDEX           <= cur_reg.cfg_sel_ledex;
-    CFG_SEL_LEDCOR          <= cur_reg.cfg_sel_ledcor;
-    CFG_ADDR                <= cur_reg.cfg_addr;
-    CFG_WR_EN               <= cur_reg.cfg_wr_en;
-    CFG_DATA                <= cur_reg.cfg_data;
-    CALCULATION_FINISHED    <= cur_reg.calculation_finished;
+    CFG_SEL_LEDEX   <= cur_reg.cfg_sel_ledex;
+    CFG_SEL_LEDCOR  <= cur_reg.cfg_sel_ledcor;
+    CFG_ADDR        <= cur_reg.cfg_addr;
+    CFG_WR_EN       <= cur_reg.cfg_wr_en;
+    CFG_DATA        <= cur_reg.cfg_data;
+    IDLE            <= '1' when cur_reg.state=WAITING_FOR_START else '0';
     
     ITERATIVE_MULTIPLIER_inst : entity work.ITERATIVE_MULTIPLIER
         generic map (
@@ -237,7 +235,6 @@ begin
                 end if;
             
             when CALCULATING_LED_SCALE =>
-                r.calculation_finished  := '0';
                 -- dividing by 16: cut lower 4 bits
                 -- multiplying by 2 and adding 1: left shift '1' by 1
                 -- lower 8 bits of hor scale is the fraction part (2^-1 to 2^-8)
@@ -300,9 +297,8 @@ begin
                 r.state     := ADDING_VER_LED_COUNT;
             
             when ADDING_VER_LED_COUNT =>
-                r.led_count             := cr.led_count+buf_do;
-                r.calculation_finished  := '1';
-                r.state                 := WAITING_FOR_START;
+                r.led_count := cr.led_count+buf_do;
+                r.state     := WAITING_FOR_START;
             
             when CONFIGURING_LEDEX =>
                 r.cfg_sel_ledex := '1';
