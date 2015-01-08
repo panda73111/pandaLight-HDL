@@ -192,9 +192,9 @@ begin
             do  <= settings_buf(nat(rd_p));
             if wr_en='1' then
                 settings_buf(nat(wr_p)) <= di;
-                if rd_p=wr_p then
-                    do  <= di;
-                end if;
+            end if;
+            if wr_en='1' and rd_p=wr_p then
+                do  <= di;
             end if;
         end if;
     end process;
