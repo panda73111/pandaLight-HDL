@@ -22,9 +22,10 @@ entity PANDA_LIGHT is
         G_CLK_MULT      : natural range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
         G_CLK_DIV       : natural range 1 to 256 := 2;
         G_CLK_PERIOD    : real := 20.0; -- 50 MHz in nano seconds
-        LED_COUNT       : natural := 25;
+        HOR_LED_COUNT   : natural :=  13;
+        VER_LED_COUNT   : natural :=   7;
         PAUSE_CYCLES    : natural := 416_666-50; -- 120 Hz
-        START_LED_NUM   : natural := 10;
+        START_LED_NUM   : natural :=  10;
         FRAME_DELAY     : natural := 120
     );
     port (

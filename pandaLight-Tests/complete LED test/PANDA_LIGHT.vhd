@@ -541,7 +541,7 @@ begin
     
     LED_CORRECTION_inst : entity work.LED_CORRECTION
         generic map (
-            MAX_LED_COUNT   => 128,
+            MAX_LED_COUNT   => 64,
             MAX_FRAME_COUNT => 128
         )
         port map (
@@ -675,6 +675,7 @@ begin
         configurator_stim_proc : process(conf_clk, conf_rst)
         begin
             if conf_rst='1' then
+                state                   <= INIT;
                 conf_settings_wr_en     <= '0';
                 conf_settings_data      <= x"00";
                 conf_calculate          <= '0';
