@@ -301,8 +301,8 @@ begin
     ------------------------------------
     
     -- only enabled chips make 'DET' signals possible!
-    RX_EN(RX_SEL)   <= '1'; --tx_det_stable;
-    RX_EN(1-RX_SEL) <= '0'; --tx_det_stable;
+    RX_EN(RX_SEL)   <= tx_det_stable;
+    RX_EN(1-RX_SEL) <= tx_det_stable;
     TX_EN           <= '1';
     
     tx_channels_out <= rxpt_tx_channels_out;
@@ -371,8 +371,8 @@ begin
     
     scl_BIDIR_REPEAT_BUFFER_inst : entity work.BIDIR_REPEAT_BUFFER
         generic map (
-            PULL    => "UP",
-            FLOAT   => true
+            PULL            => "UP",
+            DEBOUNCE_CYCLES => 100
         )
         port map (
             CLK => g_clk,
@@ -385,8 +385,8 @@ begin
     
     sda_BIDIR_REPEAT_BUFFER_inst : entity work.BIDIR_REPEAT_BUFFER
         generic map (
-            PULL => "UP",
-            FLOAT   => true
+            PULL            => "UP",
+            DEBOUNCE_CYCLES => 100
         )
         port map (
             CLK => g_clk,
