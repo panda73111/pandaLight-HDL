@@ -297,7 +297,11 @@ begin
                 r.state     := ADDING_VER_LED_COUNT;
             
             when ADDING_VER_LED_COUNT =>
+                -- 2 * ver. count = left + right
+                -- 2 * hor. count = top + bottom
+                -- LED count = 2 * (hor. count + ver. count)
                 r.led_count := cr.led_count+buf_do;
+                r.led_count := r.led_count(6 downto 0) & "0"; -- * 2
                 r.state     := WAITING_FOR_START;
             
             when CONFIGURING_LEDEX =>
