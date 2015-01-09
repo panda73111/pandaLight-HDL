@@ -47,21 +47,13 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="1"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="1"/>
     </file>
-    <file xil_pn:name="TMDS_PASSTHROUGH.vhd" xil_pn:type="FILE_VHDL">
-      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="0"/>
-      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="9"/>
-      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="9"/>
-      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="9"/>
-    </file>
     <file xil_pn:name="../../TMDS_DECODER/TMDS_DECODER.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="23"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="20"/>
     </file>
     <file xil_pn:name="../../../universal-HDL/CLK_MAN/OSERDES2_CLK_MAN.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="30"/>
-      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="11"/>
-      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="11"/>
-      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="11"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="11"/>
     </file>
     <file xil_pn:name="../../../universal-HDL/BIDIR_REPEAT_BUFFER/BIDIR_REPEAT_BUFFER.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="22"/>
@@ -177,6 +169,10 @@
     <file xil_pn:name="../../../universal-HDL/RAM/DUAL_PORT_RAM.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="6"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="5"/>
+    </file>
+    <file xil_pn:name="../../TMDS_PASSTHROUGH/TMDS_PASSTHROUGH.vhd" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="99"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="99"/>
     </file>
   </files>
 

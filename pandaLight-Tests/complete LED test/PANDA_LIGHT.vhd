@@ -596,26 +596,26 @@ begin
         );
     
     
---    -----------------------------
---    --- RX to TX0 passthrough ---
---    -----------------------------
---    
---    rxpt_pix_clk    <= rx_pix_clk;
---    rxpt_rst        <= rx_rst;
---    
---    rxpt_rx_raw_data        <= rx_raw_data;
---    rxpt_rx_raw_data_valid  <= rx_raw_data_valid;
---    
---    TMDS_PASSTHROUGH_inst : entity work.TMDS_PASSTHROUGH
---        port map (
---            PIX_CLK => rxpt_pix_clk,
---            RST     => rxpt_rst,
---            
---            RX_RAW_DATA         => rxpt_rx_raw_data,
---            RX_RAW_DATA_VALID   => rxpt_rx_raw_data_valid,
---            
---            TX_CHANNELS_OUT => rxpt_tx_channels_out
---        );
+    -----------------------------
+    --- RX to TX0 passthrough ---
+    -----------------------------
+    
+    rxpt_pix_clk    <= rx_pix_clk;
+    rxpt_rst        <= rx_rst;
+    
+    rxpt_rx_raw_data        <= rx_raw_data;
+    rxpt_rx_raw_data_valid  <= rx_raw_data_valid;
+    
+    TMDS_PASSTHROUGH_inst : entity work.TMDS_PASSTHROUGH
+        port map (
+            PIX_CLK => rxpt_pix_clk,
+            RST     => rxpt_rst,
+            
+            RX_RAW_DATA         => rxpt_rx_raw_data,
+            RX_RAW_DATA_VALID   => rxpt_rx_raw_data_valid,
+            
+            TX_CHANNELS_OUT => rxpt_tx_channels_out
+        );
     
     
     -------------------
