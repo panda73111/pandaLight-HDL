@@ -80,8 +80,8 @@ architecture rtl of LED_CORRECTION is
         wr_frame_p      : unsigned(BUF_ADDR_BITS-1 downto 0);
         rd_frame_i      : unsigned(FRAME_COUNT_BITS-1 downto 0);
         wr_frame_i      : unsigned(FRAME_COUNT_BITS-1 downto 0);
-        reading_leds    : boolean;
-        frame_read      : boolean;
+        past_delay      : boolean;
+        reading_done    : boolean;
         out_valid       : std_ulogic;
     end record;
     
@@ -94,8 +94,8 @@ architecture rtl of LED_CORRECTION is
         wr_frame_p      => (others => '0'),
         rd_frame_i      => (others => '0'),
         wr_frame_i      => (others => '0'),
-        reading_leds    => false,
-        frame_read      => true,
+        past_delay      => false,
+        reading_done    => true,
         out_valid       => '0'
         );
     
@@ -193,9 +193,9 @@ begin
                 r.wr_frame_p    := (others => '0');
                 r.rd_frame_i    := (others => '0');
                 r.wr_frame_i    := (others => '0');
-                r.reading_leds  := false;
+                r.past_delay    := false;
                 if frame_delay=0 then
-                    r.reading_leds  := true;
+                    r.past_delay    := true;
                 end if;
                 if LED_IN_VSYNC='1' then
                     r.state := WAITING_FOR_LEDS;
@@ -207,7 +207,7 @@ begin
                 end if;
                 if
                     LED_IN_VSYNC='1' and
-                    not cr.frame_read
+                    not cr.reading_done
                 then
                     r.state := CHECKING_DELAY_START;
                 end if;
@@ -216,19 +216,19 @@ begin
                 r.state := CHANGING_FRAME;
                 if
                     cr.wr_frame_i=frame_delay or
-                    cr.reading_leds
+                    cr.past_delay
                 then
                     r.state := BEGINNING_READING_LEDS;
                 end if;
             
             when WRITING_LEDS =>
-                r.frame_read    := false;
+                r.reading_done  := false;
                 if LED_IN_VSYNC='1' then
                     r.state := WAITING_FOR_LEDS;
                 end if;
             
             when BEGINNING_READING_LEDS =>
-                r.reading_leds  := true;
+                r.past_delay    := true;
                 r.rd_led_cnt    := (others => '0');
                 r.rd_led_i      := resize(uns(start_led_num), LED_COUNT_BITS);
                 r.rd_p          := uns(start_led_num+cr.rd_frame_p);
@@ -257,10 +257,10 @@ begin
                 end if;
             
             when CHANGING_FRAME =>
-                r.frame_read    := true;
+                r.reading_done  := true;
                 r.wr_frame_i    := cr.wr_frame_i+1;
                 r.wr_frame_p    := uns(led_count+cr.wr_frame_p);
-                if cr.reading_leds then
+                if cr.past_delay then
                     r.rd_frame_i    := cr.rd_frame_i+1;
                     r.rd_frame_p    := uns(led_count+cr.rd_frame_p);
                     r.rd_p          := uns(led_count+cr.rd_p);
