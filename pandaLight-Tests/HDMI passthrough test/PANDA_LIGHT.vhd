@@ -27,7 +27,7 @@ entity PANDA_LIGHT is
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
         ENABLE_UART_DEBUG   : boolean := false;
-        ENABLE_IPROG_RECONF : boolean := true
+        ENABLE_IPROG_RECONF : boolean := false
     );
     port (
         CLK20   : in std_ulogic;
@@ -170,10 +170,10 @@ begin
     
     g_rst   <= g_clk_stopped;
     
-    PMOD0(0)    <= rx_vsync;
-    PMOD0(1)    <= rx_rgb_valid;
-    PMOD0(2)    <= rx_aux_valid;
-    PMOD0(3)    <= rx_raw_data_valid;
+    PMOD0(0)    <= RX_SCL(RX_SEL);
+    PMOD0(1)    <= RX_SDA(RX_SEL);
+    PMOD0(2)    <= TX_SCL;
+    PMOD0(3)    <= TX_SDA;
     
     
     ------------------------------------
@@ -182,7 +182,7 @@ begin
     
     -- only enabled chips make 'DET' signals possible!
     RX_EN(RX_SEL)   <= tx_det_stable;
-    RX_EN(1-RX_SEL) <= tx_det_stable;
+    RX_EN(1-RX_SEL) <= '0';
     TX_EN           <= '1';
     
     tx_channels_out <= rxpt_tx_channels_out;
@@ -251,8 +251,7 @@ begin
     
     scl_BIDIR_REPEAT_BUFFER_inst : entity work.BIDIR_REPEAT_BUFFER
         generic map (
-            PULL    => "UP",
-            FLOAT   => true
+            PULL    => "UP"
         )
         port map (
             CLK => g_clk,
@@ -265,8 +264,7 @@ begin
     
     sda_BIDIR_REPEAT_BUFFER_inst : entity work.BIDIR_REPEAT_BUFFER
         generic map (
-            PULL => "UP",
-            FLOAT   => true
+            PULL    => "UP"
         )
         port map (
             CLK => g_clk,
