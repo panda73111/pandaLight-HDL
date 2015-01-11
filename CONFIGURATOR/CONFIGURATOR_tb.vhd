@@ -88,6 +88,10 @@ BEGIN
     
     -- Stimulus process
     stim_proc: process
+        type channel_lookup_table_type is
+            array(0 to 255) of
+            std_ulogic_vector(7 downto 0);
+        
         type settings_type is record
             HOR_LED_CNT, HOR_LED_SCALED_WIDTH, HOR_LED_SCALED_HEIGHT,
             HOR_LED_SCALED_STEP, HOR_LED_SCALED_PAD, HOR_LED_SCALED_OFFS,
@@ -95,30 +99,44 @@ BEGIN
             VER_LED_SCALED_STEP, VER_LED_SCALED_PAD, VER_LED_SCALED_OFFS,
             START_LED_NUM, FRAME_DELAY, RGB_MODE
                 : std_ulogic_vector(7 downto 0);
+            R_LOOKUP_TABLE, G_LOOKUP_TABLE, B_LOOKUP_TABLE
+                : channel_lookup_table_type;
         end record;
         variable settings   : settings_type;
         
         procedure send_settings(s : in settings_type) is
         begin
             SETTINGS_WR_EN  <= '1';
-            for i in 0 to 14 loop
-                case i is
-                    when 0  =>  SETTINGS_DATA   <= s.HOR_LED_CNT;
-                    when 1  =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_WIDTH;
-                    when 2  =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_HEIGHT;
-                    when 3  =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_STEP;
-                    when 4  =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_PAD;
-                    when 5  =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_OFFS;
-                    when 6  =>  SETTINGS_DATA   <= s.VER_LED_CNT;
-                    when 7  =>  SETTINGS_DATA   <= s.VER_LED_SCALED_WIDTH;
-                    when 8  =>  SETTINGS_DATA   <= s.VER_LED_SCALED_HEIGHT;
-                    when 9  =>  SETTINGS_DATA   <= s.VER_LED_SCALED_STEP;
-                    when 10 =>  SETTINGS_DATA   <= s.VER_LED_SCALED_PAD;
-                    when 11 =>  SETTINGS_DATA   <= s.VER_LED_SCALED_OFFS;
-                    when 12 =>  SETTINGS_DATA   <= s.START_LED_NUM;
-                    when 13 =>  SETTINGS_DATA   <= s.FRAME_DELAY;
-                    when 14 =>  SETTINGS_DATA   <= s.RGB_MODE;
+            for settings_i in 0 to 14 loop
+                case settings_i is
+                    when 0      =>  SETTINGS_DATA   <= s.HOR_LED_CNT;
+                    when 1      =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_WIDTH;
+                    when 2      =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_HEIGHT;
+                    when 3      =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_STEP;
+                    when 4      =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_PAD;
+                    when 5      =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_OFFS;
+                    when 6      =>  SETTINGS_DATA   <= s.VER_LED_CNT;
+                    when 7      =>  SETTINGS_DATA   <= s.VER_LED_SCALED_WIDTH;
+                    when 8      =>  SETTINGS_DATA   <= s.VER_LED_SCALED_HEIGHT;
+                    when 9      =>  SETTINGS_DATA   <= s.VER_LED_SCALED_STEP;
+                    when 10     =>  SETTINGS_DATA   <= s.VER_LED_SCALED_PAD;
+                    when 11     =>  SETTINGS_DATA   <= s.VER_LED_SCALED_OFFS;
+                    when 12     =>  SETTINGS_DATA   <= s.START_LED_NUM;
+                    when 13     =>  SETTINGS_DATA   <= s.FRAME_DELAY;
+                    when 14     =>  SETTINGS_DATA   <= s.RGB_MODE;
                 end case;
+                wait until rising_edge(CLK);
+            end loop;
+            for byte_i in 0 to 255 loop
+                SETTINGS_DATA   <= s.R_LOOKUP_TABLE(byte_i);
+                wait until rising_edge(CLK);
+            end loop;
+            for byte_i in 0 to 255 loop
+                SETTINGS_DATA   <= s.G_LOOKUP_TABLE(byte_i);
+                wait until rising_edge(CLK);
+            end loop;
+            for byte_i in 0 to 255 loop
+                SETTINGS_DATA   <= s.B_LOOKUP_TABLE(byte_i);
                 wait until rising_edge(CLK);
             end loop;
             SETTINGS_WR_EN  <= '0';
@@ -160,7 +178,10 @@ BEGIN
             VER_LED_SCALED_OFFS     => stdulv( 29, 8), -- 720p: 10 pixel
             START_LED_NUM           => stdulv( 10, 8),
             FRAME_DELAY             => stdulv(120, 8),
-            RGB_MODE                => x"00"
+            RGB_MODE                => x"00",
+            R_LOOKUP_TABLE          => (others  => x"FF"),
+            G_LOOKUP_TABLE          => (others  => x"FF"),
+            B_LOOKUP_TABLE          => (others  => x"FF")
         );
         send_settings(settings);
         
