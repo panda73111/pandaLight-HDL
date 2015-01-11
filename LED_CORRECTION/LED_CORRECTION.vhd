@@ -21,6 +21,9 @@
 --                             3 = G B R
 --                             4 = B R G
 --                             5 = B G R
+--    [256]...[511]        : lookup table of the red channel
+--    [512]...[767]        : lookup table of the green channel
+--    [768]...[1023]       : lookup table of the blue channel
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -38,18 +41,18 @@ entity LED_CORRECTION is
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
-        CFG_ADDR    : in std_ulogic_vector(1 downto 0);
+        CFG_ADDR    : in std_ulogic_vector(9 downto 0);
         CFG_WR_EN   : in std_ulogic := '0';
         CFG_DATA    : in std_ulogic_vector(7 downto 0) := x"00";
         
-        LED_IN_VSYNC    : in std_ulogic;
-        LED_IN_NUM      : in std_ulogic_vector(7 downto 0);
-        LED_IN_RGB      : in std_ulogic_vector(23 downto 0);
-        LED_IN_WR_EN    : in std_ulogic;
+        LED_IN_VSYNC        : in std_ulogic;
+        LED_IN_NUM          : in std_ulogic_vector(7 downto 0);
+        LED_IN_RGB          : in std_ulogic_vector(23 downto 0);
+        LED_IN_RGB_WR_EN    : in std_ulogic;
         
-        LED_OUT_VSYNC   : out std_ulogic := '0';
-        LED_OUT_RGB     : out std_ulogic_vector(23 downto 0) := x"000000";
-        LED_OUT_VALID   : out std_ulogic := '0'
+        LED_OUT_VSYNC       : out std_ulogic := '0';
+        LED_OUT_RGB         : out std_ulogic_vector(23 downto 0) := x"000000";
+        LED_OUT_RGB_VALID   : out std_ulogic := '0'
     );
 end LED_CORRECTION;
 
@@ -99,7 +102,7 @@ architecture rtl of LED_CORRECTION is
         out_valid       => '0'
         );
     
-    signal rst_stm              : std_ulogic := '0';
+    signal rst_stm              : std_ulogic := '1';
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     
     signal led_buf_rd_addr  : std_ulogic_vector(BUF_ADDR_BITS-1 downto 0) := (others => '0');
@@ -113,13 +116,23 @@ architecture rtl of LED_CORRECTION is
     signal frame_delay      : std_ulogic_vector(7 downto 0) := x"00";
     signal rgb_mode         : std_ulogic_vector(2 downto 0) := "000";
     
+    -- lookup table
+    signal lut_ch_select            : std_ulogic_vector(1 downto 0) := "00";
+    signal lut_table_addr           : std_ulogic_vector(9 downto 0) := (others => '0');
+    signal lut_table_wr_en          : std_ulogic := '0';
+    signal lut_table_data           : std_ulogic_vector(7 downto 0) := x"00";
+    signal lut_led_in_vsync         : std_ulogic := '0';
+    signal lut_led_in_rgb           : std_ulogic_vector(23 downto 0) := x"000000";
+    signal lut_led_in_rgb_wr_en     : std_ulogic := '0';
+    signal lut_led_out_vsync        : std_ulogic := '0';
+    signal lut_led_out_rgb          : std_ulogic_vector(23 downto 0) := x"000000";
+    signal lut_led_out_rgb_valid    : std_ulogic := '0';
+    
 begin
     
-    LED_OUT_VSYNC   <= not cur_reg.out_valid;
-    LED_OUT_RGB     <= led_buf_dout;
-    LED_OUT_VALID   <= cur_reg.out_valid;
-    
-    rst_stm <= RST or CFG_WR_EN;
+    LED_OUT_VSYNC       <= lut_led_out_vsync;
+    LED_OUT_RGB         <= lut_led_out_rgb;
+    LED_OUT_RGB_VALID   <= lut_led_out_rgb_valid;
     
     led_buf_rd_addr <= stdulv(cur_reg.rd_p);
     led_buf_wr_addr <= LED_IN_NUM+cur_reg.wr_frame_p;
@@ -134,10 +147,31 @@ begin
             
             RD_ADDR => led_buf_rd_addr,
             WR_ADDR => led_buf_wr_addr,
-            WR_EN   => LED_IN_WR_EN,
+            WR_EN   => LED_IN_RGB_WR_EN,
             DIN     => in_rgb_corrected,
             
             DOUT    => led_buf_dout
+        );
+    
+    lut_led_in_vsync        <= not cur_reg.out_valid;
+    lut_led_in_rgb          <= led_buf_dout;
+    lut_led_in_rgb_wr_en    <= cur_reg.out_valid;
+    
+    LED_LOOKUP_TABLE_inst : entity work.LED_LOOKUP_TABLE
+        port map (
+            CLK => CLK,
+            
+            TABLE_ADDR  => lut_table_addr,
+            TABLE_WR_EN => lut_table_wr_en,
+            TABLE_DATA  => lut_table_data,
+            
+            LED_IN_VSYNC        => lut_led_in_vsync,
+            LED_IN_RGB          => lut_led_in_rgb,
+            LED_IN_RGB_WR_EN    => lut_led_in_rgb_wr_en,
+            
+            LED_OUT_VSYNC       => lut_led_out_vsync,
+            LED_OUT_RGB         => lut_led_out_rgb,
+            LED_OUT_RGB_VALID   => lut_led_out_rgb_valid
         );
     
     cfg_proc : process(RST, CLK)
@@ -147,14 +181,33 @@ begin
             start_led_num   <= x"00";
             frame_delay     <= x"00";
             rgb_mode        <= "000";
+            lut_table_wr_en <= '0';
+            rst_stm         <= '1';
         elsif rising_edge(CLK) then
+            rst_stm         <= '0';
+            lut_table_addr  <= lut_ch_select & CFG_ADDR(7 downto 0);
+            lut_table_wr_en <= '0';
+            lut_table_data  <= CFG_DATA;
+            lut_ch_select   <= CFG_ADDR(9 downto 8)-1;
             if CFG_WR_EN='1' and LED_IN_VSYNC='1' then
-                case CFG_ADDR is
-                    when "00"   => led_count        <= CFG_DATA;
-                    when "01"   => start_led_num    <= CFG_DATA;
-                    when "10"   => frame_delay      <= CFG_DATA;
-                    when others => rgb_mode         <= CFG_DATA(2 downto 0);
-                end case;
+            
+                if CFG_ADDR(9 downto 8)=0 then
+                    
+                    -- general settings
+                    case CFG_ADDR(1 downto 0) is
+                        when "00"   => led_count        <= CFG_DATA;
+                        when "01"   => start_led_num    <= CFG_DATA;
+                        when "10"   => frame_delay      <= CFG_DATA;
+                        when others => rgb_mode         <= CFG_DATA(2 downto 0);
+                    end case;
+                    rst_stm <= '1';
+                    
+                else
+                    
+                    -- lookup table configuration
+                    lut_table_wr_en <= '1';
+                    
+                end if;
             end if;
         end if;
     end process;
@@ -175,7 +228,7 @@ begin
         end case;
     end process;
     
-    stm_proc : process(RST, rst_stm, cur_reg, LED_IN_VSYNC, LED_IN_NUM, LED_IN_RGB, LED_IN_WR_EN,
+    stm_proc : process(RST, rst_stm, cur_reg, LED_IN_VSYNC, LED_IN_NUM, LED_IN_RGB, LED_IN_RGB_WR_EN,
         led_count, start_led_num, frame_delay, in_rgb_corrected)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
@@ -202,7 +255,7 @@ begin
                 end if;
             
             when WAITING_FOR_LEDS =>
-                if LED_IN_WR_EN='1' then
+                if LED_IN_RGB_WR_EN='1' then
                     r.state := WRITING_LEDS;
                 end if;
                 if
