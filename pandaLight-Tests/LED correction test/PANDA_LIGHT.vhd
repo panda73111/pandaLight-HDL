@@ -13,6 +13,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
+use IEEE.MATH_REAL.ALL;
 library UNISIM;
 use UNISIM.VComponents.all;
 use work.help_funcs.all;
@@ -57,18 +58,19 @@ architecture rtl of PANDA_LIGHT is
     signal lcor_clk : std_ulogic := '0';
     signal lcor_rst : std_ulogic := '0';
     
-    signal lcor_cfg_addr    : std_ulogic_vector(1 downto 0) := "00";
+    signal lcor_cfg_addr    : std_ulogic_vector(9 downto 0) := (others => '0');
     signal lcor_cfg_wr_en   : std_ulogic := '0';
     signal lcor_cfg_data    : std_ulogic_vector(7 downto 0) := x"00";
     
-    signal lcor_led_in_vsync    : std_ulogic := '0';
-    signal lcor_led_in_num      : std_ulogic_vector(7 downto 0) := x"FF";
-    signal lcor_led_in_rgb      : std_ulogic_vector(23 downto 0) := x"000000";
-    signal lcor_led_in_wr_en    : std_ulogic := '0';
+    signal lcor_led_in_vsync        : std_ulogic := '0';
+    signal lcor_led_in_num          : std_ulogic_vector(7 downto 0) := x"FF";
+    signal lcor_led_in_rgb          : std_ulogic_vector(23 downto 0) := x"000000";
+    signal lcor_led_in_rgb_wr_en    : std_ulogic := '0';
     
-    signal lcor_led_out_vsync   : std_ulogic := '0';
-    signal lcor_led_out_rgb     : std_ulogic_vector(23 downto 0) := x"000000";
-    signal lcor_led_out_valid   : std_ulogic := '0';
+    signal lcor_led_out_vsync       : std_ulogic := '0';
+    signal lcor_led_out_rgb         : std_ulogic_vector(23 downto 0) := x"000000";
+    signal lcor_led_out_rgb_valid   : std_ulogic := '0';
+    
     
     -------------------
     --- LED control ---
@@ -109,11 +111,11 @@ architecture rtl of PANDA_LIGHT is
     signal conf_cfg_sel_ledcor  : std_ulogic := '0';
     signal conf_cfg_sel_ledex   : std_ulogic := '0';
     
-    signal conf_cfg_addr        : std_ulogic_vector(3 downto 0) := "0000";
+    signal conf_cfg_addr        : std_ulogic_vector(9 downto 0) := (others => '0');
     signal conf_cfg_wr_en       : std_ulogic := '0';
     signal conf_cfg_data        : std_ulogic_vector(7 downto 0) := x"00";
     
-    signal conf_calculation_finished    : std_ulogic := '0';
+    signal conf_idle    : std_ulogic := '0';
     
 begin
     
@@ -156,9 +158,9 @@ begin
     ----------------------
     
     lcor_clk    <= g_clk;
-    lcor_rst    <= g_rst;
+    lcor_rst    <= g_rst or conf_cfg_sel_ledcor;
     
-    lcor_cfg_addr   <= conf_cfg_addr(1 downto 0);
+    lcor_cfg_addr   <= conf_cfg_addr(lcor_cfg_addr'range);
     lcor_cfg_wr_en  <= conf_cfg_wr_en and conf_cfg_sel_ledcor;
     lcor_cfg_data   <= conf_cfg_data;
     
@@ -175,17 +177,18 @@ begin
             CFG_WR_EN   => lcor_cfg_wr_en,
             CFG_DATA    => lcor_cfg_data,
             
-            LED_IN_VSYNC    => lcor_led_in_vsync,
-            LED_IN_NUM      => lcor_led_in_num,
-            LED_IN_RGB      => lcor_led_in_rgb,
-            LED_IN_WR_EN    => lcor_led_in_wr_en,
+            LED_IN_VSYNC        => lcor_led_in_vsync,
+            LED_IN_NUM          => lcor_led_in_num,
+            LED_IN_RGB          => lcor_led_in_rgb,
+            LED_IN_RGB_WR_EN    => lcor_led_in_rgb_wr_en,
             
-            LED_OUT_VSYNC   => lcor_led_out_vsync,
-            LED_OUT_RGB     => lcor_led_out_rgb,
-            LED_OUT_VALID   => lcor_led_out_valid
+            LED_OUT_VSYNC       => lcor_led_out_vsync,
+            LED_OUT_RGB         => lcor_led_out_rgb,
+            LED_OUT_RGB_VALID   => lcor_led_out_rgb_valid
         );
     
     LED_CORRECTION_TEST_gen : if true generate
+        constant LED_COUNT      : natural := HOR_LED_COUNT+VER_LED_COUNT;
         constant LED_BITS       : natural := log2(LED_COUNT)+1;
         constant PAUSE_BITS     : natural := log2(PAUSE_CYCLES)+1;
         
@@ -204,26 +207,26 @@ begin
             if g_rst='1' then
                 state               <= WRITING_LEDS;
                 
-                lcor_led_in_vsync   <= '0';
-                lcor_led_in_num     <= x"FF";
-                lcor_led_in_rgb     <= x"000000";
-                lcor_led_in_wr_en   <= '0';
+                lcor_led_in_vsync       <= '0';
+                lcor_led_in_num         <= x"FF";
+                lcor_led_in_rgb         <= x"000000";
+                lcor_led_in_rgb_wr_en   <= '0';
                 
                 leds_left           <= uns(LED_COUNT-2, LED_BITS);
                 pause_left          <= uns(PAUSE_CYCLES-2, PAUSE_BITS);
                 start_color         <= x"000000";
             elsif rising_edge(g_clk) then
-                lcor_led_in_vsync   <= '0';
-                lcor_led_in_wr_en   <= '0';
+                lcor_led_in_vsync       <= '0';
+                lcor_led_in_rgb_wr_en   <= '0';
                 
                 case state is
                     
                     when WRITING_LEDS =>
-                        lcor_led_in_num     <= lcor_led_in_num+1;
-                        lcor_led_in_rgb     <= lcor_led_in_rgb+5;
-                        lcor_led_in_wr_en   <= '1';
-                        leds_left           <= leds_left-1;
-                        pause_left          <= uns(PAUSE_CYCLES-2, PAUSE_BITS);
+                        lcor_led_in_num         <= lcor_led_in_num+1;
+                        lcor_led_in_rgb         <= lcor_led_in_rgb+5;
+                        lcor_led_in_rgb_wr_en   <= '1';
+                        leds_left               <= leds_left-1;
+                        pause_left              <= uns(PAUSE_CYCLES-2, PAUSE_BITS);
                         if leds_left(leds_left'high)='1' then
                             -- mark the last LED red
                             lcor_led_in_rgb <= x"FF0000";
@@ -259,7 +262,7 @@ begin
     
     lctrl_led_vsync     <= lcor_led_out_vsync;
     lctrl_led_rgb       <= lcor_led_out_rgb;
-    lctrl_led_rgb_wr_en <= lcor_led_out_valid;
+    lctrl_led_rgb_wr_en <= lcor_led_out_rgb_valid;
     
     LED_CONTROL_inst : entity work.LED_CONTROL
         generic map (
@@ -310,21 +313,47 @@ begin
             CFG_WR_EN   => conf_cfg_wr_en,
             CFG_DATA    => conf_cfg_data,
             
-            CALCULATION_FINISHED    => conf_calculation_finished
+            IDLE    => conf_idle
         );
     
     configurator_stim_gen : if true generate
+        type led_lookup_table_type is
+            array(0 to 255) of
+            std_ulogic_vector(7 downto 0);
+        
         type state_type is (
             INIT,
             SENDING_SETTINGS,
             CALCULATING,
-            WAITING_FOR_CALCULATION,
-            WAITING_FOR_LED_VSYNC,
-            CONFIGURING_LED_CORRECTION,
+            CONF_LEDCOR_WAITING_FOR_BUSY,
+            CONF_LEDCOR_WAITING_FOR_IDLE,
+            CONF_LEDCOR_CONFIGURING_LED_CORRECTION,
             IDLE
         );
+        
         signal state    : state_type := INIT;
-        signal counter  : unsigned(3 downto 0) := "1111";
+        signal counter  : unsigned(9 downto 0) := (others => '1');
+        
+        function calc_gamma_cor_value(i : natural; y : real)
+            return natural is
+        begin
+            return natural(255.0 * ((real(i) / 255.0) ** y));
+        end function;
+        
+        function calc_gamma_cor_table(y : real)
+            return led_lookup_table_type
+        is
+            variable t  : led_lookup_table_type;
+        begin
+            for i in 0 to 255 loop
+                t(i)    := stdulv(calc_gamma_cor_value(i, y), 8);
+            end loop;
+            return t;
+        end function;
+        
+        constant R_LOOKUP_TABLE : led_lookup_table_type := calc_gamma_cor_table(2.0);
+        constant G_LOOKUP_TABLE : led_lookup_table_type := calc_gamma_cor_table(2.0);
+        constant B_LOOKUP_TABLE : led_lookup_table_type := calc_gamma_cor_table(2.0);
     begin
         
         conf_frame_width    <= stdulv(640, 11);
@@ -337,7 +366,7 @@ begin
                 conf_settings_data      <= x"00";
                 conf_calculate          <= '0';
                 conf_configure_ledcor   <= '0';
-                counter                 <= "1111";
+                counter                 <= (others => '1');
             elsif rising_edge(g_clk) then
                 conf_settings_wr_en     <= '0';
                 conf_calculate          <= '0';
@@ -352,39 +381,48 @@ begin
                         counter             <= counter+1;
                         conf_settings_wr_en <= '1';
                         case counter+1 is
-                            when "0000" =>  conf_settings_data  <= stdulv(16, 8); -- hor. LED count
-                            when "0001" =>  conf_settings_data  <= x"00";
-                            when "0010" =>  conf_settings_data  <= x"00";
-                            when "0011" =>  conf_settings_data  <= x"00";
-                            when "0100" =>  conf_settings_data  <= x"00";
-                            when "0101" =>  conf_settings_data  <= x"00";
-                            when "0110" =>  conf_settings_data  <= stdulv( 9, 8); -- ver. LED count
-                            when "0111" =>  conf_settings_data  <= x"00";
-                            when "1000" =>  conf_settings_data  <= x"00";
-                            when "1001" =>  conf_settings_data  <= x"00";
-                            when "1010" =>  conf_settings_data  <= x"00";
-                            when "1011" =>  conf_settings_data  <= x"00";
-                            when "1100" =>  conf_settings_data  <= stdulv(START_LED_NUM, 8);
-                            when "1101" =>  conf_settings_data  <= stdulv(FRAME_DELAY, 8);
-                            when others =>  conf_settings_data  <= x"00";
-                                            state   <= CALCULATING;
+                            when "0000000000"   =>  conf_settings_data  <= stdulv(16, 8); -- hor. LED count
+                            when "0000000001"   =>  conf_settings_data  <= x"00";
+                            when "0000000010"   =>  conf_settings_data  <= x"00";
+                            when "0000000011"   =>  conf_settings_data  <= x"00";
+                            when "0000000100"   =>  conf_settings_data  <= x"00";
+                            when "0000000101"   =>  conf_settings_data  <= x"00";
+                            when "0000000110"   =>  conf_settings_data  <= stdulv( 9, 8); -- ver. LED count
+                            when "0000000111"   =>  conf_settings_data  <= x"00";
+                            when "0000001000"   =>  conf_settings_data  <= x"00";
+                            when "0000001001"   =>  conf_settings_data  <= x"00";
+                            when "0000001010"   =>  conf_settings_data  <= x"00";
+                            when "0000001011"   =>  conf_settings_data  <= x"00";
+                            when "0000001100"   =>  conf_settings_data  <= stdulv(START_LED_NUM, 8);
+                            when "0000001101"   =>  conf_settings_data  <= stdulv(FRAME_DELAY, 8);
+                            when "0000001110"   =>  conf_settings_data  <= x"00";
+                            when others         =>
+                                                    if counter < 256+14 then
+                                                        conf_settings_data  <= R_LOOKUP_TABLE(nat(counter-14));
+                                                    elsif counter < 2*256+14 then
+                                                        conf_settings_data  <= G_LOOKUP_TABLE(nat(counter-256-14));
+                                                    elsif counter < 3*256+14 then
+                                                        conf_settings_data  <= B_LOOKUP_TABLE(nat(counter-2*256-14));
+                                                    else
+                                                        state   <= CALCULATING;
+                                                    end if;
                         end case;
                     
                     when CALCULATING =>
                         conf_calculate  <= '1';
-                        state           <= WAITING_FOR_CALCULATION;
+                        state           <= CONF_LEDCOR_WAITING_FOR_BUSY;
                     
-                    when WAITING_FOR_CALCULATION =>
-                        if conf_calculation_finished='1' then
-                            state   <= WAITING_FOR_LED_VSYNC;
+                    when CONF_LEDCOR_WAITING_FOR_BUSY =>
+                        if conf_idle='0' then
+                            state   <= CONF_LEDCOR_WAITING_FOR_IDLE;
                         end if;
                     
-                    when WAITING_FOR_LED_VSYNC =>
-                        if lcor_led_in_vsync='1' then
-                            state   <= CONFIGURING_LED_CORRECTION;
+                    when CONF_LEDCOR_WAITING_FOR_IDLE =>
+                        if conf_idle='1' then
+                            state   <= CONF_LEDCOR_CONFIGURING_LED_CORRECTION;
                         end if;
                     
-                    when CONFIGURING_LED_CORRECTION =>
+                    when CONF_LEDCOR_CONFIGURING_LED_CORRECTION =>
                         conf_configure_ledcor   <= '1';
                         state                   <= IDLE;
                     
