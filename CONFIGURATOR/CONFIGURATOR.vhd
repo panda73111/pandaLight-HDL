@@ -61,7 +61,7 @@ entity CONFIGURATOR is
         CFG_SEL_LEDEX   : out std_ulogic := '0';
         CFG_SEL_LEDCOR  : out std_ulogic := '0';
         
-        CFG_ADDR    : out std_ulogic_vector(3 downto 0) := "0000";
+        CFG_ADDR    : out std_ulogic_vector(9 downto 0) := (others => '0');
         CFG_WR_EN   : out std_ulogic := '0';
         CFG_DATA    : out std_ulogic_vector(7 downto 0) := x"00";
         
@@ -104,7 +104,7 @@ architecture rtl of CONFIGURATOR is
         state                   : state_type;
         cfg_sel_ledex           : std_ulogic;
         cfg_sel_ledcor          : std_ulogic;
-        cfg_addr                : std_ulogic_vector(3 downto 0);
+        cfg_addr                : std_ulogic_vector(9 downto 0);
         cfg_wr_en               : std_ulogic;
         cfg_data                : std_ulogic_vector(7 downto 0);
         multiplier_start        : std_ulogic;
@@ -123,7 +123,7 @@ architecture rtl of CONFIGURATOR is
         state                   => WAITING_FOR_START,
         cfg_sel_ledex           => '0',
         cfg_sel_ledcor          => '0',
-        cfg_addr                => "1111",
+        cfg_addr                => (others => '1'),
         cfg_wr_en               => '0',
         cfg_data                => x"00",
         multiplier_start        => '0',

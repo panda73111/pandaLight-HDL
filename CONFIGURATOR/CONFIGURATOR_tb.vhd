@@ -45,11 +45,11 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     signal CFG_SEL_LEDEX    : std_ulogic;
     signal CFG_SEL_LEDCOR   : std_ulogic;
     
-    signal CFG_ADDR     : std_ulogic_vector(3 downto 0);
+    signal CFG_ADDR     : std_ulogic_vector(9 downto 0);
     signal CFG_WR_EN    : std_ulogic;
     signal CFG_DATA     : std_ulogic_vector(7 downto 0);
     
-    signal CALCULATION_FINISHED : std_ulogic;
+    signal IDLE : std_ulogic;
     
     -- Clock period definitions
     constant CLK_PERIOD : time := 10 ns; -- 100 Mhz
@@ -81,7 +81,7 @@ BEGIN
             CFG_WR_EN   => CFG_WR_EN,
             CFG_DATA    => CFG_DATA,
             
-            CALCULATION_FINISHED    => CALCULATION_FINISHED
+            IDLE    => IDLE
         );
     
     CLK <= not CLK after CLK_PERIOD/2;
@@ -129,12 +129,14 @@ BEGIN
             CONFIGURE_LEDCOR    <= '1';
             wait until rising_edge(CLK);
             CONFIGURE_LEDCOR    <= '0';
-            wait for CLK_PERIOD*100;
+            wait until rising_edge(IDLE);
+            wait until rising_edge(CLK);
             
             CONFIGURE_LEDEX <= '1';
             wait until rising_edge(CLK);
             CONFIGURE_LEDEX <= '0';
-            wait for CLK_PERIOD*100;
+            wait until rising_edge(IDLE);
+            wait until rising_edge(CLK);
         end procedure;
     begin
         -- hold reset state for 100 ns.
@@ -167,7 +169,7 @@ BEGIN
         CALCULATE       <= '1';
         wait until rising_edge(CLK);
         CALCULATE       <= '0';
-        wait until CALCULATION_FINISHED='1';
+        wait until rising_edge(IDLE);
         wait until rising_edge(CLK);
         
         configure;
@@ -177,7 +179,7 @@ BEGIN
         CALCULATE       <= '1';
         wait until rising_edge(CLK);
         CALCULATE       <= '0';
-        wait until CALCULATION_FINISHED='1';
+        wait until rising_edge(IDLE);
         wait until rising_edge(CLK);
         
         configure;
