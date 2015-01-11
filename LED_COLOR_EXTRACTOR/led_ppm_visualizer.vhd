@@ -47,10 +47,10 @@ entity led_ppm_visualizer is
         FRAME_RGB_WR_EN : in std_ulogic;
         FRAME_RGB       : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
-        LED_VSYNC   : in std_ulogic;
-        LED_VALID   : in std_ulogic;
-        LED_NUM     : in std_ulogic_vector(7 downto 0);
-        LED_RGB     : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0)
+        LED_VSYNC       : in std_ulogic;
+        LED_RGB_VALID   : in std_ulogic;
+        LED_RGB         : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
+        LED_NUM         : in std_ulogic_vector(7 downto 0)
     );
 end led_ppm_visualizer;
 
@@ -292,7 +292,7 @@ begin
                     next frame_loop;
                 end if;
                 
-                if LED_VALID='1' then
+                if LED_RGB_VALID='1' then
                     if LED_NUM<hor_led_cnt then
                         
                         -- top side

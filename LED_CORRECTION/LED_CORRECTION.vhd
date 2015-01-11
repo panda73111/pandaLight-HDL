@@ -8,8 +8,7 @@
 -- Description: 
 --  
 -- Additional Comments: 
---   These configuration registers can only be set while LED_IN_VSYNC is high and are reset
---   to zero when RST is high, using the CFG_* inputs:
+--   These configuration registers can only be while RST is high, using the CFG_* inputs:
 --   
 --    [0] = LED_COUNT      : The number of LEDs around the TV
 --    [1] = START_LED_NUM  : The index (from top left clockwise) of the first LED in the chain
@@ -102,7 +101,6 @@ architecture rtl of LED_CORRECTION is
         out_valid       => '0'
         );
     
-    signal rst_stm              : std_ulogic := '1';
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     
     signal led_buf_rd_addr  : std_ulogic_vector(BUF_ADDR_BITS-1 downto 0) := (others => '0');
@@ -174,22 +172,14 @@ begin
             LED_OUT_RGB_VALID   => lut_led_out_rgb_valid
         );
     
-    cfg_proc : process(RST, CLK)
+    cfg_proc : process(CLK)
     begin
-        if RST='1' then
-            led_count       <= x"00";
-            start_led_num   <= x"00";
-            frame_delay     <= x"00";
-            rgb_mode        <= "000";
-            lut_table_wr_en <= '0';
-            rst_stm         <= '1';
-        elsif rising_edge(CLK) then
-            rst_stm         <= '0';
+        if rising_edge(CLK) then
             lut_table_addr  <= lut_ch_select & CFG_ADDR(7 downto 0);
             lut_table_wr_en <= '0';
             lut_table_data  <= CFG_DATA;
             lut_ch_select   <= CFG_ADDR(9 downto 8)-1;
-            if CFG_WR_EN='1' and LED_IN_VSYNC='1' then
+            if RST='1' and CFG_WR_EN='1' then
             
                 if CFG_ADDR(9 downto 8)=0 then
                     
@@ -200,7 +190,6 @@ begin
                         when "10"   => frame_delay      <= CFG_DATA;
                         when others => rgb_mode         <= CFG_DATA(2 downto 0);
                     end case;
-                    rst_stm <= '1';
                     
                 else
                     
@@ -228,7 +217,7 @@ begin
         end case;
     end process;
     
-    stm_proc : process(RST, rst_stm, cur_reg, LED_IN_VSYNC, LED_IN_NUM, LED_IN_RGB, LED_IN_RGB_WR_EN,
+    stm_proc : process(RST, cur_reg, LED_IN_VSYNC, LED_IN_NUM, LED_IN_RGB, LED_IN_RGB_WR_EN,
         led_count, start_led_num, frame_delay, in_rgb_corrected)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
@@ -331,16 +320,16 @@ begin
             
         end case;
         
-        if rst_stm='1' then
+        if RST='1' then
             r   := reg_type_def;
         end if;
         
         next_reg    <= r;
     end process;
     
-    sync_stm_proc : process(rst_stm, CLK)
+    sync_stm_proc : process(RST, CLK)
     begin
-        if rst_stm='1' then
+        if RST='1' then
             cur_reg <= reg_type_def;
         elsif rising_edge(CLK) then
             cur_reg <= next_reg;

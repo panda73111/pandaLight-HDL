@@ -87,11 +87,13 @@ BEGIN
             addr    : in std_ulogic_vector(9 downto 0);
             data    : in std_ulogic_vector(7 downto 0)) is
         begin
+            RST         <= '1';
             CFG_ADDR    <= addr;
             CFG_WR_EN   <= '1';
             CFG_DATA    <= data;
             wait until rising_edge(CLK);
             CFG_WR_EN   <= '0';
+            RST         <= '0';
         end procedure;
         
         procedure configure(

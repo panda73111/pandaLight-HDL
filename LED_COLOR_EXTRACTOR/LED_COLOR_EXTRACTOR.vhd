@@ -31,8 +31,7 @@
 --     LED_NUM      : number of the current LED, from the first top left LED clockwise
 --     LED_RGB      : LED RGB color
 --   
---   These configuration registers can only be set while FRAME_VSYNC is high and are reset
---   to zero when RST is high, using the CFG_* inputs:
+--   These configuration registers can only be set while RST is high, using the CFG_* inputs:
 --   
 --    [0] = HOR_LED_CNT     : number of LEDs at each top and bottom side of the TV screen
 --    [1] = HOR_LED_WIDTH   : width of one LED area of each of these horizontal LEDs
@@ -76,10 +75,10 @@ entity LED_COLOR_EXTRACTOR is
         FRAME_RGB_WR_EN : in std_ulogic;
         FRAME_RGB       : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
-        LED_VSYNC   : out std_ulogic := '0';
-        LED_VALID   : out std_ulogic := '0';
-        LED_NUM     : out std_ulogic_vector(7 downto 0) := (others => '0');
-        LED_RGB     : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0')
+        LED_VSYNC       : out std_ulogic := '0';
+        LED_NUM         : out std_ulogic_vector(7 downto 0) := (others => '0');
+        LED_RGB_VALID   : out std_ulogic := '0';
+        LED_RGB         : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0')
     );
 end LED_COLOR_EXTRACTOR;
 
@@ -126,7 +125,7 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     
     signal leds_num         : leds_num_type := (others => (others => '0'));
     signal frame_x, frame_y : unsigned(15 downto 0) := (others => '0');
-    signal leds_valid       : std_ulogic_vector(0 to 1) := (others => '0');
+    signal leds_rgb_valid   : std_ulogic_vector(0 to 1) := (others => '0');
     signal leds_side        : std_ulogic_vector(0 to 1) := (others => '0');
     signal leds_rgb         : leds_rgb_type := (others => (others => '0'));
     signal ver_queued   : boolean := false;
@@ -156,14 +155,10 @@ begin
     --- processes ---
     -----------------
     
-    cfg_proc : process(RST, CLK)
+    cfg_proc : process(CLK)
     begin
-        if RST='1' then
-            hor_led_cnt     <= x"00";
-            ver_led_cnt     <= x"00";
-            frame_width     <= x"0000";
-        elsif rising_edge(CLK) then
-            if CFG_WR_EN='1' and FRAME_VSYNC='1' then
+        if rising_edge(CLK) then
+            if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
                     when "0000" => hor_led_cnt                  <= CFG_DATA;
                     when "0110" => ver_led_cnt                  <= CFG_DATA;
@@ -216,10 +211,10 @@ begin
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
             
-            LED_VALID   => leds_valid(HOR),
-            LED_NUM     => leds_num(HOR),
-            LED_SIDE    => leds_side(HOR),
-            LED_RGB     => leds_rgb(HOR)
+            LED_RGB_VALID   => leds_rgb_valid(HOR),
+            LED_RGB         => leds_rgb(HOR),
+            LED_NUM         => leds_num(HOR),
+            LED_SIDE        => leds_side(HOR)
         );
     
     VER_SCANNER_inst : entity work.ver_scanner
@@ -243,30 +238,30 @@ begin
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
             
-            LED_VALID   => leds_valid(VER),
-            LED_NUM     => leds_num(VER),
-            LED_SIDE    => leds_side(VER),
-            LED_RGB     => leds_rgb(VER)
+            LED_RGB_VALID   => leds_rgb_valid(VER),
+            LED_RGB         => leds_rgb(VER),
+            LED_NUM         => leds_num(VER),
+            LED_SIDE        => leds_side(VER)
         );
     
     led_output_proc : process(RST, CLK)
     begin
         if RST='1' then
-            ver_queued  <= false;
-            LED_VSYNC   <= '0';
-            LED_VALID   <= '0';
+            ver_queued      <= false;
+            LED_VSYNC       <= '0';
+            LED_RGB_VALID   <= '0';
         elsif rising_edge(CLK) then
             if FRAME_VSYNC='0' then
                 LED_VSYNC   <= '0';
             end if;
-            LED_VALID   <= '0';
-            if leds_valid(VER)='1' then
+            LED_RGB_VALID   <= '0';
+            if leds_rgb_valid(VER)='1' then
                 -- if two edge LEDs are completed at the same time,
                 -- queue the vertical one
                 ver_queued  <= true;
             end if;
             for dim in HOR to VER loop
-                if leds_valid(dim)='1' or ver_queued then
+                if leds_rgb_valid(dim)='1' or ver_queued then
                     -- count the LEDs from top left clockwise
                     if dim=HOR then
                         if leds_side(dim)='0' then
@@ -285,8 +280,8 @@ begin
                             LED_NUM <= hor_led_cnt+leds_num(VER);
                         end if;
                     end if;
-                    LED_RGB     <= leds_rgb(dim)(RGB_BITS-1 downto 0);
-                    LED_VALID   <= '1';
+                    LED_RGB         <= leds_rgb(dim)(RGB_BITS-1 downto 0);
+                    LED_RGB_VALID   <= '1';
                     if dim=VER then
                         ver_queued  <= false;
                     end if;
@@ -295,7 +290,7 @@ begin
             end loop;
             if
                 FRAME_VSYNC='1' and
-                leds_valid="00" and
+                leds_rgb_valid="00" and
                 not ver_queued
             then
                 LED_VSYNC   <= '1';

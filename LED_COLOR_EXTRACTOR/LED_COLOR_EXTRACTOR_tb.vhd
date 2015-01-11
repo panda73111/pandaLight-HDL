@@ -44,10 +44,10 @@ ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS
     signal FRAME_RGB        : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
 
     --Outputs
-    signal LED_VSYNC    : std_ulogic := '0';
-    signal LED_VALID    : std_ulogic := '0';
-    signal LED_NUM      : std_ulogic_vector(7 downto 0) := (others => '0');
-    signal LED_RGB      : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
+    signal LED_VSYNC        : std_ulogic := '0';
+    signal LED_RGB_VALID    : std_ulogic := '0';
+    signal LED_NUM          : std_ulogic_vector(7 downto 0) := (others => '0');
+    signal LED_RGB          : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
 
 
     -- Clock period definitions
@@ -84,7 +84,7 @@ BEGIN
     )
     port map (
         CLK_IN  => g_clk,
-        RST     => RST,
+        RST     => '0',
         
         PROFILE => profile,
         
@@ -118,10 +118,10 @@ BEGIN
         FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
         FRAME_RGB       => FRAME_RGB,
         
-        LED_VSYNC   => LED_VSYNC,
-        LED_VALID   => LED_VALID,
-        LED_NUM     => LED_NUM,
-        LED_RGB     => LED_RGB
+        LED_VSYNC       => LED_VSYNC,
+        LED_RGB_VALID   => LED_RGB_VALID,
+        LED_RGB         => LED_RGB,
+        LED_NUM         => LED_NUM
     );
     
     LED_COLOR_EXTRACTOR_inst : entity work.LED_COLOR_EXTRACTOR
@@ -142,10 +142,10 @@ BEGIN
         FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
         FRAME_RGB       => FRAME_RGB,
         
-        LED_VSYNC   => LED_VSYNC,
-        LED_VALID   => LED_VALID,
-        LED_NUM     => LED_NUM,
-        LED_RGB     => LED_RGB
+        LED_VSYNC       => LED_VSYNC,
+        LED_RGB_VALID   => LED_RGB_VALID,
+        LED_RGB         => LED_RGB,
+        LED_NUM         => LED_NUM
     );
 
     -- clock generation
@@ -163,12 +163,14 @@ BEGIN
         
         procedure write_config (cfg : in cfg_type) is
         begin
+            rst         <= '1';
             cfg_wr_en   <= '1';
             for i in cfg_type'range loop
                 cfg_addr    <= stdulv(i, 4);
                 cfg_data    <= cfg(i);
                 wait until rising_edge(CLK);
             end loop;
+            rst         <= '0';
             cfg_wr_en   <= '0';
             wait until rising_edge(CLK);
         end procedure;

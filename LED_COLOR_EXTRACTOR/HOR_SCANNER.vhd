@@ -39,10 +39,10 @@ entity HOR_SCANNER is
         FRAME_X : in std_ulogic_vector(15 downto 0);
         FRAME_Y : in std_ulogic_vector(15 downto 0);
         
-        LED_VALID   : out std_ulogic := '0';
-        LED_NUM     : out std_ulogic_vector(7 downto 0) := x"00";
-        LED_SIDE    : out std_ulogic := '0';
-        LED_RGB     : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0')
+        LED_RGB_VALID   : out std_ulogic := '0';
+        LED_RGB         : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
+        LED_NUM         : out std_ulogic_vector(7 downto 0) := x"00";
+        LED_SIDE        : out std_ulogic := '0'
     );
 end HOR_SCANNER;
 
@@ -103,9 +103,9 @@ architecture rtl of HOR_SCANNER is
         buf_ov_wr_en    : std_ulogic;
         inner_coords    : inner_coords_type;
         led_pos         : led_pos_type;
-        led_valid       : std_ulogic;
-        led_num         : std_ulogic_vector(7 downto 0);
+        led_rgb_valid   : std_ulogic;
         led_rgb         : std_ulogic_vector(RGB_BITS-1 downto 0);
+        led_num         : std_ulogic_vector(7 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -118,9 +118,9 @@ architecture rtl of HOR_SCANNER is
         buf_ov_wr_en    => '0',
         inner_coords    => (others => (others => '0')),
         led_pos         => (others => (others => '0')),
-        led_valid       => '0',
-        led_num         => (others => '0'),
-        led_rgb         => (others => '0')
+        led_rgb_valid   => '0',
+        led_rgb         => (others => '0'),
+        led_num         => (others => '0')
     );
     
     signal next_inner_x         : unsigned(7 downto 0) := x"00";
@@ -166,10 +166,10 @@ begin
     --- static routes ---
     ---------------------
     
-    LED_VALID   <= cur_reg.led_valid;
-    LED_NUM     <= cur_reg.led_num;
-    LED_SIDE    <= '0' when cur_reg.side=T else '1';
-    LED_RGB     <= cur_reg.led_rgb;
+    LED_RGB_VALID   <= cur_reg.led_rgb_valid;
+    LED_RGB         <= cur_reg.led_rgb;
+    LED_NUM         <= cur_reg.led_num;
+    LED_SIDE        <= '0' when cur_reg.side=T else '1';
     
     -- the position of the first top/bottom LED
     first_leds_pos(T)(X)    <= resize(uns(led_offs), 16);
@@ -191,18 +191,10 @@ begin
     --- processes ---
     -----------------
     
-    cfg_proc : process(RST, CLK)
+    cfg_proc : process(CLK)
     begin
-        if RST='1' then
-            led_cnt     <= x"00";
-            led_width   <= x"00";
-            led_height  <= x"00";
-            led_step    <= x"00";
-            led_pad     <= x"00";
-            led_offs    <= x"00";
-            frame_height    <= x"0000";
-        elsif rising_edge(CLK) then
-            if CFG_WR_EN='1' and FRAME_VSYNC='1' then
+        if rising_edge(CLK) then
+            if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
                     when "0000" => led_cnt                      <= CFG_DATA;
                     when "0001" => led_width                    <= CFG_DATA;
@@ -257,8 +249,8 @@ begin
     begin
         r   := cr;
         
-        r.led_valid     := '0';
-        r.buf_wr_en     := '0';
+        r.led_rgb_valid     := '0';
+        r.buf_wr_en         := '0';
         
         case cr.state is
             
@@ -347,7 +339,7 @@ begin
                 end if;
                 if FRAME_RGB_WR_EN='1' then
                     -- give out the LED color
-                    r.led_valid     := '1';
+                    r.led_rgb_valid := '1';
                     r.led_rgb       := led_arith_mean(FRAME_RGB, buf_do);
                     r.led_num       := stdulv(cr.buf_p, 8);
                     
