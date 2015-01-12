@@ -103,10 +103,10 @@ architecture rtl of LED_CORRECTION is
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     
-    signal led_buf_rd_addr  : std_ulogic_vector(BUF_ADDR_BITS-1 downto 0) := (others => '0');
-    signal led_buf_wr_addr  : std_ulogic_vector(BUF_ADDR_BITS-1 downto 0) := (others => '0');
-    signal led_buf_dout     : std_ulogic_vector(23 downto 0) := x"000000";
-    signal in_rgb_corrected : std_ulogic_vector(23 downto 0) := x"000000";
+    signal led_buf_rd_addr      : std_ulogic_vector(BUF_ADDR_BITS-1 downto 0) := (others => '0');
+    signal led_buf_wr_addr      : std_ulogic_vector(BUF_ADDR_BITS-1 downto 0) := (others => '0');
+    signal led_buf_dout         : std_ulogic_vector(23 downto 0) := x"000000";
+    signal in_rgb_ch_ordered    : std_ulogic_vector(23 downto 0) := x"000000";
     
     -- configuration registers
     signal led_count        : std_ulogic_vector(7 downto 0) := x"00";
@@ -146,11 +146,12 @@ begin
             RD_ADDR => led_buf_rd_addr,
             WR_ADDR => led_buf_wr_addr,
             WR_EN   => LED_IN_RGB_WR_EN,
-            DIN     => in_rgb_corrected,
+            DIN     => in_rgb_ch_ordered,
             
             DOUT    => led_buf_dout
         );
     
+    lut_ch_select           <= CFG_ADDR(9 downto 8)-1;
     lut_led_in_vsync        <= not cur_reg.out_valid;
     lut_led_in_rgb          <= led_buf_dout;
     lut_led_in_rgb_wr_en    <= cur_reg.out_valid;
@@ -178,7 +179,6 @@ begin
             lut_table_addr  <= lut_ch_select & CFG_ADDR(7 downto 0);
             lut_table_wr_en <= '0';
             lut_table_data  <= CFG_DATA;
-            lut_ch_select   <= CFG_ADDR(9 downto 8)-1;
             if RST='1' and CFG_WR_EN='1' then
             
                 if CFG_ADDR(9 downto 8)=0 then
@@ -202,7 +202,7 @@ begin
     end process;
     
     correct_in_rgb_proc : process(LED_IN_RGB, rgb_mode)
-        alias rgb is in_rgb_corrected;
+        alias rgb is in_rgb_ch_ordered;
         alias r is LED_IN_RGB(23 downto 16);
         alias g is LED_IN_RGB(15 downto 8);
         alias b is LED_IN_RGB(7 downto 0);
@@ -218,7 +218,7 @@ begin
     end process;
     
     stm_proc : process(RST, cur_reg, LED_IN_VSYNC, LED_IN_NUM, LED_IN_RGB, LED_IN_RGB_WR_EN,
-        led_count, start_led_num, frame_delay, in_rgb_corrected)
+        led_count, start_led_num, frame_delay)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin

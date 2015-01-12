@@ -338,10 +338,10 @@ begin
                     when "0000000001"   =>  r.cfg_data  := buf_do;          r.buf_rd_p  := BUF_I_FRAME_DELAY;
                     when "0000000010"   =>  r.cfg_data  := buf_do;          r.buf_rd_p  := BUF_I_RGB_MODE;
                     when "0000000011"   =>  r.cfg_data  := buf_do;          r.buf_rd_p  := BUF_I_LED_LOOKUP_TABLES;
-                    when "0000000100"   =>  r.cfg_data  := buf_do;          r.cfg_addr  := "0100000000";
+                    when "0000000100"   =>  r.cfg_data  := buf_do;          r.buf_rd_p  := cr.buf_rd_p+1;           r.cfg_addr  := "0100000000";
                     when "1111111111"   =>  r.cfg_data  := buf_do;
                                             r.state     := WAITING_FOR_START;
-                    when others         =>  r.cfg_data  := buf_do; -- lookup table entry
+                    when others         =>  r.cfg_data  := buf_do;          r.buf_rd_p  := cr.buf_rd_p+1; -- lookup table entry
                 end case;
             
         end case;
