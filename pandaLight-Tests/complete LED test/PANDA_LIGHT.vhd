@@ -303,7 +303,7 @@ begin
     
     -- only enabled chips make 'DET' signals possible!
     RX_EN(RX_SEL)   <= tx_det_stable;
-    RX_EN(1-RX_SEL) <= '0';
+    RX_EN(1-RX_SEL) <= tx_det_stable;
     TX_EN           <= '1';
     
     tx_channels_out <= rxpt_tx_channels_out;
