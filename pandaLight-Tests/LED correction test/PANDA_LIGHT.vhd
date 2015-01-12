@@ -188,7 +188,7 @@ begin
         );
     
     LED_CORRECTION_TEST_gen : if true generate
-        constant LED_COUNT      : natural := HOR_LED_COUNT+VER_LED_COUNT;
+        constant LED_COUNT      : natural := 2*(HOR_LED_COUNT+VER_LED_COUNT);
         constant LED_BITS       : natural := log2(LED_COUNT)+1;
         constant PAUSE_BITS     : natural := log2(PAUSE_CYCLES)+1;
         
@@ -381,13 +381,13 @@ begin
                         counter             <= counter+1;
                         conf_settings_wr_en <= '1';
                         case counter+1 is
-                            when "0000000000"   =>  conf_settings_data  <= stdulv(16, 8); -- hor. LED count
+                            when "0000000000"   =>  conf_settings_data  <= stdulv(HOR_LED_COUNT, 8);
                             when "0000000001"   =>  conf_settings_data  <= x"00";
                             when "0000000010"   =>  conf_settings_data  <= x"00";
                             when "0000000011"   =>  conf_settings_data  <= x"00";
                             when "0000000100"   =>  conf_settings_data  <= x"00";
                             when "0000000101"   =>  conf_settings_data  <= x"00";
-                            when "0000000110"   =>  conf_settings_data  <= stdulv( 9, 8); -- ver. LED count
+                            when "0000000110"   =>  conf_settings_data  <= stdulv(VER_LED_COUNT, 8);
                             when "0000000111"   =>  conf_settings_data  <= x"00";
                             when "0000001000"   =>  conf_settings_data  <= x"00";
                             when "0000001001"   =>  conf_settings_data  <= x"00";
