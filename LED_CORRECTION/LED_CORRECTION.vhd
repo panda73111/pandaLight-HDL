@@ -105,6 +105,8 @@ architecture rtl of LED_CORRECTION is
     
     signal led_buf_rd_addr      : std_ulogic_vector(BUF_ADDR_BITS-1 downto 0) := (others => '0');
     signal led_buf_wr_addr      : std_ulogic_vector(BUF_ADDR_BITS-1 downto 0) := (others => '0');
+    signal led_buf_wr_en        : std_ulogic := '0';
+    signal led_buf_din          : std_ulogic_vector(23 downto 0) := x"000000";
     signal led_buf_dout         : std_ulogic_vector(23 downto 0) := x"000000";
     signal in_rgb_ch_ordered    : std_ulogic_vector(23 downto 0) := x"000000";
     
@@ -134,6 +136,8 @@ begin
     
     led_buf_rd_addr <= stdulv(cur_reg.rd_p);
     led_buf_wr_addr <= LED_IN_NUM+cur_reg.wr_frame_p;
+    led_buf_wr_en   <= LED_IN_RGB_WR_EN;
+    led_buf_din     <= in_rgb_ch_ordered;
     
     DUAL_PORT_RAM_inst : entity work.DUAL_PORT_RAM
         generic map (
@@ -145,8 +149,8 @@ begin
             
             RD_ADDR => led_buf_rd_addr,
             WR_ADDR => led_buf_wr_addr,
-            WR_EN   => LED_IN_RGB_WR_EN,
-            DIN     => in_rgb_ch_ordered,
+            WR_EN   => led_buf_wr_en,
+            DIN     => led_buf_din,
             
             DOUT    => led_buf_dout
         );
@@ -279,7 +283,6 @@ begin
             when WAITING_FOR_BUFFER =>
                 r.out_valid     := '1';
                 r.rd_led_cnt    := uns(1, LED_COUNT_BITS);
-                r.rd_p          := cr.rd_p+1;
                 r.state         := READING_LEDS;
             
             when READING_LEDS =>
