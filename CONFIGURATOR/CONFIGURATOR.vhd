@@ -55,6 +55,7 @@ entity CONFIGURATOR is
         FRAME_WIDTH     : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
         FRAME_HEIGHT    : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
         
+        SETTINGS_ADDR   : in std_ulogic_vector(9 downto 0);
         SETTINGS_WR_EN  : in std_ulogic;
         SETTINGS_DATA   : in std_ulogic_vector(7 downto 0);
         
@@ -198,8 +199,9 @@ begin
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, CALCULATE, CONFIGURE_LEDEX, CONFIGURE_LEDCOR, SETTINGS_WR_EN, SETTINGS_DATA,
-        FRAME_WIDTH, FRAME_HEIGHT, multiplier_valid, multiplier_result, buf_do)
+    stm_proc : process(RST, cur_reg, CALCULATE, CONFIGURE_LEDEX, CONFIGURE_LEDCOR,
+        SETTINGS_ADDR, SETTINGS_WR_EN, SETTINGS_DATA, FRAME_WIDTH, FRAME_HEIGHT,
+        multiplier_valid, multiplier_result, buf_do)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
@@ -221,7 +223,7 @@ begin
                 r.buf_wr_p                  := (others => '1');
                 if SETTINGS_WR_EN='1' then
                     r.buf_wr_en := '1';
-                    r.buf_wr_p  := cr.buf_wr_p+1;
+                    r.buf_wr_p  := SETTINGS_ADDR;
                     r.buf_di    := SETTINGS_DATA;
                 end if;
                 if CALCULATE='1' then

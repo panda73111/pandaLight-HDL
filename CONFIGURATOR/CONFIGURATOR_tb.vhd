@@ -38,6 +38,7 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     signal FRAME_WIDTH  : std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0) := (others => '0');
     signal FRAME_HEIGHT : std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0) := (others => '0');
     
+    signal SETTINGS_ADDR    : std_ulogic_vector(9 downto 0) := (others => '0');
     signal SETTINGS_WR_EN   : std_ulogic := '0';
     signal SETTINGS_DATA    : std_ulogic_vector(7 downto 0) := x"00";
     
@@ -71,6 +72,7 @@ BEGIN
             FRAME_WIDTH     => FRAME_WIDTH,
             FRAME_HEIGHT    => FRAME_HEIGHT,
             
+            SETTINGS_ADDR   => SETTINGS_ADDR,
             SETTINGS_WR_EN  => SETTINGS_WR_EN,
             SETTINGS_DATA   => SETTINGS_DATA,
             
@@ -108,6 +110,7 @@ BEGIN
         begin
             SETTINGS_WR_EN  <= '1';
             for settings_i in 0 to 14 loop
+                SETTINGS_ADDR   <= stdulv(settings_i, 10);
                 case settings_i is
                     when 0      =>  SETTINGS_DATA   <= s.HOR_LED_CNT;
                     when 1      =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_WIDTH;
