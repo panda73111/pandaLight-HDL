@@ -25,10 +25,6 @@ entity PANDA_LIGHT is
         G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
         FCTRL_CLK_MULT      : positive :=  2; -- Flash clock: 20 MHz
         FCTRL_CLK_DIV       : positive :=  5;
-        HOR_LED_COUNT       : positive := 13;
-        VER_LED_COUNT       : positive :=  7;
-        START_LED_NUM       : natural :=  10;
-        FRAME_DELAY         : natural := 120;
         SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"060000"
     );
     port (
@@ -57,6 +53,8 @@ architecture rtl of PANDA_LIGHT is
     signal pmod0_deb    : std_ulogic_vector(3 downto 0) := x"0";
     signal pmod0_deb_q  : std_ulogic_vector(3 downto 0) := x"0";
     
+    signal start_settings_read  : boolean := false;
+    
     --------------------
     --- configurator ---
     --------------------
@@ -72,6 +70,7 @@ architecture rtl of PANDA_LIGHT is
     signal conf_frame_width     : std_ulogic_vector(10 downto 0) := (others => '0');
     signal conf_frame_height    : std_ulogic_vector(10 downto 0) := (others => '0');
     
+    signal conf_settings_addr   : std_ulogic_vector(9 downto 0) := (others => '0');
     signal conf_settings_wr_en  : std_ulogic := '0';
     signal conf_settings_data   : std_ulogic_vector(7 downto 0) := x"00";
     
@@ -110,11 +109,6 @@ architecture rtl of PANDA_LIGHT is
     signal fctrl_c      : std_ulogic := '0';
     signal fctrl_sn     : std_ulogic := '1';
     
-    attribute keep of fctrl_dout    : signal is true;
-    attribute keep of fctrl_valid   : signal is true;
-    attribute keep of fctrl_wr_ack  : signal is true;
-    attribute keep of fctrl_busy    : signal is true;
-    
 begin
     
     ------------------------------
@@ -147,9 +141,11 @@ begin
     FLASH_SCK   <= fctrl_c;
     
     PMOD0(0)    <= 'Z';
-    PMOD0(1)    <= 'Z';
-    PMOD0(2)    <= 'Z';
-    PMOD0(3)    <= 'Z';
+    PMOD0(1)    <= conf_cfg_wr_en or conf_cfg_sel_ledcor or conf_cfg_sel_ledex or conf_idle;
+    PMOD0(2)    <=  conf_cfg_addr(9) or conf_cfg_addr(8) or conf_cfg_addr(7) or conf_cfg_addr(6) or conf_cfg_addr(5) or
+                    conf_cfg_addr(4) or conf_cfg_addr(3) or conf_cfg_addr(2) or conf_cfg_addr(1) or conf_cfg_addr(0);
+    PMOD0(3)    <=  conf_cfg_data(7) or conf_cfg_data(6) or conf_cfg_data(5) or conf_cfg_data(4) or
+                    conf_cfg_data(3) or conf_cfg_data(2) or conf_cfg_data(1) or conf_cfg_data(0);
     
     pmod0_DEBOUNCE_gen : for i in 0 to 3 generate
         
@@ -185,6 +181,7 @@ begin
             FRAME_WIDTH     => conf_frame_width,
             FRAME_HEIGHT    => conf_frame_height,
             
+            SETTINGS_ADDR   => conf_settings_addr,
             SETTINGS_WR_EN  => conf_settings_wr_en,
             SETTINGS_DATA   => conf_settings_data,
             
@@ -210,32 +207,15 @@ begin
             CONF_LEDCOR_WAITING_FOR_BUSY,
             CONF_LEDCOR_WAITING_FOR_IDLE,
             CONF_LEDCOR_CONFIGURING_LED_CORRECTION,
+            CONF_LEDEX_WAITING_FOR_BUSY,
+            CONF_LEDEX_WAITING_FOR_IDLE,
+            CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR,
             IDLE
         );
         
-        signal state    : state_type := INIT;
-        signal counter  : unsigned(9 downto 0) := (others => '1');
-        
-        function calc_gamma_cor_value(i : natural; y : real)
-            return natural is
-        begin
-            return natural(255.0 * ((real(i) / 255.0) ** y));
-        end function;
-        
-        function calc_gamma_cor_table(y : real)
-            return led_lookup_table_type
-        is
-            variable t  : led_lookup_table_type;
-        begin
-            for i in 0 to 255 loop
-                t(i)    := stdulv(calc_gamma_cor_value(i, y), 8);
-            end loop;
-            return t;
-        end function;
-        
-        constant R_LOOKUP_TABLE : led_lookup_table_type := calc_gamma_cor_table(2.0);
-        constant G_LOOKUP_TABLE : led_lookup_table_type := calc_gamma_cor_table(2.0);
-        constant B_LOOKUP_TABLE : led_lookup_table_type := calc_gamma_cor_table(2.0);
+        signal state            : state_type := INIT;
+        signal counter          : unsigned(10 downto 0) := uns(1023, 11);
+        signal settings_addr    : std_ulogic_vector(9 downto 0) := (others => '0');
     begin
         
         conf_frame_width    <= stdulv(640, 11);
@@ -247,48 +227,38 @@ begin
                 conf_settings_wr_en     <= '0';
                 conf_settings_data      <= x"00";
                 conf_calculate          <= '0';
+                conf_configure_ledex    <= '0';
                 conf_configure_ledcor   <= '0';
-                counter                 <= (others => '1');
+                counter                 <= uns(1023, 11);
+                settings_addr           <= (others => '0');
+                start_settings_read     <= false;
             elsif rising_edge(g_clk) then
                 conf_settings_wr_en     <= '0';
                 conf_calculate          <= '0';
+                conf_configure_ledex    <= '0';
                 conf_configure_ledcor   <= '0';
+                start_settings_read     <= false;
                 
                 case state is
                     
                     when INIT =>
-                        state   <= SENDING_SETTINGS;
+                        counter             <= uns(1023, 11);
+                        settings_addr       <= (others => '0');
+                        start_settings_read <= true;
+                        state               <= SENDING_SETTINGS;
                     
                     when SENDING_SETTINGS =>
-                        counter             <= counter+1;
-                        conf_settings_wr_en <= '1';
-                        case counter+1 is
-                            when "0000000000"   =>  conf_settings_data  <= stdulv(HOR_LED_COUNT, 8);
-                            when "0000000001"   =>  conf_settings_data  <= x"00";
-                            when "0000000010"   =>  conf_settings_data  <= x"00";
-                            when "0000000011"   =>  conf_settings_data  <= x"00";
-                            when "0000000100"   =>  conf_settings_data  <= x"00";
-                            when "0000000101"   =>  conf_settings_data  <= x"00";
-                            when "0000000110"   =>  conf_settings_data  <= stdulv(VER_LED_COUNT, 8);
-                            when "0000000111"   =>  conf_settings_data  <= x"00";
-                            when "0000001000"   =>  conf_settings_data  <= x"00";
-                            when "0000001001"   =>  conf_settings_data  <= x"00";
-                            when "0000001010"   =>  conf_settings_data  <= x"00";
-                            when "0000001011"   =>  conf_settings_data  <= x"00";
-                            when "0000001100"   =>  conf_settings_data  <= stdulv(START_LED_NUM, 8);
-                            when "0000001101"   =>  conf_settings_data  <= stdulv(FRAME_DELAY, 8);
-                            when "0000001110"   =>  conf_settings_data  <= x"00";
-                            when others         =>
-                                                    if counter < 256+14 then
-                                                        conf_settings_data  <= R_LOOKUP_TABLE(nat(counter-14));
-                                                    elsif counter < 2*256+14 then
-                                                        conf_settings_data  <= G_LOOKUP_TABLE(nat(counter-256-14));
-                                                    elsif counter < 3*256+14 then
-                                                        conf_settings_data  <= B_LOOKUP_TABLE(nat(counter-2*256-14));
-                                                    else
-                                                        state   <= CALCULATING;
-                                                    end if;
-                        end case;
+                        conf_settings_addr  <= settings_addr;
+                        conf_settings_wr_en <= fctrl_valid;
+                        conf_settings_data  <= fctrl_dout;
+                        if fctrl_valid='1' then
+                            counter         <= counter-1;
+                            settings_addr   <= settings_addr+1;
+                        end if;
+                        if counter(counter'high)='1' then
+                            -- read 1k bytes
+                            state   <= CALCULATING;
+                        end if;
                     
                     when CALCULATING =>
                         conf_calculate  <= '1';
@@ -306,6 +276,20 @@ begin
                     
                     when CONF_LEDCOR_CONFIGURING_LED_CORRECTION =>
                         conf_configure_ledcor   <= '1';
+                        state                   <= CONF_LEDEX_WAITING_FOR_BUSY;
+                    
+                    when CONF_LEDEX_WAITING_FOR_BUSY =>
+                        if conf_idle='0' then
+                            state   <= CONF_LEDEX_WAITING_FOR_IDLE;
+                        end if;
+                    
+                    when CONF_LEDEX_WAITING_FOR_IDLE =>
+                        if conf_idle='1' then
+                            state   <= CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR;
+                        end if;
+                    
+                    when CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR =>
+                        conf_configure_ledex    <= '1';
                         state                   <= IDLE;
                     
                     when IDLE =>
@@ -369,7 +353,8 @@ begin
         spi_flash_control_stim_proc : process(g_clk, g_rst)
         begin
             if g_rst='1' then
-                state   <= INIT;
+                state       <= INIT;
+                fctrl_rd_en <= '0';
             elsif rising_edge(g_clk) then
                 fctrl_rd_en <= '0';
                 
@@ -377,12 +362,11 @@ begin
                     
                     when INIT =>
                         counter <= uns(1023, 11);
-                        if pmod0_deb(0)='1' and pmod0_deb_q(0)='0' then
+                        if start_settings_read then
                             state   <= READING_SETTINGS;
                         end if;
                     
                     when READING_SETTINGS =>
-                        -- (read 1025 bytes)
                         fctrl_rd_en <= '1';
                         if counter(counter'high)='1' then
                             state   <= INIT;
@@ -392,8 +376,6 @@ begin
                         end if;
                     
                 end case;
-                
-                pmod0_deb_q <= pmod0_deb;
             end if;
         end process;
         

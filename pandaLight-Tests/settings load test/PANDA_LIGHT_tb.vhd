@@ -11,11 +11,14 @@ architecture behavior of testbench is
     signal g_clk20  : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
     
-    -- Outputs
-    signal LEDS_CLK     : std_ulogic_vector(1 downto 0);
-    signal LEDS_DATA    : std_ulogic_vector(1 downto 0);
+    -- SPI Flash
+    signal FLASH_MISO   : std_ulogic := '0';
+    signal FLASH_MOSI   : std_ulogic;
+    signal FLASH_CS     : std_ulogic;
+    signal FLASH_SCK    : std_ulogic;
     
-    signal PMOD0    : std_ulogic_vector(3 downto 0);
+    -- PMOD
+    signal PMOD0    : std_ulogic_vector(3 downto 0) := x"0";
     
     constant G_CLK20_PERIOD : time := 50 ns;
     
@@ -27,8 +30,10 @@ begin
     port map (
         CLK20   => g_clk20,
         
-        LEDS_CLK    => LEDS_CLK,
-        LEDS_DATA   => LEDS_DATA,
+        FLASH_MISO  => FLASH_MISO,
+        FLASH_MOSI  => FLASH_MOSI,
+        FLASH_CS    => FLASH_CS,
+        FLASH_SCK   => FLASH_SCK,
         
         PMOD0   => PMOD0
     );
