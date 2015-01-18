@@ -23,10 +23,10 @@ entity PANDA_LIGHT is
         G_CLK_MULT          : positive range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
         G_CLK_DIV           : positive range 1 to 256 := 2;
         G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
-        FCTRL_CLK_MULT      : positive := 2; -- Flash clock: 20 MHz
-        FCTRL_CLK_DIV       : positive := 5;
-        HOR_LED_COUNT       : positive :=  13;
-        VER_LED_COUNT       : positive :=   7;
+        FCTRL_CLK_MULT      : positive :=  2; -- Flash clock: 20 MHz
+        FCTRL_CLK_DIV       : positive :=  5;
+        HOR_LED_COUNT       : positive := 13;
+        VER_LED_COUNT       : positive :=  7;
         START_LED_NUM       : natural :=  10;
         FRAME_DELAY         : natural := 120;
         SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"060000"
@@ -153,7 +153,7 @@ begin
     
     pmod0_DEBOUNCE_gen : for i in 0 to 3 generate
         
-        pmod00_DEBOUNCE_inst : entity work.DEBOUNCE
+        pmod0_DEBOUNCE_inst : entity work.DEBOUNCE
             generic map (
                 CYCLE_COUNT => 100
             )
