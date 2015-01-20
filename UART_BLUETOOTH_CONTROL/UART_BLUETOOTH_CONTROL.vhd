@@ -15,12 +15,18 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 use work.help_funcs.all;
+use work.txt_util.all;
 
 entity UART_BLUETOOTH_CONTROL is
     generic (
         CLK_IN_PERIOD   : real;
         BAUD_RATE       : positive := 115_200;
-        BUFFER_SIZE     : positive := 512
+        BUFFER_SIZE     : positive := 128;
+        UUID            : string(1 to 32) := "56F46190A07D11E4BCD80800200C9A66";
+        COD             : string(1 to 6) := "040400";
+        DEVICE_NAME     : string := "pandaLight";
+        SERVICE_NAME    : string := "Serial port";
+        SERVICE_CHANNEL : positive range 1 to 30 := 1
     );
     port (
         CLK : in std_ulogic;
@@ -33,33 +39,63 @@ entity UART_BLUETOOTH_CONTROL is
         BT_WAKE : out std_ulogic := '0';
         BT_RSTN : out std_ulogic := '0';
         
+        ERROR   : out std_ulogic := '0';
         BUSY    : out std_ulogic := '0'
     );
 end UART_BLUETOOTH_CONTROL;
 
 architecture rtl of UART_BLUETOOTH_CONTROL is
     
-    constant SET_SECURITY_CMD   : string := "AT+JSEC=4,1,04,0000,0,1"; -- "just works" security
+    constant CRLF                   : string := CR & LF;
+    constant RESET_CMD              : string := "AT+RES" & CRLF;
+    constant SECURITY_CMD           : string := "AT+JSEC=4,1,04,0000,0,1" & CRLF; -- "just works" security, output device
+    constant DEVICE_NAME_CMD        : string := "AT+JSLN=" & pad_left(DEVICE_NAME'length, 2, '0') & "," & DEVICE_NAME & CRLF;
+    constant REGISTER_SERVICE_CMD   : string := "AT+JRLS=32," & pad_left(SERVICE_NAME'length, 2, '0') & "," & UUID &
+                                                "," & SERVICE_NAME & "," & pad_left(SERVICE_CHANNEL, 2, '0') & "," & COD & CRLF;
+    constant ENABLE_SCAN_CMD        : string := "AT+JDIS=3" & CRLF;
+    constant AUTO_ACCEPT_CMD        : string := "AT+JAAC=1" & CRLF;
     
     type state_type is (
-        SETTING_SECURITY,
-        WAITING_FOR_SECURITY_ACK
+        HARD_RESETTING,
+        WAITING_FOR_BOOT,
+        SENDING_SECURITY_CMD,
+        WAITING_FOR_SECURITY_ACK,
+        SENDING_DEVICE_NAME_CMD,
+        WAITING_FOR_DEVICE_NAME_ACK,
+        SENDING_REGISTER_SERVICE_CMD,
+        WAITING_FOR_REGISTER_SERVICE_ACK,
+        SENDING_ENABLE_SCAN_CMD,
+        WAITING_FOR_ENABLE_SCAN_ACK,
+        SENDING_AUTO_ACCEPT_CMD,
+        WAITING_FOR_AUTO_ACCEPT_ACK,
+        WAITING_FOR_CONNECTION,
+        EVALUATING_ERROR
     );
     
     type reg_type is record
         state       : state_type;
-        char_index  : unsigned(4 downto 0);
+        bt_rstn     : std_ulogic;
+        bt_wake     : std_ulogic;
+        bt_rts      : std_ulogic;
+        retry_count : unsigned(2 downto 0);
+        rst_count   : unsigned(4 downto 0);
+        char_index  : unsigned(6 downto 0);
         tx_din      : std_ulogic_vector(7 downto 0);
         tx_wr_en    : std_ulogic;
-        rx_rd_en    : std_ulogic;
+        error       : std_ulogic;
     end record;
     
     constant reg_type_def   : reg_type := (
-        state       => SETTING_SECURITY,
-        char_index  => "11111",
+        state       => HARD_RESETTING,
+        bt_rstn     => '0',
+        bt_wake     => '1',
+        bt_rts      => '0',
+        retry_count => "011",
+        rst_count   => "01111",
+        char_index  => uns(1, 7),
         tx_din      => x"00",
         tx_wr_en    => '0',
-        rx_rd_en    => '0'
+        error       => '0'
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -67,13 +103,17 @@ architecture rtl of UART_BLUETOOTH_CONTROL is
     signal tx_full  : std_ulogic := '0';
     signal tx_busy  : std_ulogic := '0';
     
-    signal rx_dout  : std_ulogic_vector(7 downto 0) := x"00";
-    signal rx_valid : std_ulogic := '0';
-    signal rx_full  : std_ulogic := '0';
+    signal rx_ok    : std_ulogic := '0';
     signal rx_error : std_ulogic := '0';
     signal rx_busy  : std_ulogic := '0';
     
 begin
+    
+    BT_RTS  <= cur_reg.bt_rts;
+    BT_RSTN <= cur_reg.bt_rstn;
+    BT_WAKE <= cur_reg.bt_wake;
+    
+    ERROR   <= cur_reg.error;
     
     UART_SENDER_inst : entity work.UART_SENDER
         generic map (
@@ -97,50 +137,138 @@ begin
             BUSY    => tx_busy
         );
     
-    UART_RECEIVER_inst : entity work.UART_RECEIVER
+    UART_BLUETOOTH_INPUT_PARSER_inst : entity work.UART_BLUETOOTH_INPUT_PARSER
         generic map (
             CLK_IN_PERIOD   => CLK_IN_PERIOD,
             BAUD_RATE       => BAUD_RATE,
-            DATA_BITS       => 8,
-            PARITY_BIT_TYPE => 0,
             BUFFER_SIZE     => BUFFER_SIZE
         )
         port map (
             CLK => CLK,
             RST => RST,
             
-            RXD     => BT_RXD,
-            RD_EN   => cur_reg.rx_rd_en,
+            BT_RXD  => BT_RXD,
             
-            DOUT    => rx_dout,
-            VALID   => rx_valid,
-            FULL    => rx_full,
+            OK      => rx_ok,
             ERROR   => rx_error,
             BUSY    => rx_busy
         );
     
-    stm_proc : process(cur_reg, RST, tx_busy, rx_dout, rx_valid, rx_error, rx_busy)
+    stm_proc : process(cur_reg, RST, tx_busy, rx_ok, rx_error, rx_busy)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
         r           := cr;
+        r.bt_rstn   := '1';
+        r.bt_wake   := '1';
         r.tx_wr_en  := '0';
-        r.rx_rd_en  := '0';
+        r.error     := '0';
         
         case cr.state is
             
-            when SETTING_SECURITY =>
+            when HARD_RESETTING =>
+                r.bt_rstn   := '0';
+                r.rst_count := cr.rst_count-1;
+                if cr.rst_count(cr.rst_count'high)='1' then
+                    r.state := WAITING_FOR_BOOT;
+                end if;
+            
+            when WAITING_FOR_BOOT =>
+                r.rst_count := "01111";
+                if rx_ok='1' then
+                    r.state := SENDING_SECURITY_CMD;
+                end if;
+            
+            when SENDING_SECURITY_CMD =>
                 r.tx_wr_en      := '1';
-                r.tx_din        := stdulv(SET_SECURITY_CMD(nat(cr.char_index)));
-                r.char_index    := cr.char_index-1;
-                if cr.char_index=0 then
+                r.tx_din        := stdulv(SECURITY_CMD(nat(cr.char_index)));
+                r.char_index    := cr.char_index+1;
+                if cr.char_index=SECURITY_CMD'length then
                     r.state := WAITING_FOR_SECURITY_ACK;
                 end if;
             
             when WAITING_FOR_SECURITY_ACK =>
+                r.char_index    := uns(1, 7);
+                if rx_ok='1' then
+                    r.state := SENDING_DEVICE_NAME_CMD;
+                end if;
+            
+            when SENDING_DEVICE_NAME_CMD =>
+                r.tx_wr_en      := '1';
+                r.tx_din        := stdulv(DEVICE_NAME_CMD(nat(cr.char_index)));
+                r.char_index    := cr.char_index+1;
+                if cr.char_index=DEVICE_NAME_CMD'length then
+                    r.state := WAITING_FOR_DEVICE_NAME_ACK;
+                end if;
+            
+            when WAITING_FOR_DEVICE_NAME_ACK =>
+                r.char_index    := uns(1, 7);
+                if rx_ok='1' then
+                    r.state := SENDING_REGISTER_SERVICE_CMD;
+                end if;
+            
+            when SENDING_REGISTER_SERVICE_CMD =>
+                r.tx_wr_en      := '1';
+                r.tx_din        := stdulv(REGISTER_SERVICE_CMD(nat(cr.char_index)));
+                r.char_index    := cr.char_index+1;
+                if cr.char_index=REGISTER_SERVICE_CMD'length then
+                    r.state := WAITING_FOR_REGISTER_SERVICE_ACK;
+                end if;
+            
+            when WAITING_FOR_REGISTER_SERVICE_ACK =>
+                r.char_index    := uns(1, 7);
+                if rx_ok='1' then
+                    r.state := SENDING_ENABLE_SCAN_CMD;
+                end if;
+            
+            when SENDING_ENABLE_SCAN_CMD =>
+                r.tx_wr_en      := '1';
+                r.tx_din        := stdulv(ENABLE_SCAN_CMD(nat(cr.char_index)));
+                r.char_index    := cr.char_index+1;
+                if cr.char_index=ENABLE_SCAN_CMD'length then
+                    r.state := WAITING_FOR_ENABLE_SCAN_ACK;
+                end if;
+            
+            when WAITING_FOR_ENABLE_SCAN_ACK =>
+                r.char_index    := uns(1, 7);
+                if rx_ok='1' then
+                    r.state := SENDING_AUTO_ACCEPT_CMD;
+                end if;
+            
+            when SENDING_AUTO_ACCEPT_CMD =>
+                r.tx_wr_en      := '1';
+                r.tx_din        := stdulv(AUTO_ACCEPT_CMD(nat(cr.char_index)));
+                r.char_index    := cr.char_index+1;
+                if cr.char_index=AUTO_ACCEPT_CMD'length then
+                    r.state := WAITING_FOR_AUTO_ACCEPT_ACK;
+                end if;
+            
+            when WAITING_FOR_AUTO_ACCEPT_ACK =>
+                r.char_index    := uns(1, 7);
+                if rx_ok='1' then
+                    r.state := WAITING_FOR_CONNECTION;
+                end if;
+            
+            when WAITING_FOR_CONNECTION =>
                 null;
             
+            when EVALUATING_ERROR =>
+                r.rst_count     := "01111";
+                r.char_index    := uns(1, 7);
+                if cr.retry_count(cr.retry_count'high)='0' then
+                    -- try again 4 times
+                    r.retry_count   := cr.retry_count-1;
+                    r.state         := HARD_RESETTING;
+                else
+                    -- give up
+                    r.error := '1';
+                end if;
+            
         end case;
+        
+        if rx_error='1' then
+            r.state := EVALUATING_ERROR;
+        end if;
         
         if RST='1' then
             r   := reg_type_def;
