@@ -48,12 +48,13 @@ architecture rtl of PANDA_LIGHT is
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
     
-    signal g_clk_stopped    : std_ulogic := '0';
+    signal g_clk_locked : std_ulogic := '0';
     
     signal pmod0_deb    : std_ulogic_vector(3 downto 0) := x"0";
     signal pmod0_deb_q  : std_ulogic_vector(3 downto 0) := x"0";
     
     signal start_settings_read  : boolean := false;
+    
     
     --------------------
     --- configurator ---
@@ -82,7 +83,11 @@ architecture rtl of PANDA_LIGHT is
     signal conf_cfg_wr_en       : std_ulogic := '0';
     signal conf_cfg_data        : std_ulogic_vector(7 downto 0) := x"00";
     
-    signal conf_idle    : std_ulogic := '0';
+    signal conf_busy    : std_ulogic := '0';
+    
+    attribute keep of conf_settings_addr    : signal is true;
+    attribute keep of conf_settings_wr_en   : signal is true;
+    attribute keep of conf_settings_data    : signal is true;
     
     
     -------------------------
@@ -124,9 +129,9 @@ begin
         port map (
             RST => '0',
             
-            CLK_IN          => CLK20,
-            CLK_OUT         => g_clk,
-            CLK_OUT_STOPPED => g_clk_stopped
+            CLK_IN  => CLK20,
+            CLK_OUT => g_clk,
+            LOCKED  => g_clk_locked
         );
     
     
@@ -134,14 +139,14 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    g_rst   <= g_clk_stopped;
+    g_rst   <= not g_clk_locked;
     
     FLASH_MOSI  <= fctrl_mosi;
     FLASH_CS    <= fctrl_sn;
     FLASH_SCK   <= fctrl_c;
     
     PMOD0(0)    <= 'Z';
-    PMOD0(1)    <= conf_cfg_wr_en or conf_cfg_sel_ledcor or conf_cfg_sel_ledex or conf_idle;
+    PMOD0(1)    <= conf_cfg_wr_en or conf_cfg_sel_ledcor or conf_cfg_sel_ledex or conf_busy;
     PMOD0(2)    <=  conf_cfg_addr(9) or conf_cfg_addr(8) or conf_cfg_addr(7) or conf_cfg_addr(6) or conf_cfg_addr(5) or
                     conf_cfg_addr(4) or conf_cfg_addr(3) or conf_cfg_addr(2) or conf_cfg_addr(1) or conf_cfg_addr(0);
     PMOD0(3)    <=  conf_cfg_data(7) or conf_cfg_data(6) or conf_cfg_data(5) or conf_cfg_data(4) or
@@ -192,7 +197,7 @@ begin
             CFG_WR_EN   => conf_cfg_wr_en,
             CFG_DATA    => conf_cfg_data,
             
-            IDLE    => conf_idle
+            BUSY    => conf_busy
         );
     
     configurator_stim_gen : if true generate
@@ -265,12 +270,12 @@ begin
                         state           <= CONF_LEDCOR_WAITING_FOR_BUSY;
                     
                     when CONF_LEDCOR_WAITING_FOR_BUSY =>
-                        if conf_idle='0' then
+                        if conf_busy='1' then
                             state   <= CONF_LEDCOR_WAITING_FOR_IDLE;
                         end if;
                     
                     when CONF_LEDCOR_WAITING_FOR_IDLE =>
-                        if conf_idle='1' then
+                        if conf_busy='0' then
                             state   <= CONF_LEDCOR_CONFIGURING_LED_CORRECTION;
                         end if;
                     
@@ -279,12 +284,12 @@ begin
                         state                   <= CONF_LEDEX_WAITING_FOR_BUSY;
                     
                     when CONF_LEDEX_WAITING_FOR_BUSY =>
-                        if conf_idle='0' then
+                        if conf_busy='1' then
                             state   <= CONF_LEDEX_WAITING_FOR_IDLE;
                         end if;
                     
                     when CONF_LEDEX_WAITING_FOR_IDLE =>
-                        if conf_idle='1' then
+                        if conf_busy='0' then
                             state   <= CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR;
                         end if;
                     
