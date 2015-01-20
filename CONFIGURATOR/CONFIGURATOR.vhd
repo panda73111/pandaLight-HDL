@@ -66,7 +66,7 @@ entity CONFIGURATOR is
         CFG_WR_EN   : out std_ulogic := '0';
         CFG_DATA    : out std_ulogic_vector(7 downto 0) := x"00";
         
-        IDLE    : out std_ulogic := '0'
+        BUSY    : out std_ulogic := '0'
     );
 end CONFIGURATOR;
 
@@ -160,7 +160,7 @@ begin
     CFG_ADDR        <= cur_reg.cfg_addr;
     CFG_WR_EN       <= cur_reg.cfg_wr_en;
     CFG_DATA        <= cur_reg.cfg_data;
-    IDLE            <= '1' when cur_reg.state=WAITING_FOR_START else '0';
+    BUSY            <= '1' when cur_reg.state/=WAITING_FOR_START else '0';
     
     ITERATIVE_MULTIPLIER_inst : entity work.ITERATIVE_MULTIPLIER
         generic map (
