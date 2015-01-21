@@ -706,9 +706,9 @@ begin
         signal settings_addr    : std_ulogic_vector(9 downto 0) := (others => '0');
     begin
         
-        configurator_stim_proc : process(g_clk, g_rst)
+        configurator_stim_proc : process(conf_rst, g_rst)
         begin
-            if g_rst='1' then
+            if conf_rst='1' then
                 conf_settings_wr_en     <= '0';
                 conf_settings_data      <= x"00";
                 conf_calculate          <= '0';
