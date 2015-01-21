@@ -27,9 +27,14 @@ entity UART_BLUETOOTH_INPUT_PARSER is
         
         BT_RXD  : in std_ulogic;
         
-        OK      : out std_ulogic := '0';
-        ERROR   : out std_ulogic := '0';
-        BUSY    : out std_ulogic := '0'
+        PACKET_VALID    : out std_ulogic := '0';
+        DATA_VALID      : out std_ulogic := '0';
+        DATA            : out std_ulogic_vector(7 downto 0) := x"00";
+        
+        OK          : out std_ulogic := '0';
+        CONNECTED   : out std_ulogic := '0';
+        ERROR       : out std_ulogic := '0';
+        BUSY        : out std_ulogic := '0'
     );
 end UART_BLUETOOTH_INPUT_PARSER;
 
@@ -48,15 +53,23 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
     type reg_type is record
         state       : state_type;
         rx_rst      : std_ulogic;
-        ok          : std_ulogic;
-        error       : std_ulogic;
+        ok              : std_ulogic;
+        connected       : std_ulogic;
+        error           : std_ulogic;
+        data_length     : unsigned(9 downto 0);
+        packet_valid    : 
+        data_valid  : std_ulogic;
+        data        : std_ulogic_vector(7 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
         state       => WAITING_FOR_DATA,
         rx_rst      => '1',
         ok          => '0',
-        error       => '0'
+        connected   => '0',
+        error       => '0',
+        data_length => (others => '0'),
+        data        => x"00"
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -74,9 +87,10 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
     
 begin
     
-    OK      <= cur_reg.ok;
-    ERROR   <= cur_reg.error;
-    BUSY    <= '1' when cur_reg.state/=WAITING_FOR_DATA or rx_busy='1' else '0';
+    OK          <= cur_reg.ok;
+    CONNECTED   <= cur_reg.connected;
+    ERROR       <= cur_reg.error;
+    BUSY        <= '1' when cur_reg.state/=WAITING_FOR_DATA or rx_busy='1' else '0';
     
     rx_dout_char    <= character'val(nat(rx_dout));
     resp_end        <= rx_valid='1' and rx_dout_char_q=CR and rx_dout_char=LF;
@@ -109,29 +123,16 @@ begin
         
         procedure expect_char(
             constant c          : in character;
-            constant next_state : in state_type;
-            constant set_ok     : in boolean
+            constant next_state : in state_type
         ) is
         begin
             if rx_valid='1' then
                 r.state     := next_state;
-                if rx_dout_char=c then
-                    if set_ok then
-                        r.ok    := '1';
-                    end if;
-                else
+                if rx_dout_char/=c then
                     r.error := '1';
                     r.state := WAITING_FOR_RESPONSE_END;
                 end if;
             end if;
-        end procedure;
-        
-        procedure expect_char(
-            constant c          : in character;
-            constant next_state : in state_type
-        ) is
-        begin
-            expect_char(c, next_state, false);
         end procedure;
     begin
         r           := cr;
@@ -164,19 +165,48 @@ begin
                 expect_char('O', EXPECTING_K);
             
             when EXPECTING_ROK_OK__K =>
-                expect_char('K', COMPARING_FIRST_CHAR, true);
+                expect_char('K', SETTING_OK);
+            
+            when SETTING_OK =>
+                r.ok    := '1';
+                r.state := WAITING_FOR_RESPONSE_END;
             
             when EXPECTING_ANY_CMD__R =>
-                expect_char('R', EXPECTING_RCOI_CMD__C);
+                expect_char('R', EXPECTING_RCOI_RDAI_RDII_CMD__C_D);
             
-            when EXPECTING_RCOI_CMD__C =>
+            when EXPECTING_RCOI_RDAI_RDII_CMD__C_D =>
                 expect_char('C', EXPECTING_RCOI_CMD__O);
+                expect_char('D', EXPECTING_RDAI_RDII_CMD__A_I);
             
             when EXPECTING_RCOI_CMD__O =>
                 expect_char('O', EXPECTING_RCOI_CMD__EQUALS);
             
+            when EXPECTING_RDAI_RDII_CMD__A_I =>
+                expect_char('A', EXPECTING_RDAI_CMD__I);
+                expect_char('I', EXPECTING_RDII_CMD__I);
+            
+            when EXPECTING_RDAI_CMD__I =>
+                expect_char('I', EXPECTING_RDAI_CMD__EQUALS);
+            
+            when EXPECTING_RDAI_CMD__EQUALS =>
+                expect_char('=', EVALUATING_RDAI_CMD__DATA_LEN_1);
+            
+            when EVALUATING_RDAI_CMD__DATA_LEN_1 =>
+                
+            
+            when EXPECTING_RDII_CMD__I =>
+                expect_char('I', UNSETTING_CONNECTED);
+            
+            when UNSETTING_CONNECTED =>
+                r.connected := '0';
+                r.state     := WAITING_FOR_RESPONSE_END;
+            
             when EXPECTING_RCOI_CMD__EQUALS =>
-                expect_char('=', );
+                expect_char('=', SETTING_CONNECTED);
+            
+            when SETTING_CONNECTED =>
+                r.connected := '1';
+                r.state     := WAITING_FOR_RESPONSE_END;
             
             when WAITING_FOR_RESPONSE_END =>
                 null;

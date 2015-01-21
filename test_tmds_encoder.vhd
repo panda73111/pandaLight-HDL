@@ -3,14 +3,10 @@
 --
 -- Create Date:   15:04:00 12/27/2014
 -- Module Name:   tmds_test_encoder
--- Description:   
--- 
--- VHDL Test Bench Created by ISE for module: TMDS_DECODER
--- 
--- Revision: 0
--- Revision 0.01 - File Created
+-- Description:
+--  
 -- Additional Comments:
---
+--  
 --------------------------------------------------------------------------------
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
@@ -32,7 +28,7 @@ ENTITY test_tmds_encoder IS
     );
 END test_tmds_encoder;
 
-ARCHITECTURE rtl OF test_tmds_encoder IS 
+ARCHITECTURE behavioral OF test_tmds_encoder IS 
     
     constant VP : video_profile_type := VIDEO_PROFILES(PROFILE);
     
@@ -102,6 +98,51 @@ ARCHITECTURE rtl OF test_tmds_encoder IS
             when others =>  return "1011000011";
         end case;
     end function;
+    
+    function tmds8to10 (din : std_ulogic_vector(7 downto 0))
+        return std_ulogic_vector
+    is
+        variable ones_count : unsigned(2 downto 0);
+        variable dout       : std_ulogic_vector(9 downto 0);
+    begin
+        -- simplified TMDS encoding,
+        -- doesn't take previous data into account
+        -- and just sends more ones than zeros
+        ones_count  := uns(0, 3)+
+            din(0)+din(1)+din(2)+din(3)+
+            din(4)+din(5)+din(6)+din(7);
+        dout(0) := din(0);
+        if ones_count>4 then
+            dout(1) := din(1) xnor din(0);
+            dout(2) := din(2) xnor dout(1);
+            dout(3) := din(3) xnor dout(2);
+            dout(4) := din(4) xnor dout(3);
+            dout(5) := din(5) xnor dout(4);
+            dout(6) := din(6) xnor dout(5);
+            dout(7) := din(7) xnor dout(6);
+            dout(8) := '0';
+        else
+            dout(1) := din(1) xor din(0);
+            dout(2) := din(2) xor dout(1);
+            dout(3) := din(3) xor dout(2);
+            dout(4) := din(4) xor dout(3);
+            dout(5) := din(5) xor dout(4);
+            dout(6) := din(6) xor dout(5);
+            dout(7) := din(7) xor dout(6);
+            dout(8) := '1';
+        end if;
+        ones_count  := uns(0, 3)+
+            dout(0)+dout(1)+dout(2)+dout(3)+
+            dout(4)+dout(5)+dout(6)+dout(7)+
+            dout(8);
+        if ones_count>4 then
+            dout(9) := '0';
+        else
+            dout(9) := '1';
+            dout(7 downto 0)    := not dout(7 downto 0);
+        end if;
+        return dout;
+    end function;
 
 BEGIN
     
@@ -153,6 +194,7 @@ BEGIN
         end procedure;
         
         variable packet : decoder_enc_data_type;
+        variable r, g, b    : std_ulogic_vector(7 downto 0);
         
     begin
         assert not VP.interlaced
@@ -193,16 +235,12 @@ BEGIN
                     packet  := video_data_gb;
                     shift_out(packet, 2);
                     
-                    -- TMDS encoded black pixels
-                    for i in 1 to VP.width/5 loop
-                        shift_out("1111111111", "1111111111", "1111111111");
-                        shift_out("0100000000", "0100000000", "0100000000");
-                        shift_out("1111111111", "1111111111", "1111111111");
-                        shift_out("0100000000", "0100000000", "0100000000");
-                        shift_out("0100000000", "0100000000", "0100000000");
-                    end loop;
-                    for i in 1 to VP.width mod 5 loop
-                        shift_out("1111111111", "1111111111", "1111111111");
+                    for x in 1 to VP.width loop
+                        r   := stdulv(x mod 256, 8);
+                        g   := stdulv(y mod 256, 8);
+                        b   := stdulv((x mod 128) + (y mod 128), 8);
+                        -- apply simplified TMDS encoding
+                        shift_out(tmds8to10(r), tmds8to10(g), tmds8to10(b));
                     end loop;
                     
                 else
