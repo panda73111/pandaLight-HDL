@@ -270,7 +270,7 @@ begin
                     else
                         if total_disp(total_disp'high) = rgb_enc_disp(rgb_enc_disp'high) then
                             -- either positive or negative disparity in both
-                            -- the previoud transm. and the current data,
+                            -- the previous transm. and the current data,
                             -- correction needed
                             data_out    := "1" & rgb_enc(8) & rgb_enc_inv(7 downto 0);
                             disp_out    :=  total_disp +
