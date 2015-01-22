@@ -103,9 +103,14 @@ architecture rtl of UART_BLUETOOTH_CONTROL is
     signal tx_full  : std_ulogic := '0';
     signal tx_busy  : std_ulogic := '0';
     
-    signal rx_ok    : std_ulogic := '0';
-    signal rx_error : std_ulogic := '0';
-    signal rx_busy  : std_ulogic := '0';
+    signal rx_packet_valid  : std_ulogic := '0';
+    signal rx_data_valid    : std_ulogic := '0';
+    signal rx_data          : std_ulogic_vector(7 downto 0) := x"00";
+    
+    signal rx_ok        : std_ulogic := '0';
+    signal rx_connected : std_ulogic := '0';
+    signal rx_error     : std_ulogic := '0';
+    signal rx_busy      : std_ulogic := '0';
     
 begin
     
@@ -149,9 +154,14 @@ begin
             
             BT_RXD  => BT_RXD,
             
-            OK      => rx_ok,
-            ERROR   => rx_error,
-            BUSY    => rx_busy
+            PACKET_VALID    => rx_packet_valid,
+            DATA_VALID      => rx_data_valid,
+            DATA            => rx_data,
+            
+            OK          => rx_ok,
+            CONNECTED   => rx_connected,
+            ERROR       => rx_error,
+            BUSY        => rx_busy
         );
     
     stm_proc : process(cur_reg, RST, tx_busy, rx_ok, rx_error, rx_busy)
@@ -161,6 +171,7 @@ begin
         r           := cr;
         r.bt_rstn   := '1';
         r.bt_wake   := '1';
+        r.bt_rts    := '1';
         r.tx_wr_en  := '0';
         r.error     := '0';
         
@@ -181,7 +192,7 @@ begin
             
             when SENDING_SECURITY_CMD =>
                 r.tx_wr_en      := '1';
-                r.tx_din        := stdulv(SECURITY_CMD(nat(cr.char_index)));
+                r.tx_din        := stdulv(SECURITY_CMD(int(cr.char_index)));
                 r.char_index    := cr.char_index+1;
                 if cr.char_index=SECURITY_CMD'length then
                     r.state := WAITING_FOR_SECURITY_ACK;
@@ -195,7 +206,7 @@ begin
             
             when SENDING_DEVICE_NAME_CMD =>
                 r.tx_wr_en      := '1';
-                r.tx_din        := stdulv(DEVICE_NAME_CMD(nat(cr.char_index)));
+                r.tx_din        := stdulv(DEVICE_NAME_CMD(int(cr.char_index)));
                 r.char_index    := cr.char_index+1;
                 if cr.char_index=DEVICE_NAME_CMD'length then
                     r.state := WAITING_FOR_DEVICE_NAME_ACK;
@@ -209,7 +220,7 @@ begin
             
             when SENDING_REGISTER_SERVICE_CMD =>
                 r.tx_wr_en      := '1';
-                r.tx_din        := stdulv(REGISTER_SERVICE_CMD(nat(cr.char_index)));
+                r.tx_din        := stdulv(REGISTER_SERVICE_CMD(int(cr.char_index)));
                 r.char_index    := cr.char_index+1;
                 if cr.char_index=REGISTER_SERVICE_CMD'length then
                     r.state := WAITING_FOR_REGISTER_SERVICE_ACK;
@@ -223,7 +234,7 @@ begin
             
             when SENDING_ENABLE_SCAN_CMD =>
                 r.tx_wr_en      := '1';
-                r.tx_din        := stdulv(ENABLE_SCAN_CMD(nat(cr.char_index)));
+                r.tx_din        := stdulv(ENABLE_SCAN_CMD(int(cr.char_index)));
                 r.char_index    := cr.char_index+1;
                 if cr.char_index=ENABLE_SCAN_CMD'length then
                     r.state := WAITING_FOR_ENABLE_SCAN_ACK;
@@ -237,7 +248,7 @@ begin
             
             when SENDING_AUTO_ACCEPT_CMD =>
                 r.tx_wr_en      := '1';
-                r.tx_din        := stdulv(AUTO_ACCEPT_CMD(nat(cr.char_index)));
+                r.tx_din        := stdulv(AUTO_ACCEPT_CMD(int(cr.char_index)));
                 r.char_index    := cr.char_index+1;
                 if cr.char_index=AUTO_ACCEPT_CMD'length then
                     r.state := WAITING_FOR_AUTO_ACCEPT_ACK;
