@@ -43,25 +43,51 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
     type state_type is (
         RESETTING_RX,
         COMPARING_FIRST_CHAR,
+        -- ROK / OK
         EXPECTING_ROK_O,
         EXPECTING_ROK_OK_K,
         SETTING_OK,
-        EXPECTING_ANY_CMD_R,
-        EXPECTING_RCOI_RDAI_RDII_CMD_C_D,
-        EXPECTING_RCOI_CMD_O,
-        EXPECTING_RCOI_CMD_I,
-        EXPECTING_RDAI_RDII_CMD_A_I,
-        EXPECTING_RDAI_CMD_I,
-        EXPECTING_RDAI_CMD_EQUALS,
-        EVALUATING_RDAI_CMD_DATA_LEN_1,
-        EVALUATING_RDAI_CMD_DATA_LEN_2,
-        EVALUATING_RDAI_CMD_DATA_LEN_3,
-        EXPECTING_RDAI_CMD_COMMA,
-        RECEIVE_DATA_BYTE,
-        EXPECTING_RDII_CMD_I,
-        UNSETTING_CONNECTED,
-        EXPECTING_RCOI_CMD_EQUALS,
+        -- any response
+        EXPECTING_ANY_RESP_R,
+        -- RCOI / RDAI / RDII / RSLE / RCCRCNF response
+        EXPECTING_RCOI_RDAI_RDII_RSLE_RCCRCNF_RESP_C_D_S,
+        -- RCOI / RCCRCNF response
+        EXPECTING_RCOI_RCCRCNF_RESP_O_C,
+        -- RCOI response
+        EXPECTING_RCOI_RESP_I,
+        EXPECTING_RCOI_RESP_EQUALS,
         SETTING_CONNECTED,
+        -- RCCRCNF response
+        EXPECTING_RCCRCNF_RESP_C2,
+        EXPECTING_RCCRCNF_RESP_R,
+        EXPECTING_RCCRCNF_RESP_C3,
+        EXPECTING_RCCRCNF_RESP_N,
+        EXPECTING_RCCRCNF_RESP_F,
+        EXPECTING_RCCRCNF_RESP_EQUALS,
+        EVALUATING_RCCRCNF_RESP_MTU1,
+        EVALUATING_RCCRCNF_RESP_MTU2,
+        EVALUATING_RCCRCNF_RESP_MTU3,
+        EXPECTING_RCCRCNF_RESP_COMMA1,
+        IGNORING_RCCRCNF_RESP_SERVICE,
+        EXPECTING_RCCRCNF_RESP_COMMA2,
+        EVALUATING_RCCRCNF_RESP_CON_STATE,
+        SETTING_CON_CONFIRMED,
+        UNSETTING_CON_CONFIRMED,
+        -- RDAI response
+        EXPECTING_RDAI_RDII_RESP_A_I,
+        EXPECTING_RDAI_RESP_I,
+        EXPECTING_RDAI_RESP_EQUALS,
+        EVALUATING_RDAI_RESP_DATA_LEN1,
+        EVALUATING_RDAI_RESP_DATA_LEN2,
+        EVALUATING_RDAI_RESP_DATA_LEN3,
+        EXPECTING_RDAI_RESP_COMMA,
+        RECEIVE_DATA_BYTE,
+        EXPECTING_RSLE_RESP_L,
+        EXPECTING_RSLE_RESP_E,
+        -- RDII response
+        EXPECTING_RDII_RESP_I2,
+        UNSETTING_CONNECTED,
+        -- response end
         WAITING_FOR_RESPONSE_END
     );
     
@@ -70,11 +96,13 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
         rx_rst          : std_ulogic;
         ok              : std_ulogic;
         connected       : std_ulogic;
+        con_confirmed   : std_ulogic;
         error           : std_ulogic;
         data_length     : unsigned(9 downto 0);
         byte_counter    : unsigned(10 downto 0);
         packet_valid    : std_ulogic;
         data            : std_ulogic_vector(7 downto 0);
+        mtu_size        : unsigned(9 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -82,11 +110,13 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
         rx_rst          => '1',
         ok              => '0',
         connected       => '0',
+        con_confirmed   => '0',
         error           => '0',
         data_length     => (others => '0'),
         byte_counter    => (others => '0'),
         packet_valid    => '0',
-        data            => x"00"
+        data            => x"00",
+        mtu_size        => (others => '0')
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -96,7 +126,6 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
     signal rx_dout_char_q   : character := NUL;
     
     signal rx_valid : std_ulogic := '0';
-    signal rx_empty : std_ulogic := '0';
     signal rx_error : std_ulogic := '0';
     signal rx_busy  : std_ulogic := '0';
     
@@ -104,11 +133,12 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
     
 begin
     
-    DATA_VALID  <= rx_valid and cur_reg.packet_valid;
-    DATA        <= rx_dout;
+    PACKET_VALID    <= cur_reg.packet_valid;
+    DATA_VALID      <= rx_valid and cur_reg.packet_valid;
+    DATA            <= rx_dout;
     
     OK          <= cur_reg.ok;
-    CONNECTED   <= cur_reg.connected;
+    CONNECTED   <= cur_reg.connected and cur_reg.con_confirmed;
     ERROR       <= cur_reg.error;
     BUSY        <= '1' when cur_reg.state/=COMPARING_FIRST_CHAR or rx_busy='1' else '0';
     
@@ -117,7 +147,11 @@ begin
     process(rx_dout)
     begin
         -- in a process because of attribute evaluation bugs
-        rx_dout_char    <= character'val(int(rx_dout));
+        if rx_dout(rx_dout'high)='0' then
+            rx_dout_char    <= character'val(int(rx_dout));
+        else
+            rx_dout_char    <= NUL;
+        end if;
     end process;
     
     UART_RECEIVER_inst : entity work.UART_RECEIVER
@@ -133,16 +167,14 @@ begin
             RST => cur_reg.rx_rst,
             
             RXD     => BT_RXD,
-            RD_EN   => '1',
             
             DOUT    => rx_dout,
             VALID   => rx_valid,
-            EMPTY   => rx_empty,
             ERROR   => rx_error,
             BUSY    => rx_busy
         );
     
-    stm_proc : process(cur_reg, RST, rx_dout, rx_valid, rx_empty, rx_error, rx_dout_char, resp_end)
+    stm_proc : process(cur_reg, RST, rx_dout, rx_valid, rx_error, rx_dout_char, resp_end)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
         
@@ -171,6 +203,30 @@ begin
         begin
             expect_char(c, next_state, false);
         end procedure;
+        
+        procedure eval_dec_char(
+            variable val        : inout unsigned;
+            constant factor     : in positive;
+            constant next_state : in state_type
+        ) is
+        begin
+            if rx_valid='1' then
+                r.state := next_state;
+                case rx_dout_char is
+                    when '1'    => val  := val+(1*factor);
+                    when '2'    => val  := val+(2*factor);
+                    when '3'    => val  := val+(3*factor);
+                    when '4'    => val  := val+(4*factor);
+                    when '5'    => val  := val+(5*factor);
+                    when '6'    => val  := val+(6*factor);
+                    when '7'    => val  := val+(7*factor);
+                    when '8'    => val  := val+(8*factor);
+                    when '9'    => val  := val+(9*factor);
+                    when '0'    => null;
+                    when others => r.error  := '1'; r.state := WAITING_FOR_RESPONSE_END;
+                end case;
+            end if;
+        end procedure;
     begin
         r           := cr;
         r.ok        := '0';
@@ -191,12 +247,14 @@ begin
                         when 'O' =>
                             r.state := EXPECTING_ROK_OK_K;
                         when '+' =>
-                            r.state := EXPECTING_ANY_CMD_R;
+                            r.state := EXPECTING_ANY_RESP_R;
                         when others =>
                             r.error := '1';
                             r.state := WAITING_FOR_RESPONSE_END;
                     end case;
                 end if;
+            
+            -- ROK / OK
             
             when EXPECTING_ROK_O =>
                 expect_char('O', EXPECTING_ROK_OK_K, true);
@@ -209,85 +267,117 @@ begin
                     r.ok    := '1';
                 end if;
             
-            when EXPECTING_ANY_CMD_R =>
-                expect_char('R', EXPECTING_RCOI_RDAI_RDII_CMD_C_D, true);
+            -- any response
             
-            when EXPECTING_RCOI_RDAI_RDII_CMD_C_D =>
-                expect_char('C', EXPECTING_RCOI_CMD_O, true);
-                expect_char('D', EXPECTING_RDAI_RDII_CMD_A_I);
+            when EXPECTING_ANY_RESP_R =>
+                expect_char('R', EXPECTING_RCOI_RDAI_RDII_RSLE_RCCRCNF_RESP_C_D_S, true);
             
-            when EXPECTING_RCOI_CMD_O =>
-                expect_char('O', EXPECTING_RCOI_CMD_I, true);
+            -- RCOI / RDAI / RDII / RSLE / RCCRCNF response
             
-            when EXPECTING_RCOI_CMD_I =>
-                expect_char('I', EXPECTING_RCOI_CMD_EQUALS, true);
+            when EXPECTING_RCOI_RDAI_RDII_RSLE_RCCRCNF_RESP_C_D_S =>
+                expect_char('C', EXPECTING_RCOI_RCCRCNF_RESP_O_C, true);
+                expect_char('D', EXPECTING_RDAI_RDII_RESP_A_I);
+                expect_char('S', EXPECTING_RSLE_RESP_L);
             
-            when EXPECTING_RDAI_RDII_CMD_A_I =>
-                expect_char('A', EXPECTING_RDAI_CMD_I, true);
-                expect_char('I', EXPECTING_RDII_CMD_I);
+            -- RCOI / RCCRCNF response
             
-            when EXPECTING_RDAI_CMD_I =>
-                expect_char('I', EXPECTING_RDAI_CMD_EQUALS, true);
+            when EXPECTING_RCOI_RCCRCNF_RESP_O_C =>
+                expect_char('O', EXPECTING_RCOI_RESP_I, true);
+                expect_char('C', EXPECTING_RCCRCNF_RESP_C2);
             
-            when EXPECTING_RDAI_CMD_EQUALS =>
-                expect_char('=', EVALUATING_RDAI_CMD_DATA_LEN_1, true);
+            -- RCOI response
             
-            when EVALUATING_RDAI_CMD_DATA_LEN_1 =>
+            when EXPECTING_RCOI_RESP_I =>
+                expect_char('I', EXPECTING_RCOI_RESP_EQUALS, true);
+            
+            when EXPECTING_RCOI_RESP_EQUALS =>
+                expect_char('=', SETTING_CONNECTED, true);
+            
+            when SETTING_CONNECTED =>
+                r.connected := '1';
+                r.state     := WAITING_FOR_RESPONSE_END;
+            
+            -- RCCRCNF response
+            
+            when EXPECTING_RCCRCNF_RESP_C2 =>
+                expect_char('C', EXPECTING_RCCRCNF_RESP_R, true);
+            
+            when EXPECTING_RCCRCNF_RESP_R =>
+                expect_char('R', EXPECTING_RCCRCNF_RESP_C3, true);
+            
+            when EXPECTING_RCCRCNF_RESP_C3 =>
+                expect_char('C', EXPECTING_RCCRCNF_RESP_N, true);
+            
+            when EXPECTING_RCCRCNF_RESP_N =>
+                expect_char('N', EXPECTING_RCCRCNF_RESP_F, true);
+            
+            when EXPECTING_RCCRCNF_RESP_F =>
+                expect_char('F', EXPECTING_RCCRCNF_RESP_EQUALS, true);
+            
+            when EXPECTING_RCCRCNF_RESP_EQUALS =>
+                expect_char('=', EVALUATING_RCCRCNF_RESP_MTU1, true);
+            
+            when EVALUATING_RCCRCNF_RESP_MTU1 =>
+                r.mtu_size  := uns(0, 10);
+                eval_dec_char(r.mtu_size, 100, EVALUATING_RCCRCNF_RESP_MTU2);
+            
+            when EVALUATING_RCCRCNF_RESP_MTU2 =>
+                eval_dec_char(r.mtu_size, 10, EVALUATING_RCCRCNF_RESP_MTU3);
+            
+            when EVALUATING_RCCRCNF_RESP_MTU3 =>
+                eval_dec_char(r.mtu_size, 1, EXPECTING_RCCRCNF_RESP_COMMA1);
+            
+            when EXPECTING_RCCRCNF_RESP_COMMA1 =>
+                r.byte_counter  := uns(31, 11);
+                expect_char(',', IGNORING_RCCRCNF_RESP_SERVICE, true);
+            
+            when IGNORING_RCCRCNF_RESP_SERVICE =>
                 if rx_valid='1' then
-                    r.state := EVALUATING_RDAI_CMD_DATA_LEN_2;
-                    case rx_dout_char is
-                        when '1'    => r.data_length    := uns(100, 10);
-                        when '2'    => r.data_length    := uns(200, 10);
-                        when '3'    => r.data_length    := uns(300, 10);
-                        when '4'    => r.data_length    := uns(400, 10);
-                        when '5'    => r.data_length    := uns(500, 10);
-                        when '6'    => r.data_length    := uns(600, 10);
-                        when '7'    => r.data_length    := uns(700, 10);
-                        when '8'    => r.data_length    := uns(800, 10);
-                        when '9'    => r.data_length    := uns(900, 10);
-                        when '0'    => r.data_length    := uns(0, 10);
-                        when others => r.error  := '1'; r.state := WAITING_FOR_RESPONSE_END;
-                    end case;
+                    r.byte_counter  := cr.byte_counter-1;
+                end if;
+                if cr.byte_counter(cr.byte_counter'high)='1' then
+                    r.state := EXPECTING_RCCRCNF_RESP_COMMA2;
                 end if;
             
-            when EVALUATING_RDAI_CMD_DATA_LEN_2 =>
-                if rx_valid='1' then
-                    r.state := EVALUATING_RDAI_CMD_DATA_LEN_3;
-                    case rx_dout_char is
-                        when '1'    => r.data_length    := cr.data_length+10;
-                        when '2'    => r.data_length    := cr.data_length+20;
-                        when '3'    => r.data_length    := cr.data_length+30;
-                        when '4'    => r.data_length    := cr.data_length+40;
-                        when '5'    => r.data_length    := cr.data_length+50;
-                        when '6'    => r.data_length    := cr.data_length+60;
-                        when '7'    => r.data_length    := cr.data_length+70;
-                        when '8'    => r.data_length    := cr.data_length+80;
-                        when '9'    => r.data_length    := cr.data_length+90;
-                        when '0'    => null;
-                        when others => r.error  := '1'; r.state := WAITING_FOR_RESPONSE_END;
-                    end case;
-                end if;
+            when EXPECTING_RCCRCNF_RESP_COMMA2 =>
+                expect_char(',', EVALUATING_RCCRCNF_RESP_CON_STATE, true);
             
-            when EVALUATING_RDAI_CMD_DATA_LEN_3 =>
-                if rx_valid='1' then
-                    r.state := EXPECTING_RDAI_CMD_COMMA;
-                    case rx_dout_char is
-                        when '1'    => r.data_length    := cr.data_length+1;
-                        when '2'    => r.data_length    := cr.data_length+2;
-                        when '3'    => r.data_length    := cr.data_length+3;
-                        when '4'    => r.data_length    := cr.data_length+4;
-                        when '5'    => r.data_length    := cr.data_length+5;
-                        when '6'    => r.data_length    := cr.data_length+6;
-                        when '7'    => r.data_length    := cr.data_length+7;
-                        when '8'    => r.data_length    := cr.data_length+8;
-                        when '9'    => r.data_length    := cr.data_length+9;
-                        when '0'    => null;
-                        when others => r.error  := '1'; r.state := WAITING_FOR_RESPONSE_END;
-                    end case;
-                end if;
+            when EVALUATING_RCCRCNF_RESP_CON_STATE =>
+                expect_char('0', SETTING_CON_CONFIRMED, true);
+                expect_char('1', UNSETTING_CON_CONFIRMED);
             
-            when EXPECTING_RDAI_CMD_COMMA =>
-                r.byte_counter  := resize(cr.data_length, 11)-2;
+            when SETTING_CON_CONFIRMED =>
+                r.con_confirmed := '1';
+                r.state         := WAITING_FOR_RESPONSE_END;
+            
+            when UNSETTING_CON_CONFIRMED =>
+                r.con_confirmed := '0';
+                r.state         := WAITING_FOR_RESPONSE_END;
+            
+            -- RDAI response
+            
+            when EXPECTING_RDAI_RDII_RESP_A_I =>
+                expect_char('A', EXPECTING_RDAI_RESP_I, true);
+                expect_char('I', EXPECTING_RDII_RESP_I2);
+            
+            when EXPECTING_RDAI_RESP_I =>
+                expect_char('I', EXPECTING_RDAI_RESP_EQUALS, true);
+            
+            when EXPECTING_RDAI_RESP_EQUALS =>
+                expect_char('=', EVALUATING_RDAI_RESP_DATA_LEN1, true);
+            
+            when EVALUATING_RDAI_RESP_DATA_LEN1 =>
+                r.data_length   := uns(0, 10);
+                eval_dec_char(r.data_length, 100, EVALUATING_RDAI_RESP_DATA_LEN2);
+            
+            when EVALUATING_RDAI_RESP_DATA_LEN2 =>
+                eval_dec_char(r.data_length, 10, EVALUATING_RDAI_RESP_DATA_LEN3);
+            
+            when EVALUATING_RDAI_RESP_DATA_LEN3 =>
+                eval_dec_char(r.data_length, 1, EXPECTING_RDAI_RESP_COMMA);
+            
+            when EXPECTING_RDAI_RESP_COMMA =>
+                r.byte_counter  := resize(cr.data_length, 11)-1;
                 expect_char(',', RECEIVE_DATA_BYTE, true);
             
             when RECEIVE_DATA_BYTE =>
@@ -299,22 +389,27 @@ begin
                     r.state := WAITING_FOR_RESPONSE_END;
                 end if;
             
-            when EXPECTING_RDII_CMD_I =>
+            when EXPECTING_RSLE_RESP_L =>
+                expect_char('L', EXPECTING_RSLE_RESP_E, true);
+            
+            when EXPECTING_RSLE_RESP_E =>
+                -- ignore the 'Secure Link Established' info for now
+                expect_char('E', WAITING_FOR_RESPONSE_END, true);
+            
+            -- RDII response
+            
+            when EXPECTING_RDII_RESP_I2 =>
                 expect_char('I', UNSETTING_CONNECTED, true);
             
             when UNSETTING_CONNECTED =>
-                r.connected := '0';
-                r.state     := WAITING_FOR_RESPONSE_END;
+                r.connected     := '0';
+                r.con_confirmed := '0';
+                r.state         := WAITING_FOR_RESPONSE_END;
             
-            when EXPECTING_RCOI_CMD_EQUALS =>
-                expect_char('=', SETTING_CONNECTED, true);
-            
-            when SETTING_CONNECTED =>
-                r.connected := '1';
-                r.state     := WAITING_FOR_RESPONSE_END;
+            -- response end
             
             when WAITING_FOR_RESPONSE_END =>
-                null;
+                r.packet_valid  := '0';
             
         end case;
         

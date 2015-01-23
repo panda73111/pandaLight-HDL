@@ -14,6 +14,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 use work.help_funcs.all;
+use work.txt_util.all;
 
 entity UART_BLUETOOTH_CONTROL_tb is
 end UART_BLUETOOTH_CONTROL_tb;
@@ -27,11 +28,18 @@ architecture behaviour of UART_BLUETOOTH_CONTROL_tb is
     signal BT_CTS   : std_ulogic := '0';
     signal BT_RXD   : std_ulogic := '0';
     
+    signal DIN          : std_ulogic_vector(7 downto 0) := x"00";
+    signal DIN_WR_EN    : std_ulogic := '0';
+    signal SEND_PACKET  : std_ulogic := '0';
+    
     -- outputs
     signal BT_RTS   : std_ulogic;
     signal BT_TXD   : std_ulogic;
     signal BT_WAKE  : std_ulogic;
     signal BT_RSTN  : std_ulogic;
+    
+    signal DOUT         : std_ulogic_vector(7 downto 0);
+    signal DOUT_VALID   : std_ulogic;
     
     signal BUSY     : std_ulogic;
     
@@ -71,6 +79,13 @@ begin
             BT_RXD  => BT_RXD,
             BT_WAKE => BT_WAKE,
             BT_RSTN => BT_RSTN,
+            
+            DIN         => DIN,
+            DIN_WR_EN   => DIN_WR_EN,
+            SEND_PACKET => SEND_PACKET,
+            
+            DOUT        => DOUT,
+            DOUT_VALID  => DOUT_VALID,
             
             BUSY    => BUSY
         );
@@ -116,17 +131,38 @@ begin
     
     stim_proc : process
         constant BT_ADDR    : string := "05A691C102E8"; -- (random)
+        constant TEST_DATA  : std_ulogic_vector(128*8-1 downto 0) :=
+            x"7E_9F_76_36_BB_67_9A_51_35_34_00_E3_7B_7C_41_D2" &
+            x"4A_1D_C1_E1_1F_FE_46_29_58_04_B0_3D_D7_F4_97_E3" &
+            x"35_C8_5F_23_78_C6_3C_FA_63_15_F4_3F_9B_AC_32_9E" &
+            x"D7_87_38_AC_C4_FF_37_A5_78_F3_95_AF_B0_C9_4E_33" &
+            x"D9_C4_B2_7B_D3_35_0D_D3_D5_73_72_00_C2_B9_71_F3" &
+            x"54_94_21_7E_16_28_70_BF_86_95_E5_67_EE_AD_6F_61" &
+            x"C7_B6_32_80_A3_73_A3_53_36_2D_72_97_F7_DC_FF_B1" &
+            x"69_28_EF_A0_3A_6E_A8_2C_A1_61_D8_20_45_32_65_4D"; -- (also random)
         constant CRLF       : string := CR & LF;
         variable cmd_buf    : string(1 to 128);
         variable cmd_len    : natural;
         
-        procedure send_char(c : in character) is
+        procedure send_byte(v : std_ulogic_vector(7 downto 0)) is
         begin
-            tx_data     <= stdulv(c);
+            tx_data     <= v;
             tx_wr_en    <= '1';
             wait for UART_CLK_PERIOD;
             tx_wr_en    <= '0';
             wait until tx_wr_ack='1';
+        end procedure;
+        
+        procedure send_bytes(v : std_ulogic_vector) is
+        begin
+            for i in v'length/8 downto 1 loop
+                send_byte(v(i*8-1 downto i*8-8));
+            end loop;
+        end procedure;
+        
+        procedure send_char(c : in character) is
+        begin
+            send_byte(stdulv(c));
         end procedure;
         
         procedure send_string(s : in string) is
@@ -170,9 +206,30 @@ begin
                 when "AT+JRLS"  => send_string("OK" & CRLF);
                 when "AT+JDIS"  => send_string("OK" & CRLF);
                 when "AT+JAAC"  => send_string("OK" & CRLF);
-                    -- test a connection
-                    wait for 1 ms;
+                    -- connect
+                    wait for 10 ms;
+                    report "Connecting";
                     send_string("+RCOI=" & BT_ADDR & CRLF);
+                    wait for 10 ms;
+                    -- send data to the module (device B)
+                    report "Sending test data to B";
+                    send_string("+RDAI=" & pad_left(TEST_DATA'length/8, 3, '0') & ",");
+                    send_bytes(TEST_DATA);
+                    send_string(CRLF);
+                    wait for 10 ms;
+                    -- send data to the simulated host (device A)
+                    report "Sending test data to A";
+                    wait until rising_edge(CLK);
+                    DIN_WR_EN   <= '1';
+                    for i in TEST_DATA'length/8 downto 1 loop
+                        DIN <= TEST_DATA(i*8-1 downto i*8-8);
+                        wait until rising_edge(CLK);
+                    end loop;
+                    DIN_WR_EN   <= '0';
+                    wait for 10 ms;
+                    -- disconnect
+                    report "Disconnecting";
+                    send_string("+RDII" & CRLF);
                 when others =>
                     report "Unknown command!"
                     severity FAILURE;
