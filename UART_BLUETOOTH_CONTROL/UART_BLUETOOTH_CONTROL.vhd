@@ -21,7 +21,7 @@ entity UART_BLUETOOTH_CONTROL is
     generic (
         CLK_IN_PERIOD   : real;
         BAUD_RATE       : positive := 115_200;
-        BUFFER_SIZE     : positive := 128;
+        BUFFER_SIZE     : positive := 512;
         UUID            : string(1 to 32) := "56F46190A07D11E4BCD80800200C9A66";
         COD             : string(1 to 6) := "040400";
         DEVICE_NAME     : string := "pandaLight";
@@ -78,8 +78,13 @@ architecture rtl of UART_BLUETOOTH_CONTROL is
         WAITING_FOR_AUTO_ACCEPT_ACK,
         WAITING_FOR_PACKET_TO_SEND,
         SENDING_SEND_DATA_CMD_PREFIX,
-        SENDING_PACKET_LENGTH,
+        SENDING_PACKET_LENGTH1,
+        SENDING_PACKET_LENGTH2,
+        SENDING_PACKET_LENGTH3,
+        SENDING_PACKET_COMMA,
         SENDING_PACKET,
+        SENDING_PACKET_END_CR,
+        SENDING_PACKET_END_LF,
         EVALUATING_ERROR
     );
     
@@ -95,6 +100,7 @@ architecture rtl of UART_BLUETOOTH_CONTROL is
         tx_wr_en                : std_ulogic;
         error                   : std_ulogic;
         data_buf_rd_en          : std_ulogic;
+        rst_data_len_counter    : boolean;
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -108,7 +114,8 @@ architecture rtl of UART_BLUETOOTH_CONTROL is
         tx_din                  => x"00",
         tx_wr_en                => '0',
         error                   => '0',
-        data_buf_rd_en          => '0'
+        data_buf_rd_en          => '0',
+        rst_data_len_counter    => false
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -126,8 +133,8 @@ architecture rtl of UART_BLUETOOTH_CONTROL is
     signal data_buf_empty   : std_ulogic := '0';
     
     -- 3 digit BCD counter for ASCII data length string
-    signal data_len_counter     : unsigned(11 downto 0) := uns(0, 12);
-    signal rst_data_len_counter : boolean := false;
+    signal data_len_counter         : unsigned(11 downto 0) := uns(0, 12);
+    signal data_len_counter_ascii   : std_ulogic_vector(23 downto 0) := (others => '0');
     
 begin
     
@@ -140,6 +147,10 @@ begin
     
     ERROR   <= cur_reg.error;
     BUSY    <= '1' when cur_reg.state/=WAITING_FOR_PACKET_TO_SEND else '0';
+    
+    data_len_counter_ascii(23 downto 16)    <= stdulv(resize(data_len_counter(11 downto 8), 8) + int('0'));
+    data_len_counter_ascii(15 downto  8)    <= stdulv(resize(data_len_counter( 7 downto 4), 8) + int('0'));
+    data_len_counter_ascii( 7 downto  0)    <= stdulv(resize(data_len_counter( 3 downto 0), 8) + int('0'));
     
     UART_SENDER_inst : entity work.UART_SENDER
         generic map (
@@ -200,12 +211,13 @@ begin
             EMPTY   => data_buf_empty
         );
     
-    data_len_counter_proc : process(rst_data_len_counter, CLK)
+    data_len_counter_proc : process(cur_reg.rst_data_len_counter, CLK)
     begin
-        if rst_data_len_counter then
+        if cur_reg.rst_data_len_counter then
             data_len_counter    <= uns(0, 12);
         elsif rising_edge(CLK) then
             if DIN_WR_EN='1' then
+                -- simple 3 digit BCD counter
                 data_len_counter    <= data_len_counter+1;
                 if data_len_counter(3 downto 0)=9 then
                     data_len_counter    <= data_len_counter+7;
@@ -222,13 +234,15 @@ begin
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
-        r                   := cr;
-        r.bt_rstn           := '1';
-        r.bt_wake           := '1';
-        r.bt_rts            := '1';
-        r.tx_wr_en          := '0';
-        r.error             := '0';
-        r.data_buf_rd_en    := '0';
+        r   := cr;
+        
+        r.bt_rstn               := '1';
+        r.bt_wake               := '1';
+        r.bt_rts                := '1';
+        r.tx_wr_en              := '0';
+        r.error                 := '0';
+        r.data_buf_rd_en        := '0';
+        r.rst_data_len_counter  := false;
         
         case cr.state is
             
@@ -325,18 +339,47 @@ begin
                 r.tx_din        := stdulv(SEND_DATA_CMD_PREFIX(int(cr.char_index)));
                 r.char_index    := cr.char_index+1;
                 if cr.char_index=SEND_DATA_CMD_PREFIX'length then
-                    r.state := SENDING_PACKET_LENGTH;
+                    r.state := SENDING_PACKET_LENGTH1;
                 end if;
             
-            when SENDING_PACKET_LENGTH =>
-                null;
+            when SENDING_PACKET_LENGTH1 =>
+                r.tx_wr_en  := '1';
+                r.tx_din    := data_len_counter_ascii(23 downto 16);
+                r.state     := SENDING_PACKET_LENGTH2;
+            
+            when SENDING_PACKET_LENGTH2 =>
+                r.tx_wr_en  := '1';
+                r.tx_din    := data_len_counter_ascii(15 downto 8);
+                r.state     := SENDING_PACKET_LENGTH3;
+            
+            when SENDING_PACKET_LENGTH3 =>
+                r.tx_wr_en  := '1';
+                r.tx_din    := data_len_counter_ascii(7 downto 0);
+                r.state     := SENDING_PACKET_COMMA;
+            
+            when SENDING_PACKET_COMMA =>
+                r.rst_data_len_counter  := true;
+                r.tx_wr_en              := '1';
+                r.tx_din                := stdulv(',');
+                r.state                 := SENDING_PACKET;
             
             when SENDING_PACKET =>
+                r.data_buf_rd_en    := '1';
+                r.tx_wr_en          := data_buf_valid;
+                r.tx_din            := data_buf_dout;
                 if data_buf_empty='1' then
-                    r.state := WAITING_FOR_PACKET_TO_SEND;
-                else
-                    r.data_buf_rd_en    := '1';
+                    r.state := SENDING_PACKET_END_CR;
                 end if;
+            
+            when SENDING_PACKET_END_CR =>
+                r.tx_wr_en  := '1';
+                r.tx_din    := stdulv(CRLF(1));
+                r.state     := SENDING_PACKET_END_LF;
+            
+            when SENDING_PACKET_END_LF =>
+                r.tx_wr_en  := '1';
+                r.tx_din    := stdulv(CRLF(2));
+                r.state     := WAITING_FOR_PACKET_TO_SEND;
             
             when EVALUATING_ERROR =>
                 r.rst_count     := "01111";

@@ -113,25 +113,30 @@ begin
     end process;
     
     rx_proc : process
+        variable tmp    : std_ulogic_vector(7 downto 0);
     begin
         wait until rxd='0';
-        rx_valid    <= '0';
         -- start bit
         wait for UART_CLK_PERIOD;
         wait for UART_CLK_PERIOD/2;
-        for i in 0 to 7 loop
-            rx_data(i)  <= rxd;
+        for i in 0 to 6 loop
+            tmp(i)  := rxd;
             wait for UART_CLK_PERIOD;
         end loop;
+        tmp(7)  := rxd;
+        rx_data <= tmp;
+        rx_valid    <= '1';
+        wait for UART_CLK_PERIOD;
+        rx_valid    <= '0';
         assert rxd='1'
             report "Didn't get stop bit!"
             severity FAILURE;
-        rx_valid    <= '1';
     end process;
     
     stim_proc : process
-        constant BT_ADDR    : string := "05A691C102E8"; -- (random)
-        constant TEST_DATA  : std_ulogic_vector(128*8-1 downto 0) :=
+        constant BT_ADDR        : string := "05A691C102E8"; -- (random)
+        constant SERVICE_UUID   : string(1 to 32) := "56F46190A07D11E4BCD80800200C9A66";
+        constant TEST_DATA      : std_ulogic_vector(128*8-1 downto 0) :=
             x"7E_9F_76_36_BB_67_9A_51_35_34_00_E3_7B_7C_41_D2" &
             x"4A_1D_C1_E1_1F_FE_46_29_58_04_B0_3D_D7_F4_97_E3" &
             x"35_C8_5F_23_78_C6_3C_FA_63_15_F4_3F_9B_AC_32_9E" &
@@ -144,7 +149,7 @@ begin
         variable cmd_buf    : string(1 to 128);
         variable cmd_len    : natural;
         
-        procedure send_byte(v : std_ulogic_vector(7 downto 0)) is
+        procedure send_byte_to_b(v : std_ulogic_vector(7 downto 0)) is
         begin
             tx_data     <= v;
             tx_wr_en    <= '1';
@@ -153,26 +158,26 @@ begin
             wait until tx_wr_ack='1';
         end procedure;
         
-        procedure send_bytes(v : std_ulogic_vector) is
+        procedure send_bytes_to_b(v : std_ulogic_vector) is
         begin
             for i in v'length/8 downto 1 loop
-                send_byte(v(i*8-1 downto i*8-8));
+                send_byte_to_b(v(i*8-1 downto i*8-8));
             end loop;
         end procedure;
         
-        procedure send_char(c : in character) is
+        procedure send_char_to_b(c : in character) is
         begin
-            send_byte(stdulv(c));
+            send_byte_to_b(stdulv(c));
         end procedure;
         
-        procedure send_string(s : in string) is
+        procedure send_string_to_b(s : in string) is
         begin
             for i in s'range loop
-                send_char(s(i));
+                send_char_to_b(s(i));
             end loop;
         end procedure;
         
-        procedure get_cmd(s : out string; len : out natural) is
+        procedure get_cmd_from_b(s : out string; len : out natural) is
             variable tmp    : string(1 to 128);
             variable char_i : natural;
         begin
@@ -186,6 +191,20 @@ begin
             len                 := char_i-5;
             s(1 to char_i-5)    := tmp(3 to char_i-3);
         end procedure;
+        
+        procedure send_packet_to_a is
+        begin
+            wait until rising_edge(CLK);
+            DIN_WR_EN   <= '1';
+            for i in TEST_DATA'length/8 downto 1 loop
+                DIN <= TEST_DATA(i*8-1 downto i*8-8);
+                wait until rising_edge(CLK);
+            end loop;
+            DIN_WR_EN   <= '0';
+            SEND_PACKET <= '1';
+            wait until rising_edge(CLK);
+            SEND_PACKET <= '0';
+        end procedure;
     begin
         RST <= '1';
         wait for 200 ns;
@@ -196,40 +215,39 @@ begin
             wait until BT_RSTN='1';
         end if;
         -- boot complete
-        send_string("ROK" & CRLF);
+        send_string_to_b("ROK" & CRLF);
         
         loop
-            get_cmd(cmd_buf, cmd_len);
+            get_cmd_from_b(cmd_buf, cmd_len);
             case cmd_buf(1 to 7) is
-                when "AT+JSEC"  => send_string("OK" & CRLF);
-                when "AT+JSLN"  => send_string("OK" & CRLF);
-                when "AT+JRLS"  => send_string("OK" & CRLF);
-                when "AT+JDIS"  => send_string("OK" & CRLF);
-                when "AT+JAAC"  => send_string("OK" & CRLF);
+                when "AT+JSEC"  => send_string_to_b("OK" & CRLF);
+                when "AT+JSLN"  => send_string_to_b("OK" & CRLF);
+                when "AT+JRLS"  => send_string_to_b("OK" & CRLF);
+                when "AT+JDIS"  => send_string_to_b("OK" & CRLF);
+                when "AT+JAAC"  => send_string_to_b("OK" & CRLF);
                     -- connect
                     wait for 10 ms;
                     report "Connecting";
-                    send_string("+RCOI=" & BT_ADDR & CRLF);
+                    send_string_to_b("+RSLE" & CRLF);
+                    send_string_to_b("+RCOI=" & BT_ADDR & CRLF);
+                    send_string_to_b("+RCCRCNF=128," & SERVICE_UUID & ",0" & CRLF);
                     wait for 10 ms;
                     -- send data to the module (device B)
                     report "Sending test data to B";
-                    send_string("+RDAI=" & pad_left(TEST_DATA'length/8, 3, '0') & ",");
-                    send_bytes(TEST_DATA);
-                    send_string(CRLF);
+                    send_string_to_b("+RDAI=" & pad_left(TEST_DATA'length/8, 3, '0') & ",");
+                    send_bytes_to_b(TEST_DATA);
+                    send_string_to_b(CRLF);
                     wait for 10 ms;
                     -- send data to the simulated host (device A)
                     report "Sending test data to A";
-                    wait until rising_edge(CLK);
-                    DIN_WR_EN   <= '1';
-                    for i in TEST_DATA'length/8 downto 1 loop
-                        DIN <= TEST_DATA(i*8-1 downto i*8-8);
-                        wait until rising_edge(CLK);
-                    end loop;
-                    DIN_WR_EN   <= '0';
+                    send_packet_to_a;
                     wait for 10 ms;
                     -- disconnect
                     report "Disconnecting";
-                    send_string("+RDII" & CRLF);
+                    send_string_to_b("+RDII" & CRLF);
+                    wait for 10 ms;
+                    report "NONE. All tests completed."
+                        severity FAILURE;
                 when others =>
                     report "Unknown command!"
                     severity FAILURE;

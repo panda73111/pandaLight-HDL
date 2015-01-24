@@ -31,6 +31,8 @@ entity UART_BLUETOOTH_INPUT_PARSER is
         DATA_VALID      : out std_ulogic := '0';
         DATA            : out std_ulogic_vector(7 downto 0) := x"00";
         
+        MTU_SIZE    : out std_ulogic_vector(9 downto 0) := (others => '0');
+        
         OK          : out std_ulogic := '0';
         CONNECTED   : out std_ulogic := '0';
         ERROR       : out std_ulogic := '0';
@@ -58,8 +60,7 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
         EXPECTING_RCOI_RESP_EQUALS,
         SETTING_CONNECTED,
         -- RCCRCNF response
-        EXPECTING_RCCRCNF_RESP_C2,
-        EXPECTING_RCCRCNF_RESP_R,
+        EXPECTING_RCCRCNF_RESP_R2,
         EXPECTING_RCCRCNF_RESP_C3,
         EXPECTING_RCCRCNF_RESP_N,
         EXPECTING_RCCRCNF_RESP_F,
@@ -136,6 +137,8 @@ begin
     PACKET_VALID    <= cur_reg.packet_valid;
     DATA_VALID      <= rx_valid and cur_reg.packet_valid;
     DATA            <= rx_dout;
+    
+    MTU_SIZE    <= stdulv(cur_reg.mtu_size);
     
     OK          <= cur_reg.ok;
     CONNECTED   <= cur_reg.connected and cur_reg.con_confirmed;
@@ -283,7 +286,7 @@ begin
             
             when EXPECTING_RCOI_RCCRCNF_RESP_O_C =>
                 expect_char('O', EXPECTING_RCOI_RESP_I, true);
-                expect_char('C', EXPECTING_RCCRCNF_RESP_C2);
+                expect_char('C', EXPECTING_RCCRCNF_RESP_R2);
             
             -- RCOI response
             
@@ -299,10 +302,7 @@ begin
             
             -- RCCRCNF response
             
-            when EXPECTING_RCCRCNF_RESP_C2 =>
-                expect_char('C', EXPECTING_RCCRCNF_RESP_R, true);
-            
-            when EXPECTING_RCCRCNF_RESP_R =>
+            when EXPECTING_RCCRCNF_RESP_R2 =>
                 expect_char('R', EXPECTING_RCCRCNF_RESP_C3, true);
             
             when EXPECTING_RCCRCNF_RESP_C3 =>
