@@ -19,7 +19,7 @@ entity UART_BLUETOOTH_INPUT_PARSER is
     generic (
         CLK_IN_PERIOD   : real;
         BAUD_RATE       : positive := 115_200;
-        BUFFER_SIZE     : positive := 128
+        BUFFER_SIZE     : positive := 1024
     );
     port (
         CLK : in std_ulogic;
@@ -31,7 +31,8 @@ entity UART_BLUETOOTH_INPUT_PARSER is
         DATA_VALID      : out std_ulogic := '0';
         DATA            : out std_ulogic_vector(7 downto 0) := x"00";
         
-        MTU_SIZE    : out std_ulogic_vector(9 downto 0) := (others => '0');
+        MTU_SIZE        : out std_ulogic_vector(9 downto 0) := (others => '0');
+        MTU_SIZE_VALID  : out std_ulogic := '0';
         
         OK          : out std_ulogic := '0';
         CONNECTED   : out std_ulogic := '0';
@@ -104,6 +105,7 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
         packet_valid    : std_ulogic;
         data            : std_ulogic_vector(7 downto 0);
         mtu_size        : unsigned(9 downto 0);
+        mtu_size_valid  : std_ulogic;
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -117,7 +119,8 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
         byte_counter    => (others => '0'),
         packet_valid    => '0',
         data            => x"00",
-        mtu_size        => (others => '0')
+        mtu_size        => (others => '0'),
+        mtu_size_valid  => '0'
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -138,7 +141,8 @@ begin
     DATA_VALID      <= rx_valid and cur_reg.packet_valid;
     DATA            <= rx_dout;
     
-    MTU_SIZE    <= stdulv(cur_reg.mtu_size);
+    MTU_SIZE        <= stdulv(cur_reg.mtu_size);
+    MTU_SIZE_VALID  <= cur_reg.mtu_size_valid;
     
     OK          <= cur_reg.ok;
     CONNECTED   <= cur_reg.connected and cur_reg.con_confirmed;
@@ -328,7 +332,8 @@ begin
                 eval_dec_char(r.mtu_size, 1, EXPECTING_RCCRCNF_RESP_COMMA1);
             
             when EXPECTING_RCCRCNF_RESP_COMMA1 =>
-                r.byte_counter  := uns(31, 11);
+                r.mtu_size_valid    := '1';
+                r.byte_counter      := uns(31, 11);
                 expect_char(',', IGNORING_RCCRCNF_RESP_SERVICE, true);
             
             when IGNORING_RCCRCNF_RESP_SERVICE =>
@@ -402,9 +407,10 @@ begin
                 expect_char('I', UNSETTING_CONNECTED, true);
             
             when UNSETTING_CONNECTED =>
-                r.connected     := '0';
-                r.con_confirmed := '0';
-                r.state         := WAITING_FOR_RESPONSE_END;
+                r.connected         := '0';
+                r.con_confirmed     := '0';
+                r.mtu_size_valid    := '0';
+                r.state             := WAITING_FOR_RESPONSE_END;
             
             -- response end
             

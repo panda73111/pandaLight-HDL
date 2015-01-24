@@ -6,10 +6,10 @@
 -- Project Name:   UART_BLUETOOTH_CONTROL
 -- Tool versions:  Xilinx ISE 14.7
 -- Description:
---  
--- Additional Comments:
 --  Controller component for the PAN1322 bluetooth module
 --  (and other chips compatible with the eUniStone SPP-AT protocol)
+-- Additional Comments:
+--  Stone the man who chose ASCII for this inter-chip bus data encoding!!!
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -19,9 +19,9 @@ use work.txt_util.all;
 
 entity UART_BLUETOOTH_CONTROL is
     generic (
-        CLK_IN_PERIOD   : real;
+        CLK_IN_PERIOD   : real := 10.0;
         BAUD_RATE       : positive := 115_200;
-        BUFFER_SIZE     : positive := 512;
+        BUFFER_SIZE     : positive := 1024;
         UUID            : string(1 to 32) := "56F46190A07D11E4BCD80800200C9A66";
         COD             : string(1 to 6) := "040400";
         DEVICE_NAME     : string := "pandaLight";
@@ -45,6 +45,11 @@ entity UART_BLUETOOTH_CONTROL is
         
         DOUT        : out std_ulogic_vector(7 downto 0) := x"00";
         DOUT_VALID  : out std_ulogic := '0';
+        
+        CONNECTED   : out std_ulogic := '0';
+        
+        MTU_SIZE        : out std_ulogic_vector(9 downto 0) := (others => '0');
+        MTU_SIZE_VALID  : out std_ulogic := '0';
         
         ERROR   : out std_ulogic := '0';
         BUSY    : out std_ulogic := '0'
@@ -124,6 +129,9 @@ architecture rtl of UART_BLUETOOTH_CONTROL is
     signal rx_data_valid    : std_ulogic := '0';
     signal rx_data          : std_ulogic_vector(7 downto 0) := x"00";
     
+    signal rx_mtu_size          : std_ulogic_vector(9 downto 0) := (others => '0');
+    signal rx_mtu_size_valid    : std_ulogic := '0';
+    
     signal rx_ok        : std_ulogic := '0';
     signal rx_connected : std_ulogic := '0';
     signal rx_error     : std_ulogic := '0';
@@ -144,6 +152,11 @@ begin
     
     DOUT        <= rx_data;
     DOUT_VALID  <= rx_data_valid;
+    
+    CONNECTED   <= rx_connected;
+    
+    MTU_SIZE        <= rx_mtu_size;
+    MTU_SIZE_VALID  <= rx_mtu_size_valid;
     
     ERROR   <= cur_reg.error;
     BUSY    <= '1' when cur_reg.state/=WAITING_FOR_PACKET_TO_SEND else '0';
@@ -188,6 +201,9 @@ begin
             DATA_VALID      => rx_data_valid,
             DATA            => rx_data,
             
+            MTU_SIZE        => rx_mtu_size,
+            MTU_SIZE_VALID  => rx_mtu_size_valid,
+            
             OK          => rx_ok,
             CONNECTED   => rx_connected,
             ERROR       => rx_error
@@ -230,7 +246,7 @@ begin
     end process;
     
     stm_proc : process(cur_reg, RST, rx_ok, rx_error, data_buf_empty,
-        data_buf_dout, data_buf_valid, SEND_PACKET)
+        data_buf_dout, data_buf_valid, data_len_counter_ascii, SEND_PACKET)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
