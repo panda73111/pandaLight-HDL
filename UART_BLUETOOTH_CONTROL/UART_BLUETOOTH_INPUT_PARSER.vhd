@@ -52,8 +52,8 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
         SETTING_OK,
         -- any response
         EXPECTING_ANY_RESP_R,
-        -- RCOI / RDAI / RDII / RSLE / RCCRCNF response
-        EXPECTING_RCOI_RDAI_RDII_RSLE_RCCRCNF_RESP_C_D_S,
+        -- RCOI / RDAI / RDII / RSLE / RCCRCNF / RPNE response
+        EXPECTING_RCOI_RDAI_RDII_RSLE_RCCRCNF_RESP_RPNE_C_D_S_P,
         -- RCOI / RCCRCNF response
         EXPECTING_RCOI_RCCRCNF_RESP_O_C,
         -- RCOI response
@@ -84,11 +84,16 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
         EVALUATING_RDAI_RESP_DATA_LEN3,
         EXPECTING_RDAI_RESP_COMMA,
         RECEIVE_DATA_BYTE,
+        -- RSLE response
         EXPECTING_RSLE_RESP_L,
         EXPECTING_RSLE_RESP_E,
         -- RDII response
         EXPECTING_RDII_RESP_I2,
         UNSETTING_CONNECTED,
+        -- RPNE response
+        EXPECTING_RPNE_RESP_N,
+        EXPECTING_RPNE_RESP_E,
+        EXPECTING_RPNE_RESP_EQUALS,
         -- response end
         WAITING_FOR_RESPONSE_END
     );
@@ -277,14 +282,15 @@ begin
             -- any response
             
             when EXPECTING_ANY_RESP_R =>
-                expect_char('R', EXPECTING_RCOI_RDAI_RDII_RSLE_RCCRCNF_RESP_C_D_S, true);
+                expect_char('R', EXPECTING_RCOI_RDAI_RDII_RSLE_RCCRCNF_RESP_RPNE_C_D_S_P, true);
             
             -- RCOI / RDAI / RDII / RSLE / RCCRCNF response
             
-            when EXPECTING_RCOI_RDAI_RDII_RSLE_RCCRCNF_RESP_C_D_S =>
+            when EXPECTING_RCOI_RDAI_RDII_RSLE_RCCRCNF_RESP_RPNE_C_D_S_P =>
                 expect_char('C', EXPECTING_RCOI_RCCRCNF_RESP_O_C, true);
                 expect_char('D', EXPECTING_RDAI_RDII_RESP_A_I);
                 expect_char('S', EXPECTING_RSLE_RESP_L);
+                expect_char('P', EXPECTING_RPNE_RESP_N);
             
             -- RCOI / RCCRCNF response
             
@@ -394,6 +400,8 @@ begin
                     r.state := WAITING_FOR_RESPONSE_END;
                 end if;
             
+            -- RSLE response
+            
             when EXPECTING_RSLE_RESP_L =>
                 expect_char('L', EXPECTING_RSLE_RESP_E, true);
             
@@ -412,6 +420,18 @@ begin
                 r.mtu_size_valid    := '0';
                 r.state             := WAITING_FOR_RESPONSE_END;
             
+            -- RPNE response
+            
+            when EXPECTING_RPNE_RESP_N =>
+                expect_char('N', EXPECTING_RPNE_RESP_E, true);
+            
+            when EXPECTING_RPNE_RESP_E =>
+                expect_char('E', EXPECTING_RPNE_RESP_EQUALS, true);
+            
+            when EXPECTING_RPNE_RESP_EQUALS =>
+                -- ignore the passkey for now
+                expect_char('=', WAITING_FOR_RESPONSE_END, true);
+            
             -- response end
             
             when WAITING_FOR_RESPONSE_END =>
@@ -419,13 +439,13 @@ begin
             
         end case;
         
+        if resp_end then
+            r.state := COMPARING_FIRST_CHAR;
+        end if;
+        
         if rx_error='1' then
             r.error := '1';
             r.state := RESETTING_RX;
-        end if;
-        
-        if resp_end then
-            r.state := COMPARING_FIRST_CHAR;
         end if;
         
         if RST='1' then

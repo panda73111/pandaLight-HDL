@@ -35,7 +35,7 @@ entity UART_BLUETOOTH_CONTROL is
         BT_CTS  : in std_ulogic;
         BT_RTS  : out std_ulogic := '0';
         BT_RXD  : in std_ulogic;
-        BT_TXD  : out std_ulogic := '0';
+        BT_TXD  : out std_ulogic := '1';
         BT_WAKE : out std_ulogic := '0';
         BT_RSTN : out std_ulogic := '0';
         
@@ -132,6 +132,7 @@ architecture rtl of UART_BLUETOOTH_CONTROL is
     signal rx_mtu_size          : std_ulogic_vector(9 downto 0) := (others => '0');
     signal rx_mtu_size_valid    : std_ulogic := '0';
     
+    signal rx_rst       : std_ulogic := '0';
     signal rx_ok        : std_ulogic := '0';
     signal rx_connected : std_ulogic := '0';
     signal rx_error     : std_ulogic := '0';
@@ -165,6 +166,8 @@ begin
     data_len_counter_ascii(15 downto  8)    <= stdulv(resize(data_len_counter( 7 downto 4), 8) + int('0'));
     data_len_counter_ascii( 7 downto  0)    <= stdulv(resize(data_len_counter( 3 downto 0), 8) + int('0'));
     
+    rx_rst  <= RST or not cur_reg.bt_rstn;
+    
     UART_SENDER_inst : entity work.UART_SENDER
         generic map (
             CLK_IN_PERIOD   => CLK_IN_PERIOD,
@@ -193,7 +196,7 @@ begin
         )
         port map (
             CLK => CLK,
-            RST => RST,
+            RST => rx_rst,
             
             BT_RXD  => BT_RXD,
             
