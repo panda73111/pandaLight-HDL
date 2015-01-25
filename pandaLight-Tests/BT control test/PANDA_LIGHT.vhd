@@ -29,7 +29,7 @@ entity PANDA_LIGHT is
         
         -- USB UART
         USB_RXD     : in std_ulogic;
-        USB_TXD     : out std_ulogic := '0';
+        USB_TXD     : out std_ulogic := '1';
         USB_CTSN    : in std_ulogic;
         USB_RTSN    : out std_ulogic := '0';
         USB_DSRN    : in std_ulogic;
@@ -41,7 +41,7 @@ entity PANDA_LIGHT is
         BT_CTSN : in std_ulogic;
         BT_RTSN : out std_ulogic := '0';
         BT_RXD  : in std_ulogic;
-        BT_TXD  : out std_ulogic := '0';
+        BT_TXD  : out std_ulogic := '1';
         BT_WAKE : out std_ulogic := '0';
         BT_RSTN : out std_ulogic := '0';
         
@@ -135,7 +135,7 @@ begin
     PMOD1(2)    <= 'Z';
     PMOD1(3)    <= BTCTRL_DOUT_VALID or BTCTRL_MTU_SIZE_VALID;
     
-    BT_TXD  <= BTCTRL_BT_TXD;
+    BT_TXD  <= BTCTRL_BT_TXD and USB_RXD;
     USB_TXD <= BTCTRL_BT_TXD and BT_RXD;
     
     USB_RTSN    <= '1';
