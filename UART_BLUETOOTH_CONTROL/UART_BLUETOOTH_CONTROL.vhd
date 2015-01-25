@@ -19,7 +19,7 @@ use work.txt_util.all;
 
 entity UART_BLUETOOTH_CONTROL is
     generic (
-        CLK_IN_PERIOD   : real := 10.0;
+        CLK_IN_PERIOD   : real;
         BAUD_RATE       : positive := 115_200;
         BUFFER_SIZE     : positive := 1024;
         UUID            : string(1 to 32) := "56F46190A07D11E4BCD80800200C9A66";
