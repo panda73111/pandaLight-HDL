@@ -87,7 +87,15 @@ architecture rtl of CONFIGURATOR is
     constant BUF_I_START_LED_NUM        : std_ulogic_vector(9 downto 0) := "0000001100";
     constant BUF_I_FRAME_DELAY          : std_ulogic_vector(9 downto 0) := "0000001101";
     constant BUF_I_RGB_MODE             : std_ulogic_vector(9 downto 0) := "0000001110";
-    constant BUF_I_LED_LOOKUP_TABLES    : std_ulogic_vector(9 downto 0) := "0000001111";
+    constant BUF_I_LED_CONTROL_MODE     : std_ulogic_vector(9 downto 0) := "0000001111";
+    constant BUF_I_GAMMA_COR            : std_ulogic_vector(9 downto 0) := "0000010000";
+    constant BUF_I_MIN_RED              : std_ulogic_vector(9 downto 0) := "0000010010";
+    constant BUF_I_MAX_RED              : std_ulogic_vector(9 downto 0) := "0000010011";
+    constant BUF_I_MIN_GREEN            : std_ulogic_vector(9 downto 0) := "0000010100";
+    constant BUF_I_MAX_GREEN            : std_ulogic_vector(9 downto 0) := "0000010101";
+    constant BUF_I_MIN_BLUE             : std_ulogic_vector(9 downto 0) := "0000010110";
+    constant BUF_I_MAX_BLUE             : std_ulogic_vector(9 downto 0) := "0000010111";
+    constant BUF_I_LED_LOOKUP_TABLES    : std_ulogic_vector(9 downto 0) := "0100000000";
     
     type state_type is (
         WAITING_FOR_START,
