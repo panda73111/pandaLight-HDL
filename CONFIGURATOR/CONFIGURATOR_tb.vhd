@@ -40,7 +40,8 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     
     signal SETTINGS_ADDR    : std_ulogic_vector(9 downto 0) := (others => '0');
     signal SETTINGS_WR_EN   : std_ulogic := '0';
-    signal SETTINGS_DATA    : std_ulogic_vector(7 downto 0) := x"00";
+    signal SETTINGS_DIN     : std_ulogic_vector(7 downto 0) := x"00";
+    signal SETTINGS_DOUT    : std_ulogic_vector(7 downto 0) := x"00";
     
     -- Outputs
     signal CFG_SEL_LEDEX    : std_ulogic;
@@ -50,7 +51,7 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     signal CFG_WR_EN    : std_ulogic;
     signal CFG_DATA     : std_ulogic_vector(7 downto 0);
     
-    signal IDLE : std_ulogic;
+    signal BUSY : std_ulogic;
     
     -- Clock period definitions
     constant CLK_PERIOD : time := 10 ns; -- 100 Mhz
@@ -74,7 +75,8 @@ BEGIN
             
             SETTINGS_ADDR   => SETTINGS_ADDR,
             SETTINGS_WR_EN  => SETTINGS_WR_EN,
-            SETTINGS_DATA   => SETTINGS_DATA,
+            SETTINGS_DIN    => SETTINGS_DIN,
+            SETTINGS_DOUT   => SETTINGS_DOUT,
             
             CFG_SEL_LEDEX   => CFG_SEL_LEDEX,
             CFG_SEL_LEDCOR  => CFG_SEL_LEDCOR,
@@ -83,7 +85,7 @@ BEGIN
             CFG_WR_EN   => CFG_WR_EN,
             CFG_DATA    => CFG_DATA,
             
-            IDLE    => IDLE
+            BUSY    => BUSY
         );
     
     CLK <= not CLK after CLK_PERIOD/2;
@@ -99,7 +101,10 @@ BEGIN
             HOR_LED_SCALED_STEP, HOR_LED_SCALED_PAD, HOR_LED_SCALED_OFFS,
             VER_LED_CNT, VER_LED_SCALED_WIDTH, VER_LED_SCALED_HEIGHT,
             VER_LED_SCALED_STEP, VER_LED_SCALED_PAD, VER_LED_SCALED_OFFS,
-            START_LED_NUM, FRAME_DELAY, RGB_MODE
+            START_LED_NUM, FRAME_DELAY, RGB_MODE, LED_CONTROL_MODE
+                : std_ulogic_vector(7 downto 0);
+            GAMMA_CORRECTION    : std_ulogic_vector(15 downto 0); -- 4 + 12 Bit fixed point
+            MIN_RED, MAX_RED, MIN_GREEN, MAX_GREEN, MIN_BLUE, MAX_BLUE
                 : std_ulogic_vector(7 downto 0);
             R_LOOKUP_TABLE, G_LOOKUP_TABLE, B_LOOKUP_TABLE
                 : channel_lookup_table_type;
@@ -109,37 +114,50 @@ BEGIN
         procedure send_settings(s : in settings_type) is
         begin
             SETTINGS_WR_EN  <= '1';
-            for settings_i in 0 to 14 loop
+            for settings_i in 0 to 255 loop
                 SETTINGS_ADDR   <= stdulv(settings_i, 10);
                 case settings_i is
-                    when 0      =>  SETTINGS_DATA   <= s.HOR_LED_CNT;
-                    when 1      =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_WIDTH;
-                    when 2      =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_HEIGHT;
-                    when 3      =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_STEP;
-                    when 4      =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_PAD;
-                    when 5      =>  SETTINGS_DATA   <= s.HOR_LED_SCALED_OFFS;
-                    when 6      =>  SETTINGS_DATA   <= s.VER_LED_CNT;
-                    when 7      =>  SETTINGS_DATA   <= s.VER_LED_SCALED_WIDTH;
-                    when 8      =>  SETTINGS_DATA   <= s.VER_LED_SCALED_HEIGHT;
-                    when 9      =>  SETTINGS_DATA   <= s.VER_LED_SCALED_STEP;
-                    when 10     =>  SETTINGS_DATA   <= s.VER_LED_SCALED_PAD;
-                    when 11     =>  SETTINGS_DATA   <= s.VER_LED_SCALED_OFFS;
-                    when 12     =>  SETTINGS_DATA   <= s.START_LED_NUM;
-                    when 13     =>  SETTINGS_DATA   <= s.FRAME_DELAY;
-                    when 14     =>  SETTINGS_DATA   <= s.RGB_MODE;
+                    when 0      =>  SETTINGS_DIN    <= s.HOR_LED_CNT;
+                    when 1      =>  SETTINGS_DIN    <= s.HOR_LED_SCALED_WIDTH;
+                    when 2      =>  SETTINGS_DIN    <= s.HOR_LED_SCALED_HEIGHT;
+                    when 3      =>  SETTINGS_DIN    <= s.HOR_LED_SCALED_STEP;
+                    when 4      =>  SETTINGS_DIN    <= s.HOR_LED_SCALED_PAD;
+                    when 5      =>  SETTINGS_DIN    <= s.HOR_LED_SCALED_OFFS;
+                    when 6      =>  SETTINGS_DIN    <= s.VER_LED_CNT;
+                    when 7      =>  SETTINGS_DIN    <= s.VER_LED_SCALED_WIDTH;
+                    when 8      =>  SETTINGS_DIN    <= s.VER_LED_SCALED_HEIGHT;
+                    when 9      =>  SETTINGS_DIN    <= s.VER_LED_SCALED_STEP;
+                    when 10     =>  SETTINGS_DIN    <= s.VER_LED_SCALED_PAD;
+                    when 11     =>  SETTINGS_DIN    <= s.VER_LED_SCALED_OFFS;
+                    when 12     =>  SETTINGS_DIN    <= s.START_LED_NUM;
+                    when 13     =>  SETTINGS_DIN    <= s.FRAME_DELAY;
+                    when 14     =>  SETTINGS_DIN    <= s.RGB_MODE;
+                    when 15     =>  SETTINGS_DIN    <= s.LED_CONTROL_MODE;
+                    when 16     =>  SETTINGS_DIN    <= s.GAMMA_CORRECTION(15 downto 8);
+                    when 17     =>  SETTINGS_DIN    <= s.GAMMA_CORRECTION(7 downto 0);
+                    when 18     =>  SETTINGS_DIN    <= s.MIN_RED;
+                    when 19     =>  SETTINGS_DIN    <= s.MAX_RED;
+                    when 20     =>  SETTINGS_DIN    <= s.MIN_GREEN;
+                    when 21     =>  SETTINGS_DIN    <= s.MAX_GREEN;
+                    when 22     =>  SETTINGS_DIN    <= s.MIN_BLUE;
+                    when 23     =>  SETTINGS_DIN    <= s.MAX_BLUE;
+                    when others =>  SETTINGS_DIN    <= x"00";
                 end case;
                 wait until rising_edge(CLK);
             end loop;
             for byte_i in 0 to 255 loop
-                SETTINGS_DATA   <= s.R_LOOKUP_TABLE(byte_i);
+                SETTINGS_ADDR   <= stdulv(byte_i+256, 10);
+                SETTINGS_DIN    <= s.R_LOOKUP_TABLE(byte_i);
                 wait until rising_edge(CLK);
             end loop;
             for byte_i in 0 to 255 loop
-                SETTINGS_DATA   <= s.G_LOOKUP_TABLE(byte_i);
+                SETTINGS_ADDR   <= stdulv(byte_i+2*256, 10);
+                SETTINGS_DIN    <= s.G_LOOKUP_TABLE(byte_i);
                 wait until rising_edge(CLK);
             end loop;
             for byte_i in 0 to 255 loop
-                SETTINGS_DATA   <= s.B_LOOKUP_TABLE(byte_i);
+                SETTINGS_ADDR   <= stdulv(byte_i+3*256, 10);
+                SETTINGS_DIN    <= s.B_LOOKUP_TABLE(byte_i);
                 wait until rising_edge(CLK);
             end loop;
             SETTINGS_WR_EN  <= '0';
@@ -150,13 +168,13 @@ BEGIN
             CONFIGURE_LEDCOR    <= '1';
             wait until rising_edge(CLK);
             CONFIGURE_LEDCOR    <= '0';
-            wait until rising_edge(IDLE);
+            wait until BUSY='0';
             wait until rising_edge(CLK);
             
             CONFIGURE_LEDEX <= '1';
             wait until rising_edge(CLK);
             CONFIGURE_LEDEX <= '0';
-            wait until rising_edge(IDLE);
+            wait until BUSY='0';
             wait until rising_edge(CLK);
         end procedure;
     begin
@@ -182,18 +200,31 @@ BEGIN
             START_LED_NUM           => stdulv( 10, 8),
             FRAME_DELAY             => stdulv(120, 8),
             RGB_MODE                => x"00",
+            LED_CONTROL_MODE        => x"00",
+            GAMMA_CORRECTION        => x"2000", -- 2.0
+            MIN_RED                 => x"00",
+            MAX_RED                 => x"FF",
+            MIN_GREEN               => x"00",
+            MAX_GREEN               => x"FF",
+            MIN_BLUE                => x"00",
+            MAX_BLUE                => x"FF",
             R_LOOKUP_TABLE          => (others  => x"FF"),
             G_LOOKUP_TABLE          => (others  => x"FF"),
             B_LOOKUP_TABLE          => (others  => x"FF")
         );
         send_settings(settings);
         
+        for i in 0 to 1023 loop
+            SETTINGS_ADDR   <= stdulv(i, 10);
+            wait until rising_edge(CLK);
+        end loop;
+        
         FRAME_WIDTH     <= stdulv(1280, FRAME_SIZE_BITS);
         FRAME_HEIGHT    <= stdulv( 720, FRAME_SIZE_BITS);
         CALCULATE       <= '1';
         wait until rising_edge(CLK);
         CALCULATE       <= '0';
-        wait until rising_edge(IDLE);
+        wait until BUSY='0';
         wait until rising_edge(CLK);
         
         configure;
@@ -203,7 +234,7 @@ BEGIN
         CALCULATE       <= '1';
         wait until rising_edge(CLK);
         CALCULATE       <= '0';
-        wait until rising_edge(IDLE);
+        wait until BUSY='0';
         wait until rising_edge(CLK);
         
         configure;

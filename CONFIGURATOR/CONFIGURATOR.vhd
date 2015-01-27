@@ -57,7 +57,8 @@ entity CONFIGURATOR is
         
         SETTINGS_ADDR   : in std_ulogic_vector(9 downto 0);
         SETTINGS_WR_EN  : in std_ulogic;
-        SETTINGS_DATA   : in std_ulogic_vector(7 downto 0);
+        SETTINGS_DIN    : in std_ulogic_vector(7 downto 0);
+        SETTINGS_DOUT   : out std_ulogic_vector(7 downto 0) := x"00";
         
         CFG_SEL_LEDEX   : out std_ulogic := '0';
         CFG_SEL_LEDCOR  : out std_ulogic := '0';
@@ -163,6 +164,7 @@ architecture rtl of CONFIGURATOR is
     
 begin
     
+    SETTINGS_DOUT   <= buf_do;
     CFG_SEL_LEDEX   <= cur_reg.cfg_sel_ledex;
     CFG_SEL_LEDCOR  <= cur_reg.cfg_sel_ledcor;
     CFG_ADDR        <= cur_reg.cfg_addr;
@@ -197,9 +199,9 @@ begin
     begin
         if rising_edge(CLK) then
             -- write first mode
-            do  <= settings_buf(nat(rd_p));
+            do  <= settings_buf(int(rd_p));
             if wr_en='1' then
-                settings_buf(nat(wr_p)) <= di;
+                settings_buf(int(wr_p)) <= di;
             end if;
             if wr_en='1' and rd_p=wr_p then
                 do  <= di;
@@ -208,7 +210,7 @@ begin
     end process;
     
     stm_proc : process(RST, cur_reg, CALCULATE, CONFIGURE_LEDEX, CONFIGURE_LEDCOR,
-        SETTINGS_ADDR, SETTINGS_WR_EN, SETTINGS_DATA, FRAME_WIDTH, FRAME_HEIGHT,
+        SETTINGS_ADDR, SETTINGS_WR_EN, SETTINGS_DIN, FRAME_WIDTH, FRAME_HEIGHT,
         multiplier_valid, multiplier_result, buf_do)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
@@ -229,10 +231,11 @@ begin
                 r.ver_scale                 := (others => '0');
                 r.cfg_addr                  := (others => '1');
                 r.buf_wr_p                  := (others => '1');
+                r.buf_rd_p                  := SETTINGS_ADDR;
                 if SETTINGS_WR_EN='1' then
                     r.buf_wr_en := '1';
                     r.buf_wr_p  := SETTINGS_ADDR;
-                    r.buf_di    := SETTINGS_DATA;
+                    r.buf_di    := SETTINGS_DIN;
                 end if;
                 if CALCULATE='1' then
                     r.state := CALCULATING_LED_SCALE;
