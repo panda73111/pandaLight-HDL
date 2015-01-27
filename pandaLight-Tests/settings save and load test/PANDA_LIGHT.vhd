@@ -54,6 +54,7 @@ architecture rtl of PANDA_LIGHT is
     signal pmod0_deb_q  : std_ulogic_vector(3 downto 0) := x"0";
     
     signal start_settings_read  : boolean := false;
+    signal start_settings_write : boolean := false;
     
     
     --------------------
@@ -73,7 +74,8 @@ architecture rtl of PANDA_LIGHT is
     
     signal conf_settings_addr   : std_ulogic_vector(9 downto 0) := (others => '0');
     signal conf_settings_wr_en  : std_ulogic := '0';
-    signal conf_settings_data   : std_ulogic_vector(7 downto 0) := x"00";
+    signal conf_settings_din    : std_ulogic_vector(7 downto 0) := x"00";
+    signal conf_settings_dout   : std_ulogic_vector(7 downto 0) := x"00";
     
     -- Outputs
     signal conf_cfg_sel_ledcor  : std_ulogic := '0';
@@ -87,7 +89,7 @@ architecture rtl of PANDA_LIGHT is
     
     attribute keep of conf_settings_addr    : signal is true;
     attribute keep of conf_settings_wr_en   : signal is true;
-    attribute keep of conf_settings_data    : signal is true;
+    attribute keep of conf_settings_din     : signal is true;
     
     
     -------------------------
@@ -139,18 +141,19 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    g_rst   <= not g_clk_locked;
+    g_rst   <= not g_clk_locked or pmod0_deb(0);
     
     FLASH_MOSI  <= fctrl_mosi;
     FLASH_CS    <= fctrl_sn;
     FLASH_SCK   <= fctrl_c;
     
     PMOD0(0)    <= 'Z';
-    PMOD0(1)    <= conf_cfg_wr_en or conf_cfg_sel_ledcor or conf_cfg_sel_ledex or conf_busy;
+    PMOD0(1)    <= 'Z';
     PMOD0(2)    <=  conf_cfg_addr(9) or conf_cfg_addr(8) or conf_cfg_addr(7) or conf_cfg_addr(6) or conf_cfg_addr(5) or
                     conf_cfg_addr(4) or conf_cfg_addr(3) or conf_cfg_addr(2) or conf_cfg_addr(1) or conf_cfg_addr(0);
     PMOD0(3)    <=  conf_cfg_data(7) or conf_cfg_data(6) or conf_cfg_data(5) or conf_cfg_data(4) or
-                    conf_cfg_data(3) or conf_cfg_data(2) or conf_cfg_data(1) or conf_cfg_data(0);
+                    conf_cfg_data(3) or conf_cfg_data(2) or conf_cfg_data(1) or conf_cfg_data(0) or
+                    conf_cfg_wr_en or conf_cfg_sel_ledcor or conf_cfg_sel_ledex or conf_busy;
     
     pmod0_DEBOUNCE_gen : for i in 0 to 3 generate
         
@@ -188,7 +191,8 @@ begin
             
             SETTINGS_ADDR   => conf_settings_addr,
             SETTINGS_WR_EN  => conf_settings_wr_en,
-            SETTINGS_DATA   => conf_settings_data,
+            SETTINGS_DIN    => conf_settings_din,
+            SETTINGS_DOUT   => conf_settings_dout,
             
             CFG_SEL_LEDCOR  => conf_cfg_sel_ledcor,
             CFG_SEL_LEDEX   => conf_cfg_sel_ledex,
@@ -215,7 +219,9 @@ begin
             CONF_LEDEX_WAITING_FOR_BUSY,
             CONF_LEDEX_WAITING_FOR_IDLE,
             CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR,
-            IDLE
+            IDLE_WAITING_FOR_IDLE,
+            IDLE,
+            SAVING_SETTINGS
         );
         
         signal state            : state_type := INIT;
@@ -230,19 +236,21 @@ begin
         begin
             if g_rst='1' then
                 conf_settings_wr_en     <= '0';
-                conf_settings_data      <= x"00";
+                conf_settings_din       <= x"00";
                 conf_calculate          <= '0';
                 conf_configure_ledex    <= '0';
                 conf_configure_ledcor   <= '0';
                 counter                 <= uns(1023, 11);
                 settings_addr           <= (others => '0');
                 start_settings_read     <= false;
+                start_settings_write    <= false;
             elsif rising_edge(g_clk) then
                 conf_settings_wr_en     <= '0';
                 conf_calculate          <= '0';
                 conf_configure_ledex    <= '0';
                 conf_configure_ledcor   <= '0';
                 start_settings_read     <= false;
+                start_settings_write    <= false;
                 
                 case state is
                     
@@ -255,7 +263,7 @@ begin
                     when SENDING_SETTINGS =>
                         conf_settings_addr  <= settings_addr;
                         conf_settings_wr_en <= fctrl_valid;
-                        conf_settings_data  <= fctrl_dout;
+                        conf_settings_din   <= fctrl_dout;
                         if fctrl_valid='1' then
                             counter         <= counter-1;
                             settings_addr   <= settings_addr+1;
@@ -295,10 +303,28 @@ begin
                     
                     when CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR =>
                         conf_configure_ledex    <= '1';
-                        state                   <= IDLE;
+                        state                   <= IDLE_WAITING_FOR_IDLE;
+                    
+                    when IDLE_WAITING_FOR_IDLE =>
+                        if conf_busy='0' then
+                            state   <= IDLE;
+                        end if;
                     
                     when IDLE =>
-                        null;
+                        counter <= uns(1023, 11);
+                        if pmod0_deb(1)='1' and pmod0_deb_q(1)='0' then
+                            start_settings_write    <= true;
+                            state                   <= SAVING_SETTINGS;
+                        end if;
+                    
+                    when SAVING_SETTINGS =>
+                        conf_settings_addr  <= settings_addr;
+                        counter             <= counter-1;
+                        settings_addr       <= settings_addr+1;
+                        if counter(counter'high)='1' then
+                            -- wrote 1k bytes
+                            state   <= IDLE;
+                        end if;
                     
                 end case;
             end if;
@@ -346,7 +372,8 @@ begin
     spi_flash_control_stim_gen : if true generate
         type state_type is (
             INIT,
-            READING_SETTINGS
+            READING_SETTINGS,
+            WRITING_SETTINGS
         );
         
         signal state    : state_type := INIT;
@@ -354,14 +381,17 @@ begin
     begin
         
         fctrl_addr  <= SETTINGS_FLASH_ADDR;
+        fctrl_din   <= CONF_SETTINGS_DOUT;
         
         spi_flash_control_stim_proc : process(g_clk, g_rst)
         begin
             if g_rst='1' then
                 state       <= INIT;
                 fctrl_rd_en <= '0';
+                fctrl_wr_en <= '0';
             elsif rising_edge(g_clk) then
                 fctrl_rd_en <= '0';
+                fctrl_wr_en <= '0';
                 
                 case state is
                     
@@ -370,9 +400,21 @@ begin
                         if start_settings_read then
                             state   <= READING_SETTINGS;
                         end if;
+                        if start_settings_write then
+                            state   <= WRITING_SETTINGS;
+                        end if;
                     
                     when READING_SETTINGS =>
                         fctrl_rd_en <= '1';
+                        if counter(counter'high)='1' then
+                            state   <= INIT;
+                        end if;
+                        if fctrl_valid='1' then
+                            counter <= counter-1;
+                        end if;
+                    
+                    when WRITING_SETTINGS =>
+                        fctrl_wr_en <= '1';
                         if counter(counter'high)='1' then
                             state   <= INIT;
                         end if;

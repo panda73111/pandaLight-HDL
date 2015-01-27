@@ -9,7 +9,6 @@ end testbench;
 architecture behavior of testbench is
 
     signal g_clk20  : std_ulogic := '0';
-    signal g_rst    : std_ulogic := '0';
     
     -- SPI Flash
     signal FLASH_MISO   : std_ulogic := '0';
@@ -40,9 +39,13 @@ begin
     
     process
     begin
-        g_rst   <= '1';
-        wait for 200 ns;
-        g_rst   <= '0';
+        PMOD0(0)    <= '1';
+        wait for 1 ms;
+        PMOD0(0)    <= '0';
+        
+        wait for 10 ms;
+        
+        PMOD0(1)    <= '1';
         
         wait;
     end process;
