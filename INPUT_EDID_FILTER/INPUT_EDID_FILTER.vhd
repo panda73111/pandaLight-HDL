@@ -226,12 +226,38 @@ begin
             
             when GETTING_SEG_P_ACK_WAITING_FOR_SCL_LOW =>
                 if rx_scl_in_sync='0' then
-                    r.state := GETTING_SEG_P_WAITING_FOR_SCL_HIGH;
+                    r.state := GETTING_SEG_P_ACK_WAITING_FOR_SCL_HIGH;
                 end if;
             
-            when GETTING_SEG_P_WAITING_FOR_SCL_HIGH;
+            when GETTING_SEG_P_ACK_WAITING_FOR_SCL_HIGH =>
                 if rx_scl_in_sync='1' then
-                    
+                    r.state := WAITING_FOR_START;
+                end if;
+            
+            when WRITE_ADDR_GETTING_ACK_WAITING_FOR_SCL_HIGH =>
+                if rx_scl_in_sync='1' then
+                    r.state := GETTING_WORD_OFFS_WAITING_FOR_SCL_LOW;
+                    if tx_sda_in='1' then
+                        -- got NACK for writing the word offset; no slave?!
+                        r.state := INITIALIZING;
+                    end if;
+                end if;
+            
+            when GETTING_WORD_OFFS_WAITING_FOR_SCL_LOW =>
+                if rx_scl_in_sync='0' then
+                    r.state := GETTING_WORD_OFFS_WAITING_FOR_SCL_HIGH;
+                end if;
+            
+            when GETTING_WORD_OFFS_WAITING_FOR_SCL_HIGH =>
+                r.byte(int(cr.bit_index))   := rx_sda_in_sync;
+                -- the highest bit of the word offset determines the block in that segment
+                r.block_number  := cr.segment_pointer & cr.byte(7);
+                if rx_scl_in_sync='1' then
+                    r.bit_index := cr.bit_index-1;
+                    r.state     := GETTING_WORD_OFFS_WAITING_FOR_SCL_LOW;
+                    if cr.bit_index=0 then
+                        r.state := WAITING_FOR_START;
+                    end if;
                 end if;
             
         end case;
@@ -239,6 +265,7 @@ begin
         if RST='1' then
             r   := reg_type_def;
         end if;
+        
         next_reg    <= r;
     end process;
     
