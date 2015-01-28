@@ -110,8 +110,13 @@ begin
     
     process
     begin
-        wait for 100 ns;
-        RX_DET  <= "11";
+        PMOD0(0)    <= '1';
+        wait for 1 ms;
+        PMOD0(0)    <= '0';
+        
+        wait for 10 ms;
+        
+        PMOD0(1)    <= '1';
         
         wait;
     end process;

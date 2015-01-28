@@ -80,15 +80,18 @@ architecture rtl of PANDA_LIGHT is
     signal pmod0_deb_q  : std_ulogic_vector(3 downto 0) := x"0";
     
     signal start_settings_read  : boolean := false;
+    signal start_settings_write : boolean := false;
     
     
     ----------------------------
     --- HDMI related signals ---
     ----------------------------
     
-    signal rx_det_stable    : std_ulogic_vector(1 downto 0) := "00";
-    signal rx_det_stable_q  : std_ulogic_vector(1 downto 0) := "00";
-    signal rx_det_sync      : std_ulogic_vector(1 downto 0) := "00";
+    signal rx_det_sync          : std_ulogic_vector(1 downto 0) := "00";
+    signal rx_det_stable        : std_ulogic_vector(1 downto 0) := "00";
+    signal both_rx_det_sync     : std_ulogic := '0';
+    signal both_rx_det_stable   : std_ulogic := '0';
+    
     signal tx_det_sync      : std_ulogic := '0';
     signal tx_det_stable    : std_ulogic := '0';
     
@@ -250,7 +253,8 @@ architecture rtl of PANDA_LIGHT is
     
     signal conf_settings_addr   : std_ulogic_vector(9 downto 0) := (others => '0');
     signal conf_settings_wr_en  : std_ulogic := '0';
-    signal conf_settings_data   : std_ulogic_vector(7 downto 0) := x"00";
+    signal conf_settings_din    : std_ulogic_vector(7 downto 0) := x"00";
+    signal conf_settings_dout   : std_ulogic_vector(7 downto 0) := x"00";
     
     -- Outputs
     signal conf_cfg_sel_ledex   : std_ulogic := '0';
@@ -312,7 +316,7 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    g_rst   <= not g_clk_locked;
+    g_rst   <= not g_clk_locked or pmod0_deb(0);
     
     FLASH_MOSI  <= fctrl_mosi;
     FLASH_CS    <= fctrl_sn;
@@ -336,21 +340,25 @@ begin
     RX_EN(1-RX_SEL) <= tx_det_stable;
     TX_EN           <= '1';
     
+    both_rx_det_sync    <= rx_det_sync(0) and rx_det_sync(1);
+    
     tx_channels_out <= rxpt_tx_channels_out;
     
-    rx_det_sync_proc : process(g_clk)
+    rx_SIGNAL_SYNC_and_DEBOUNCE_gen : for i in 0 to 1 generate
+        signal rx_det_sync  : std_ulogic_vector(1 downto 0) := "00";
     begin
-        if rising_edge(g_clk) then
-            rx_det_sync <= rx_det;
-            tx_det_sync <= tx_det;
-        end if;
-    end process;
-    
-    rx_DEBOUNCE_gen : for i in 0 to 1 generate
+        
+        rx_det_SIGNAL_SYNC_inst : entity work.SIGNAL_SYNC
+            port map (
+                CLK => g_clk,
+                
+                DIN     => rx_det(i),
+                DOUT    => rx_det_sync(i)
+            );
         
         rx_det_DEBOUNCE_inst : entity work.DEBOUNCE
             generic map (
-                CYCLE_COUNT => 1000
+                CYCLE_COUNT => 1500
             )
             port map (
                 CLK => g_clk,
@@ -360,6 +368,25 @@ begin
             );
     
     end generate;
+    
+    both_rx_det_DEBOUNCE_inst : entity work.DEBOUNCE
+        generic map (
+            CYCLE_COUNT => 1000
+        )
+        port map (
+            CLK => g_clk,
+            
+            I   => both_rx_det_sync,
+            O   => both_rx_det_stable
+        );
+    
+    tx_det_SIGNAL_SYNC_inst : entity work.SIGNAL_SYNC
+        port map (
+            CLK => g_clk,
+            
+            DIN     => tx_det,
+            DOUT    => tx_det_sync
+        );
         
     tx_det_DEBOUNCE_inst : entity work.DEBOUNCE
         generic map (
@@ -674,7 +701,8 @@ begin
             
             SETTINGS_ADDR   => conf_settings_addr,
             SETTINGS_WR_EN  => conf_settings_wr_en,
-            SETTINGS_DATA   => conf_settings_data,
+            SETTINGS_DIN    => conf_settings_din,
+            SETTINGS_DOUT   => conf_settings_dout,
             
             CFG_ADDR    => conf_cfg_addr,
             CFG_WR_EN   => conf_cfg_wr_en,
@@ -698,7 +726,9 @@ begin
             CONF_LEDEX_WAITING_FOR_BUSY,
             CONF_LEDEX_WAITING_FOR_IDLE,
             CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR,
-            IDLE
+            IDLE_WAITING_FOR_IDLE,
+            IDLE,
+            SAVING_SETTINGS
         );
         
         signal state            : state_type := INIT;
@@ -706,23 +736,25 @@ begin
         signal settings_addr    : std_ulogic_vector(9 downto 0) := (others => '0');
     begin
         
-        configurator_stim_proc : process(conf_rst, g_rst)
+        configurator_stim_proc : process(g_clk, g_rst)
         begin
-            if conf_rst='1' then
+            if g_rst='1' then
                 conf_settings_wr_en     <= '0';
-                conf_settings_data      <= x"00";
+                conf_settings_din       <= x"00";
                 conf_calculate          <= '0';
                 conf_configure_ledex    <= '0';
                 conf_configure_ledcor   <= '0';
                 counter                 <= uns(1023, 11);
                 settings_addr           <= (others => '0');
                 start_settings_read     <= false;
+                start_settings_write    <= false;
             elsif rising_edge(g_clk) then
                 conf_settings_wr_en     <= '0';
                 conf_calculate          <= '0';
                 conf_configure_ledex    <= '0';
                 conf_configure_ledcor   <= '0';
                 start_settings_read     <= false;
+                start_settings_write    <= false;
                 
                 case state is
                     
@@ -735,7 +767,7 @@ begin
                     when SENDING_SETTINGS =>
                         conf_settings_addr  <= settings_addr;
                         conf_settings_wr_en <= fctrl_valid;
-                        conf_settings_data  <= fctrl_dout;
+                        conf_settings_din   <= fctrl_dout;
                         if fctrl_valid='1' then
                             counter         <= counter-1;
                             settings_addr   <= settings_addr+1;
@@ -775,10 +807,28 @@ begin
                     
                     when CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR =>
                         conf_configure_ledex    <= '1';
-                        state                   <= IDLE;
+                        state                   <= IDLE_WAITING_FOR_IDLE;
+                    
+                    when IDLE_WAITING_FOR_IDLE =>
+                        if conf_busy='0' then
+                            state   <= IDLE;
+                        end if;
                     
                     when IDLE =>
-                        null;
+                        counter <= uns(1023, 11);
+                        if pmod0_deb(1)='1' and pmod0_deb_q(1)='0' then
+                            start_settings_write    <= true;
+                            state                   <= SAVING_SETTINGS;
+                        end if;
+                    
+                    when SAVING_SETTINGS =>
+                        conf_settings_addr  <= settings_addr;
+                        counter             <= counter-1;
+                        settings_addr       <= settings_addr+1;
+                        if counter(counter'high)='1' then
+                            -- wrote 1k bytes
+                            state   <= IDLE;
+                        end if;
                     
                 end case;
             end if;
@@ -826,7 +876,8 @@ begin
     spi_flash_control_stim_gen : if true generate
         type state_type is (
             INIT,
-            READING_SETTINGS
+            READING_SETTINGS,
+            WRITING_SETTINGS
         );
         
         signal state    : state_type := INIT;
@@ -834,14 +885,17 @@ begin
     begin
         
         fctrl_addr  <= SETTINGS_FLASH_ADDR;
+        fctrl_din   <= CONF_SETTINGS_DOUT;
         
         spi_flash_control_stim_proc : process(g_clk, g_rst)
         begin
             if g_rst='1' then
                 state       <= INIT;
                 fctrl_rd_en <= '0';
+                fctrl_wr_en <= '0';
             elsif rising_edge(g_clk) then
                 fctrl_rd_en <= '0';
+                fctrl_wr_en <= '0';
                 
                 case state is
                     
@@ -850,9 +904,21 @@ begin
                         if start_settings_read then
                             state   <= READING_SETTINGS;
                         end if;
+                        if start_settings_write then
+                            state   <= WRITING_SETTINGS;
+                        end if;
                     
                     when READING_SETTINGS =>
                         fctrl_rd_en <= '1';
+                        if counter(counter'high)='1' then
+                            state   <= INIT;
+                        end if;
+                        if fctrl_valid='1' then
+                            counter <= counter-1;
+                        end if;
+                    
+                    when WRITING_SETTINGS =>
+                        fctrl_wr_en <= '1';
                         if counter(counter'high)='1' then
                             state   <= INIT;
                         end if;
@@ -892,9 +958,8 @@ begin
         iprog_enable_proc : process(g_clk)
         begin
             if rising_edge(g_clk) then
-                -- switch the bitfile if the inactive RX port gets connected
-                iprog_en        <= rx_det_stable(1-RX_SEL) and not rx_det_stable_q(1-RX_SEL);
-                rx_det_stable_q <= rx_det_stable;
+                -- switch the bitfile if only the inactive RX port is connected
+                iprog_en    <= not both_rx_det_stable and rx_det_stable(1-RX_SEL);
             end if;
         end process;
         
