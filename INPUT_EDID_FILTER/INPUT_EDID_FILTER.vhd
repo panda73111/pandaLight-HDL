@@ -58,6 +58,7 @@ architecture rtl of INPUT_EDID_FILTER is
         segment_pointer : std_ulogic_vector(6 downto 0);
         byte            : std_ulogic_vector(7 downto 0);
         bit_index       : unsigned(2 downto 0); -- 0..7
+        byte_index      : unsigned(6 downto 0);
         block_number    : std_ulogic_vector(7 downto 0);
     end record;
     
@@ -69,6 +70,7 @@ architecture rtl of INPUT_EDID_FILTER is
         segment_pointer => "0000000",
         byte            => x"00",
         bit_index       => uns(7, 3),
+        byte_index      => "0000000",
         block_number    => x"00"
     );
     
@@ -256,13 +258,47 @@ begin
                     r.bit_index := cr.bit_index-1;
                     r.state     := GETTING_WORD_OFFS_WAITING_FOR_SCL_LOW;
                     if cr.bit_index=0 then
-                        r.state := WAITING_FOR_START;
+                        r.state := INITIALIZING;
+                    end if;
+                end if;
+            
+            when READ_ADDR_GETTING_ACK_WAITING_FOR_SCL_HIGH =>
+                if rx_scl_in_sync='1' then
+                    r.state := READING_BYTE_WAITING_FOR_SCL_LOW;
+                end if;
+            
+            when READING_BYTE_WAITING_FOR_SCL_LOW =>
+                if rx_scl_in_sync='0' then
+                    r.state := READING_BYTE_WAITING_FOR_SCL_HIGH;
+                end if;
+            
+            when READING_BYTE_WAITING_FOR_SCL_HIGH =>
+                r.byte(int(cr.bit_index))   <= tx_sda_in_sync;
+                if rx_scl_in_sync='1' then
+                    r.bit_index := cr_bit_index-1;
+                    r.state     := READING_BYTE_WAITING_FOR_SCL_LOW;
+                    if cr.bit_index=0 then
+                        r.state := READING_BYTE_GETTING_ACK_WAITING_FOR_SCL_LOW;
+                    end if;
+                end if;
+            
+            when READING_BYTE_GETTING_ACK_WAITING_FOR_SCL_LOW =>
+                if rx_scl_in_sync='0' then
+                    r.state := READING_BYTE_GETTING_ACK_WAITING_FOR_SCL_HIGH;
+                end if;
+            
+            when READING_BYTE_GETTING_ACK_WAITING_FOR_SCL_HIGH =>
+                if rx_scl_in_sync='1' then
+                    r.state := READING_BYTE_WAITING_FOR_SCL_LOW;
+                    if rx_sda_in_sync='1' then
+                        -- NACK from master at RX
+                        r.state := INITIALIZING;
                     end if;
                 end if;
             
         end case;
         
-        if RST='1' then
+        if RST='1' or stop='1' then
             r   := reg_type_def;
         end if;
         
