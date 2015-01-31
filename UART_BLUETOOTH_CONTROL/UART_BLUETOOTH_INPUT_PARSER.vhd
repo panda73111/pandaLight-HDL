@@ -51,9 +51,9 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
         EXPECTING_ROK_OK_K,
         SETTING_OK,
         -- any response
-        EXPECTING_ANY_RESP_R,
+        EXPECTING_ANY_RESP_E_R,
         -- RCOI / RDAI / RDII / RSLE / RCCRCNF / RPNE response
-        EXPECTING_RCOI_RDAI_RDII_RSLE_RCCRCNF_RESP_RPNE_C_D_S_P,
+        EXPECTING_RCOI_RDAI_RDII_RSLE_RSNFCNF_RCCRCNF_RPNE_RESP_C_D_S_P,
         -- RCOI / RCCRCNF response
         EXPECTING_RCOI_RCCRCNF_RESP_O_C,
         -- RCOI response
@@ -84,9 +84,15 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
         EVALUATING_RDAI_RESP_DATA_LEN3,
         EXPECTING_RDAI_RESP_COMMA,
         RECEIVE_DATA_BYTE,
-        -- RSLE response
-        EXPECTING_RSLE_RESP_L,
+        -- RSLE / RSNFCNF response
+        EXPECTING_RSLE_RSNFCNF_RESP_L_N,
         EXPECTING_RSLE_RESP_E,
+        -- RSNFCNF response
+        EXPECTING_RSNFCNF_RESP_F,
+        EXPECTING_RSNFCNF_RESP_C,
+        EXPECTING_RSNFCNF_RESP_N2,
+        EXPECTING_RSNFCNF_RESP_F2,
+        EXPECTING_RSNFCNF_RESP_EQUALS,
         -- RDII response
         EXPECTING_RDII_RESP_I2,
         UNSETTING_CONNECTED,
@@ -94,6 +100,11 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
         EXPECTING_RPNE_RESP_N,
         EXPECTING_RPNE_RESP_E,
         EXPECTING_RPNE_RESP_EQUALS,
+        -- ESNS response
+        EXPECTING_ESNS_RESP_S,
+        EXPECTING_ESNS_RESP_N,
+        EXPECTING_ESNS_RESP_S2,
+        EXPECTING_ESNS_RESP_EQUALS,
         -- response end
         WAITING_FOR_RESPONSE_END
     );
@@ -259,7 +270,7 @@ begin
                         when 'O' =>
                             r.state := EXPECTING_ROK_OK_K;
                         when '+' =>
-                            r.state := EXPECTING_ANY_RESP_R;
+                            r.state := EXPECTING_ANY_RESP_E_R;
                         when others =>
                             r.error := '1';
                             r.state := WAITING_FOR_RESPONSE_END;
@@ -281,15 +292,16 @@ begin
             
             -- any response
             
-            when EXPECTING_ANY_RESP_R =>
-                expect_char('R', EXPECTING_RCOI_RDAI_RDII_RSLE_RCCRCNF_RESP_RPNE_C_D_S_P, true);
+            when EXPECTING_ANY_RESP_E_R =>
+                expect_char('R', EXPECTING_RCOI_RDAI_RDII_RSLE_RSNFCNF_RCCRCNF_RPNE_RESP_C_D_S_P, true);
+                expect_char('E', EXPECTING_ESNS_RESP_S);
             
-            -- RCOI / RDAI / RDII / RSLE / RCCRCNF response
+            -- RCOI / RDAI / RDII / RSLE / RSNFCNF / RCCRCNF response
             
-            when EXPECTING_RCOI_RDAI_RDII_RSLE_RCCRCNF_RESP_RPNE_C_D_S_P =>
+            when EXPECTING_RCOI_RDAI_RDII_RSLE_RSNFCNF_RCCRCNF_RPNE_RESP_C_D_S_P =>
                 expect_char('C', EXPECTING_RCOI_RCCRCNF_RESP_O_C, true);
                 expect_char('D', EXPECTING_RDAI_RDII_RESP_A_I);
-                expect_char('S', EXPECTING_RSLE_RESP_L);
+                expect_char('S', EXPECTING_RSLE_RSNFCNF_RESP_L_N);
                 expect_char('P', EXPECTING_RPNE_RESP_N);
             
             -- RCOI / RCCRCNF response
@@ -400,14 +412,33 @@ begin
                     r.state := WAITING_FOR_RESPONSE_END;
                 end if;
             
-            -- RSLE response
+            -- RSLE / RSNFCNF response
             
-            when EXPECTING_RSLE_RESP_L =>
+            when EXPECTING_RSLE_RSNFCNF_RESP_L_N =>
                 expect_char('L', EXPECTING_RSLE_RESP_E, true);
+                expect_char('N', EXPECTING_RSNFCNF_RESP_F);
             
             when EXPECTING_RSLE_RESP_E =>
                 -- ignore the 'Secure Link Established' info for now
                 expect_char('E', WAITING_FOR_RESPONSE_END, true);
+            
+            -- RSNFCNF response
+            
+            when EXPECTING_RSNFCNF_RESP_F =>
+                expect_char('F', EXPECTING_RSNFCNF_RESP_C, true);
+            
+            when EXPECTING_RSNFCNF_RESP_C =>
+                expect_char('C', EXPECTING_RSNFCNF_RESP_N2, true);
+            
+            when EXPECTING_RSNFCNF_RESP_N2 =>
+                expect_char('N', EXPECTING_RSNFCNF_RESP_F2, true);
+            
+            when EXPECTING_RSNFCNF_RESP_F2 =>
+                expect_char('F', EXPECTING_RSNFCNF_RESP_EQUALS, true);
+            
+            when EXPECTING_RSNFCNF_RESP_EQUALS =>
+                -- ignore the 'Sniff mode confirmation' info for now
+                expect_char('=', WAITING_FOR_RESPONSE_END, true);
             
             -- RDII response
             
@@ -430,6 +461,21 @@ begin
             
             when EXPECTING_RPNE_RESP_EQUALS =>
                 -- ignore the passkey for now
+                expect_char('=', WAITING_FOR_RESPONSE_END, true);
+            
+            -- ESNS response
+            
+            when EXPECTING_ESNS_RESP_S =>
+                expect_char('S', EXPECTING_ESNS_RESP_N, true);
+            
+            when EXPECTING_ESNS_RESP_N =>
+                expect_char('N', EXPECTING_ESNS_RESP_S2, true);
+            
+            when EXPECTING_ESNS_RESP_S2 =>
+                expect_char('S', EXPECTING_ESNS_RESP_EQUALS, true);
+            
+            when EXPECTING_ESNS_RESP_EQUALS =>
+                -- ignore the 'Sniff Sub rating event' for now
                 expect_char('=', WAITING_FOR_RESPONSE_END, true);
             
             -- response end

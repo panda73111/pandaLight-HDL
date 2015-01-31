@@ -217,7 +217,8 @@ begin
         -- boot complete
         send_string_to_b("ROK" & CRLF);
         
-        loop
+        main_loop : loop
+            
             get_cmd_from_b(cmd_buf, cmd_len);
             case cmd_buf(1 to 7) is
                 when "AT+JSEC"  => send_string_to_b("OK" & CRLF);
@@ -225,29 +226,51 @@ begin
                 when "AT+JRLS"  => send_string_to_b("OK" & CRLF);
                 when "AT+JDIS"  => send_string_to_b("OK" & CRLF);
                 when "AT+JAAC"  => send_string_to_b("OK" & CRLF);
+                    
                     -- connect
                     wait for 10 ms;
                     report "Connecting";
                     send_string_to_b("+RSLE" & CRLF);
                     send_string_to_b("+RCOI=" & BT_ADDR & CRLF);
                     send_string_to_b("+RCCRCNF=128," & SERVICE_UUID & ",0" & CRLF);
+                    send_string_to_b("+RCCRCNF=128," & SERVICE_UUID & ",0" & CRLF);
+                    send_string_to_b("+RSNFCNF=0320,2" & CRLF);
+                    send_string_to_b("+ESNS=0320,0320,0000,0002" & CRLF);
                     wait for 10 ms;
+                    
                     -- send data to the module (device B)
                     report "Sending test data to B";
                     send_string_to_b("+RDAI=" & pad_left(TEST_DATA'length/8, 3, '0') & ",");
                     send_bytes_to_b(TEST_DATA);
                     send_string_to_b(CRLF);
+                    send_string_to_b("+RDAI=" & pad_left(TEST_DATA'length/8, 3, '0') & ",");
+                    send_bytes_to_b(TEST_DATA);
+                    send_string_to_b(CRLF);
+                    send_string_to_b("+RSNFCNF=0320,2" & CRLF);
+                    send_string_to_b("+ESNS=0320,0320,0000,0002" & CRLF);
                     wait for 10 ms;
+                    
                     -- send data to the simulated host (device A)
                     report "Sending test data to A";
                     send_packet_to_a;
                     wait for 10 ms;
+                    
                     -- disconnect
                     report "Disconnecting";
                     send_string_to_b("+RDII" & CRLF);
                     wait for 10 ms;
+                    
+                    -- test error
+                    report "Testing error";
+                    send_string_to_b("X");
+                    wait until rising_edge(BT_RSTN);
+                    -- boot complete
+                    send_string_to_b("ROK" & CRLF);
+                    wait for 10 ms;
+                    
                     report "NONE. All tests completed."
                         severity FAILURE;
+                    
                 when others =>
                     report "Unknown command!"
                     severity FAILURE;
