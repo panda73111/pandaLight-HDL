@@ -52,8 +52,8 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
         SETTING_OK,
         -- any response
         EXPECTING_ANY_RESP_E_R,
-        -- RCOI / RDAI / RDII / RSLE / RCCRCNF / RPNE response
-        EXPECTING_RCOI_RDAI_RDII_RSLE_RSNFCNF_RCCRCNF_RPNE_RESP_C_D_S_P,
+        -- RCOI / RDAI / RDII / RSLE / RCCRCNF / RPCI / RPNE response
+        EXPECTING_RCOI_RDAI_RDII_RSLE_RSNFCNF_RCCRCNF_RPCI_RPNE_RESP_C_D_S_P,
         -- RCOI / RCCRCNF response
         EXPECTING_RCOI_RCCRCNF_RESP_O_C,
         -- RCOI response
@@ -96,10 +96,14 @@ architecture rtl of UART_BLUETOOTH_INPUT_PARSER is
         -- RDII response
         EXPECTING_RDII_RESP_I2,
         UNSETTING_CONNECTED,
+        -- RPCI / RPNE response
+        EXPECTING_RPCI_RPNE_RESP_C_N,
         -- RPNE response
-        EXPECTING_RPNE_RESP_N,
         EXPECTING_RPNE_RESP_E,
         EXPECTING_RPNE_RESP_EQUALS,
+        --- RPCI response
+        EXPECTING_RPCI_RESP_I,
+        EXPECTING_RPCI_RESP_EQUALS,
         -- ESNS response
         EXPECTING_ESNS_RESP_S,
         EXPECTING_ESNS_RESP_N,
@@ -293,16 +297,16 @@ begin
             -- any response
             
             when EXPECTING_ANY_RESP_E_R =>
-                expect_char('R', EXPECTING_RCOI_RDAI_RDII_RSLE_RSNFCNF_RCCRCNF_RPNE_RESP_C_D_S_P, true);
+                expect_char('R', EXPECTING_RCOI_RDAI_RDII_RSLE_RSNFCNF_RCCRCNF_RPCI_RPNE_RESP_C_D_S_P, true);
                 expect_char('E', EXPECTING_ESNS_RESP_S);
             
             -- RCOI / RDAI / RDII / RSLE / RSNFCNF / RCCRCNF response
             
-            when EXPECTING_RCOI_RDAI_RDII_RSLE_RSNFCNF_RCCRCNF_RPNE_RESP_C_D_S_P =>
+            when EXPECTING_RCOI_RDAI_RDII_RSLE_RSNFCNF_RCCRCNF_RPCI_RPNE_RESP_C_D_S_P =>
                 expect_char('C', EXPECTING_RCOI_RCCRCNF_RESP_O_C, true);
                 expect_char('D', EXPECTING_RDAI_RDII_RESP_A_I);
                 expect_char('S', EXPECTING_RSLE_RSNFCNF_RESP_L_N);
-                expect_char('P', EXPECTING_RPNE_RESP_N);
+                expect_char('P', EXPECTING_RPCI_RPNE_RESP_C_N);
             
             -- RCOI / RCCRCNF response
             
@@ -451,16 +455,28 @@ begin
                 r.mtu_size_valid    := '0';
                 r.state             := WAITING_FOR_RESPONSE_END;
             
-            -- RPNE response
+            -- RPCI / RPNE response
             
-            when EXPECTING_RPNE_RESP_N =>
-                expect_char('N', EXPECTING_RPNE_RESP_E, true);
+            when EXPECTING_RPCI_RPNE_RESP_C_N =>
+                expect_char('C', EXPECTING_RPCI_RESP_I, true);
+                expect_char('N', EXPECTING_RPNE_RESP_E);
+            
+            -- RPNE response
             
             when EXPECTING_RPNE_RESP_E =>
                 expect_char('E', EXPECTING_RPNE_RESP_EQUALS, true);
             
             when EXPECTING_RPNE_RESP_EQUALS =>
                 -- ignore the passkey for now
+                expect_char('=', WAITING_FOR_RESPONSE_END, true);
+            
+            --- RPCI response
+            
+            when EXPECTING_RPCI_RESP_I =>
+                expect_char('I', EXPECTING_RPCI_RESP_EQUALS, true);
+            
+            when EXPECTING_RPCI_RESP_EQUALS =>
+                -- ignore the pin request for now
                 expect_char('=', WAITING_FOR_RESPONSE_END, true);
             
             -- ESNS response

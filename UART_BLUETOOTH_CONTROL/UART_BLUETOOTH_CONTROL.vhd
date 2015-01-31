@@ -22,7 +22,8 @@ entity UART_BLUETOOTH_CONTROL is
         CLK_IN_PERIOD   : real;
         BAUD_RATE       : positive := 115_200;
         BUFFER_SIZE     : positive := 1024;
-        UUID            : string(1 to 32) := "56F46190A07D11E4BCD80800200C9A66";
+        -- default Serial over Bluetooth UUID
+        UUID            : string(1 to 32) := "0000110100001000800000805F9B34FB";
         COD             : string(1 to 6) := "040400";
         DEVICE_NAME     : string := "pandaLight";
         SERVICE_NAME    : string := "Serial port";
@@ -60,7 +61,7 @@ architecture rtl of UART_BLUETOOTH_CONTROL is
     
     constant CRLF                   : string := CR & LF;
     constant RESET_CMD              : string := "AT+RES" & CRLF;
-    constant SECURITY_CMD           : string := "AT+JSEC=4,1,04,0000,0,1" & CRLF; -- "just works" security, output device
+    constant SECURITY_CMD           : string := "AT+JSEC=4,1,04,0000,0,0" & CRLF; -- "just works" security, output device
     constant DEVICE_NAME_CMD        : string := "AT+JSLN=" & pad_left(DEVICE_NAME'length, 2, '0') & "," & DEVICE_NAME & CRLF;
     constant REGISTER_SERVICE_CMD   : string := "AT+JRLS=32," & pad_left(SERVICE_NAME'length, 2, '0') & "," & UUID &
                                                 "," & SERVICE_NAME & "," & pad_left(SERVICE_CHANNEL, 2, '0') & "," & COD & CRLF;
