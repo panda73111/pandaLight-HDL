@@ -209,7 +209,6 @@ begin
                     send_string_to_b("+RSLE" & CRLF);
                     send_string_to_b("+RCOI=" & BT_ADDR & CRLF);
                     send_string_to_b("+RCCRCNF=128," & SERVICE_UUID & ",0" & CRLF);
-                    send_string_to_b("+RCCRCNF=128," & SERVICE_UUID & ",0" & CRLF);
                     send_string_to_b("+RSNFCNF=0320,2" & CRLF);
                     send_string_to_b("+ESNS=0320,0320,0000,0002" & CRLF);
                     wait for 10 ms;
