@@ -33,7 +33,7 @@
 --    - vertical LED step
 --    - vertical LED offset
 --  
---  The scales are kept as fixed point numbers, 8 bit + 8 bit fraction
+--  The scales are kept as fixed point numbers, 8 bit fraction, biased by 1/256th
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -119,10 +119,10 @@ architecture rtl of CONFIGURATOR is
         cfg_wr_en               : std_ulogic;
         cfg_data                : std_ulogic_vector(7 downto 0);
         multiplier_start        : std_ulogic;
-        multiplier_multiplicand : std_ulogic_vector(15 downto 0);
-        multiplier_multiplier   : std_ulogic_vector(15 downto 0);
-        hor_scale               : std_ulogic_vector(15 downto 0);
-        ver_scale               : std_ulogic_vector(15 downto 0);
+        multiplier_multiplicand : std_ulogic_vector(7 downto 0);
+        multiplier_multiplier   : std_ulogic_vector(7 downto 0);
+        hor_scale               : std_ulogic_vector(7 downto 0);
+        ver_scale               : std_ulogic_vector(7 downto 0);
         led_count               : std_ulogic_vector(7 downto 0);
         buf_rd_p                : std_ulogic_vector(9 downto 0);
         buf_wr_p                : std_ulogic_vector(9 downto 0);
@@ -140,8 +140,8 @@ architecture rtl of CONFIGURATOR is
         multiplier_start        => '0',
         multiplier_multiplicand => (others => '0'),
         multiplier_multiplier   => (others => '0'),
-        hor_scale               => x"0000",
-        ver_scale               => x"0000",
+        hor_scale               => x"00",
+        ver_scale               => x"00",
         led_count               => x"00",
         buf_rd_p                => (others => '0'),
         buf_wr_p                => (others => '1'),
@@ -152,13 +152,13 @@ architecture rtl of CONFIGURATOR is
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     
     signal multiplier_valid     : std_ulogic := '0';
-    signal multiplier_result    : std_ulogic_vector(31 downto 0);
+    signal multiplier_result    : std_ulogic_vector(15 downto 0);
     
     type settings_buf_type is
         array(0 to 1023) of
         std_ulogic_vector(7 downto 0);
     
-    signal settings_buf : settings_buf_type;
+    signal settings_buf : settings_buf_type := (others => x"00");
     
     signal buf_do   : std_ulogic_vector(7 downto 0) := x"00";
     
@@ -174,7 +174,7 @@ begin
     
     ITERATIVE_MULTIPLIER_inst : entity work.ITERATIVE_MULTIPLIER
         generic map (
-            WIDTH   => 16
+            WIDTH   => 8
         )
         port map (
             CLK => CLK,
@@ -225,10 +225,10 @@ begin
         case cr.state is
             
             when WAITING_FOR_START =>
-                r.multiplier_multiplicand   := (others => '0');
-                r.multiplier_multiplier     := (others => '0');
-                r.hor_scale                 := (others => '0');
-                r.ver_scale                 := (others => '0');
+                r.multiplier_multiplicand   := x"00";
+                r.multiplier_multiplier     := x"00";
+                r.hor_scale                 := x"00";
+                r.ver_scale                 := x"00";
                 r.cfg_addr                  := (others => '1');
                 r.buf_wr_p                  := (others => '1');
                 r.buf_rd_p                  := SETTINGS_ADDR;
@@ -251,16 +251,16 @@ begin
             when CALCULATING_LED_SCALE =>
                 -- dividing by 16: cut lower 4 bits
                 -- multiplying by 2 and adding 1: left shift '1' by 1
-                -- lower 8 bits of hor scale is the fraction part (2^-1 to 2^-8)
-                r.hor_scale(7 downto  0)    := FRAME_WIDTH(10 downto 4) & '1';
-                r.ver_scale(7 downto  0)    := FRAME_HEIGHT(10 downto 4) & '1';
-                r.buf_rd_p                  := BUF_I_HOR_LED_WIDTH;
-                r.state                     := CALCULATING_ABSOLUTE_HOR_VALUES;
+                -- lower 8 bits of hor/ver scale is the fraction part (2^-1 to 2^-8)
+                r.hor_scale := FRAME_WIDTH(10 downto 4) & '1';
+                r.ver_scale := FRAME_HEIGHT(10 downto 4) & '1';
+                r.buf_rd_p  := BUF_I_HOR_LED_WIDTH;
+                r.state     := CALCULATING_ABSOLUTE_HOR_VALUES;
             
             when CALCULATING_ABSOLUTE_HOR_VALUES =>
-                r.multiplier_multiplicand           := cr.hor_scale;
-                r.multiplier_multiplier(7 downto 0) := buf_do;
-                r.buf_wr_p                          := cr.buf_rd_p;
+                r.multiplier_multiplicand   := cr.hor_scale;
+                r.multiplier_multiplier     := buf_do;
+                r.buf_wr_p                  := cr.buf_rd_p;
                 case cr.buf_rd_p is
                     when BUF_I_HOR_LED_WIDTH    =>  r.buf_rd_p  := BUF_I_HOR_LED_STEP;
                     when BUF_I_HOR_LED_STEP     =>  r.buf_rd_p  := BUF_I_HOR_LED_OFFS;
@@ -282,9 +282,9 @@ begin
                 end if;
             
             when CALCULATING_ABSOLUTE_VER_VALUES =>
-                r.multiplier_multiplicand           := cr.ver_scale;
-                r.multiplier_multiplier(7 downto 0) := buf_do;
-                r.buf_wr_p                          := cr.buf_rd_p;
+                r.multiplier_multiplicand   := cr.ver_scale;
+                r.multiplier_multiplier     := buf_do;
+                r.buf_wr_p                  := cr.buf_rd_p;
                 case cr.buf_rd_p is
                     when BUF_I_VER_LED_HEIGHT   =>  r.buf_rd_p  := BUF_I_VER_LED_STEP;
                     when BUF_I_VER_LED_STEP     =>  r.buf_rd_p  := BUF_I_VER_LED_OFFS;
