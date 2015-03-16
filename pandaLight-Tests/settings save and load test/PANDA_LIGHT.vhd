@@ -387,6 +387,7 @@ begin
         begin
             if g_rst='1' then
                 state       <= INIT;
+                counter     <= uns(1023, counter'length);
                 fctrl_rd_en <= '0';
                 fctrl_wr_en <= '0';
             elsif rising_edge(g_clk) then
@@ -396,7 +397,7 @@ begin
                 case state is
                     
                     when INIT =>
-                        counter <= uns(1023, 11);
+                        counter <= uns(1023, counter'length);
                         if start_settings_read then
                             state   <= READING_SETTINGS;
                         end if;
@@ -415,11 +416,9 @@ begin
                     
                     when WRITING_SETTINGS =>
                         fctrl_wr_en <= '1';
+                        counter     <= counter-1;
                         if counter(counter'high)='1' then
                             state   <= INIT;
-                        end if;
-                        if fctrl_valid='1' then
-                            counter <= counter-1;
                         end if;
                     
                 end case;

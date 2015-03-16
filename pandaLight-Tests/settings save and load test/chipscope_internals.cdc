@@ -1,10 +1,10 @@
 #ChipScope Core Inserter Project File Version 3.0
-#Sun Jan 18 14:51:31 CET 2015
-Project.device.designInputFile=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\settings load test\\PANDA_LIGHT_cs.ngc
-Project.device.designOutputFile=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\settings load test\\PANDA_LIGHT_cs.ngc
+#Mon Mar 09 13:07:22 CET 2015
+Project.device.designInputFile=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\settings save and load test\\PANDA_LIGHT_cs.ngc
+Project.device.designOutputFile=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\settings save and load test\\PANDA_LIGHT_cs.ngc
 Project.device.deviceFamily=18
 Project.device.enableRPMs=true
-Project.device.outputDirectory=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\settings load test\\_ngo
+Project.device.outputDirectory=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\settings save and load test\\_ngo
 Project.device.useSRL16=true
 Project.filter.dimension=1
 Project.filter<0>=
@@ -73,7 +73,8 @@ Project.unit<0>.triggerChannel<4><0>=SPI_FLASH_CONTROL_inst/clk_out_locked
 Project.unit<0>.triggerChannel<4><1>=SPI_FLASH_CONTROL_inst/cur_reg_mosi
 Project.unit<0>.triggerChannel<4><2>=SPI_FLASH_CONTROL_inst/cur_reg_sn
 Project.unit<0>.triggerChannel<4><3>=SPI_FLASH_CONTROL_inst/cur_reg_valid
-Project.unit<0>.triggerChannel<4><4>=SPI_FLASH_CONTROL_inst/fifo_empty
+Project.unit<0>.triggerChannel<4><4>=SPI_FLASH_CONTROL_inst/write_buffer_inst/is_empty
+Project.unit<0>.triggerChannel<4><5>=SPI_FLASH_CONTROL_inst/write_buffer_inst/is_full
 Project.unit<0>.triggerConditionCountWidth=0
 Project.unit<0>.triggerMatchCount<0>=1
 Project.unit<0>.triggerMatchCount<1>=1
@@ -100,7 +101,7 @@ Project.unit<0>.triggerPortWidth<0>=3
 Project.unit<0>.triggerPortWidth<1>=6
 Project.unit<0>.triggerPortWidth<2>=8
 Project.unit<0>.triggerPortWidth<3>=3
-Project.unit<0>.triggerPortWidth<4>=5
+Project.unit<0>.triggerPortWidth<4>=6
 Project.unit<0>.triggerSequencerLevels=16
 Project.unit<0>.triggerSequencerType=1
 Project.unit<0>.type=ilapro
