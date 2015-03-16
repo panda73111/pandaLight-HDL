@@ -42,7 +42,7 @@ use work.help_funcs.all;
 
 entity CONFIGURATOR is
     generic (
-        FRAME_SIZE_BITS         : natural := 11
+        FRAME_SIZE_BITS : natural := 11
     );
     port (
         CLK : in std_ulogic;
@@ -128,6 +128,7 @@ architecture rtl of CONFIGURATOR is
         buf_wr_p                : std_ulogic_vector(9 downto 0);
         buf_di                  : std_ulogic_vector(7 downto 0);
         buf_wr_en               : std_ulogic;
+        scaled_buf_wr_en        : std_ulogic;
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -144,9 +145,10 @@ architecture rtl of CONFIGURATOR is
         ver_scale               => x"00",
         led_count               => x"00",
         buf_rd_p                => (others => '0'),
-        buf_wr_p                => (others => '1'),
+        buf_wr_p                => (others => '0'),
         buf_di                  => x"00",
-        buf_wr_en               => '0'
+        buf_wr_en               => '0',
+        scaled_buf_wr_en        => '0'
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -160,7 +162,14 @@ architecture rtl of CONFIGURATOR is
     
     signal settings_buf : settings_buf_type := (others => x"00");
     
-    signal buf_do   : std_ulogic_vector(7 downto 0) := x"00";
+    type scaled_settings_buf_type is
+        array(0 to 15) of
+        std_ulogic_vector(7 downto 0);
+    
+    signal scaled_settings_buf  : scaled_settings_buf_type := (others => x"00");
+    
+    signal buf_do           : std_ulogic_vector(7 downto 0) := x"00";
+    signal scaled_buf_do    : std_ulogic_vector(7 downto 0) := x"00";
     
 begin
     
@@ -191,27 +200,34 @@ begin
     
     -- ensure block RAM usage
     settings_buf_proc : process(CLK)
-        alias rd_p  is next_reg.buf_rd_p;
-        alias wr_p  is next_reg.buf_wr_p;
-        alias di    is next_reg.buf_di;
-        alias do    is buf_do;
-        alias wr_en is next_reg.buf_wr_en;
+        alias rd_p          is next_reg.buf_rd_p;
+        alias wr_p          is next_reg.buf_wr_p;
+        alias di            is next_reg.buf_di;
+        alias do            is buf_do;
+        alias scaled_do     is scaled_buf_do;
+        alias wr_en         is next_reg.buf_wr_en;
+        alias scaled_wr_en  is next_reg.scaled_buf_wr_en;
     begin
         if rising_edge(CLK) then
             -- write first mode
-            do  <= settings_buf(int(rd_p));
+            do          <= settings_buf(int(rd_p));
+            scaled_do   <= scaled_settings_buf(int(rd_p(3 downto 0)));
             if wr_en='1' then
                 settings_buf(int(wr_p)) <= di;
             end if;
+            if scaled_wr_en='1' then
+                scaled_settings_buf(int(wr_p(3 downto 0)))  <= di;
+            end if;
             if wr_en='1' and rd_p=wr_p then
-                do  <= di;
+                do          <= di;
+                scaled_do   <= di;
             end if;
         end if;
     end process;
     
     stm_proc : process(RST, cur_reg, CALCULATE, CONFIGURE_LEDEX, CONFIGURE_LEDCOR,
         SETTINGS_ADDR, SETTINGS_WR_EN, SETTINGS_DIN, FRAME_WIDTH, FRAME_HEIGHT,
-        multiplier_valid, multiplier_result, buf_do)
+        multiplier_valid, multiplier_result, buf_do, scaled_buf_do)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
@@ -221,6 +237,7 @@ begin
         r.cfg_wr_en         := '0';
         r.multiplier_start  := '0';
         r.buf_wr_en         := '0';
+        r.scaled_buf_wr_en  := '0';
         
         case cr.state is
             
@@ -230,7 +247,7 @@ begin
                 r.hor_scale                 := x"00";
                 r.ver_scale                 := x"00";
                 r.cfg_addr                  := (others => '1');
-                r.buf_wr_p                  := (others => '1');
+                r.buf_wr_p                  := (others => '0');
                 r.buf_rd_p                  := SETTINGS_ADDR;
                 if SETTINGS_WR_EN='1' then
                     r.buf_wr_en := '1';
@@ -271,8 +288,8 @@ begin
                 r.state             := CALCULATING_WAIT_FOR_ABSOLUTE_HOR_VALUE;
             
             when CALCULATING_WAIT_FOR_ABSOLUTE_HOR_VALUE =>
-                r.buf_wr_en := '1';
-                r.buf_di    := multiplier_result(15 downto 8);
+                r.scaled_buf_wr_en  := '1';
+                r.buf_di            := multiplier_result(15 downto 8);
                 if multiplier_valid='1' then
                     r.state := CALCULATING_ABSOLUTE_HOR_VALUES;
                     if cr.buf_wr_p=BUF_I_VER_LED_PAD then
@@ -295,8 +312,8 @@ begin
                 r.state             := CALCULATING_WAIT_FOR_ABSOLUTE_VER_VALUE;
             
             when CALCULATING_WAIT_FOR_ABSOLUTE_VER_VALUE =>
-                r.buf_wr_en := '1';
-                r.buf_di    := multiplier_result(15 downto 8);
+                r.scaled_buf_wr_en  := '1';
+                r.buf_di            := multiplier_result(15 downto 8);
                 if multiplier_valid='1' then
                     r.state := CALCULATING_ABSOLUTE_VER_VALUES;
                     if cr.buf_wr_p=BUF_I_HOR_LED_PAD then
@@ -323,18 +340,18 @@ begin
                 r.cfg_wr_en     := '1';
                 r.cfg_addr      := cr.cfg_addr+1;
                 case cr.cfg_addr+1 is
-                    when "0000000000"   =>  r.cfg_data  := buf_do;  r.buf_rd_p  := BUF_I_HOR_LED_WIDTH;  -- hor. LED count
-                    when "0000000001"   =>  r.cfg_data  := buf_do;  r.buf_rd_p  := BUF_I_HOR_LED_HEIGHT; -- hor. LED width
-                    when "0000000010"   =>  r.cfg_data  := buf_do;  r.buf_rd_p  := BUF_I_HOR_LED_STEP;   -- hor. LED height
-                    when "0000000011"   =>  r.cfg_data  := buf_do;  r.buf_rd_p  := BUF_I_HOR_LED_PAD;    -- hor. LED step
-                    when "0000000100"   =>  r.cfg_data  := buf_do;  r.buf_rd_p  := BUF_I_HOR_LED_OFFS;   -- hor. LED pad
-                    when "0000000101"   =>  r.cfg_data  := buf_do;  r.buf_rd_p  := BUF_I_VER_LED_CNT;    -- hor. LED offset
-                    when "0000000110"   =>  r.cfg_data  := buf_do;  r.buf_rd_p  := BUF_I_VER_LED_WIDTH;  -- ver. LED count
-                    when "0000000111"   =>  r.cfg_data  := buf_do;  r.buf_rd_p  := BUF_I_VER_LED_HEIGHT; -- ver. LED width
-                    when "0000001000"   =>  r.cfg_data  := buf_do;  r.buf_rd_p  := BUF_I_VER_LED_STEP;   -- ver. LED height
-                    when "0000001001"   =>  r.cfg_data  := buf_do;  r.buf_rd_p  := BUF_I_VER_LED_PAD;    -- ver. LED step
-                    when "0000001010"   =>  r.cfg_data  := buf_do;  r.buf_rd_p  := BUF_I_VER_LED_OFFS;   -- ver. LED pad
-                    when "0000001011"   =>  r.cfg_data  := buf_do;                                       -- ver. LED offset
+                    when "0000000000"   =>  r.cfg_data  := buf_do;          r.buf_rd_p  := BUF_I_HOR_LED_WIDTH;  -- hor. LED count
+                    when "0000000001"   =>  r.cfg_data  := scaled_buf_do;   r.buf_rd_p  := BUF_I_HOR_LED_HEIGHT; -- hor. LED width
+                    when "0000000010"   =>  r.cfg_data  := scaled_buf_do;   r.buf_rd_p  := BUF_I_HOR_LED_STEP;   -- hor. LED height
+                    when "0000000011"   =>  r.cfg_data  := scaled_buf_do;   r.buf_rd_p  := BUF_I_HOR_LED_PAD;    -- hor. LED step
+                    when "0000000100"   =>  r.cfg_data  := scaled_buf_do;   r.buf_rd_p  := BUF_I_HOR_LED_OFFS;   -- hor. LED pad
+                    when "0000000101"   =>  r.cfg_data  := scaled_buf_do;   r.buf_rd_p  := BUF_I_VER_LED_CNT;    -- hor. LED offset
+                    when "0000000110"   =>  r.cfg_data  := buf_do;          r.buf_rd_p  := BUF_I_VER_LED_WIDTH;  -- ver. LED count
+                    when "0000000111"   =>  r.cfg_data  := scaled_buf_do;   r.buf_rd_p  := BUF_I_VER_LED_HEIGHT; -- ver. LED width
+                    when "0000001000"   =>  r.cfg_data  := scaled_buf_do;   r.buf_rd_p  := BUF_I_VER_LED_STEP;   -- ver. LED height
+                    when "0000001001"   =>  r.cfg_data  := scaled_buf_do;   r.buf_rd_p  := BUF_I_VER_LED_PAD;    -- ver. LED step
+                    when "0000001010"   =>  r.cfg_data  := scaled_buf_do;   r.buf_rd_p  := BUF_I_VER_LED_OFFS;   -- ver. LED pad
+                    when "0000001011"   =>  r.cfg_data  := scaled_buf_do;                                        -- ver. LED offset
                     when "0000001100"   =>  r.cfg_data  := "00000" & FRAME_WIDTH(10 downto 8);
                     when "0000001101"   =>  r.cfg_data  := FRAME_WIDTH(7 downto 0);
                     when "0000001110"   =>  r.cfg_data  := "00000" & FRAME_HEIGHT(10 downto 8);
