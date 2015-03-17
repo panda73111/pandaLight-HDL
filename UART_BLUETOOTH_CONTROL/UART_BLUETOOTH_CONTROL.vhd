@@ -192,8 +192,7 @@ begin
     UART_BLUETOOTH_INPUT_PARSER_inst : entity work.UART_BLUETOOTH_INPUT_PARSER
         generic map (
             CLK_IN_PERIOD   => CLK_IN_PERIOD,
-            BAUD_RATE       => BAUD_RATE,
-            BUFFER_SIZE     => BUFFER_SIZE
+            BAUD_RATE       => BAUD_RATE
         )
         port map (
             CLK => CLK,

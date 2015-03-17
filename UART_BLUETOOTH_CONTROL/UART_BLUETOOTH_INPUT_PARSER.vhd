@@ -18,8 +18,7 @@ use work.help_funcs.all;
 entity UART_BLUETOOTH_INPUT_PARSER is
     generic (
         CLK_IN_PERIOD   : real;
-        BAUD_RATE       : positive := 115_200;
-        BUFFER_SIZE     : positive := 1024
+        BAUD_RATE       : positive := 115_200
     );
     port (
         CLK : in std_ulogic;
@@ -186,8 +185,7 @@ begin
             CLK_IN_PERIOD   => CLK_IN_PERIOD,
             BAUD_RATE       => BAUD_RATE,
             DATA_BITS       => 8,
-            PARITY_BIT_TYPE => 0,
-            BUFFER_SIZE     => BUFFER_SIZE
+            PARITY_BIT_TYPE => 0
         )
         port map (
             CLK => CLK,
