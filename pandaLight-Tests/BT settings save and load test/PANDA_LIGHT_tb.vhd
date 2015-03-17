@@ -97,9 +97,9 @@ begin
     
     test_spi_flash_inst : entity work.test_spi_flash
         generic map (
-            BYTE_COUNT      => 1024*1024,
-            INIT_FILE_PATH  => "../settings.bin",
-            INIT_ADDR       => x"060000",
+            BYTE_COUNT      => 1024,
+            INIT_FILE_PATH  => "../settings.hex",
+            INIT_ADDR       => x"000000",
             VERBOSE         => false
         )
         port map (
@@ -154,70 +154,70 @@ begin
         constant BT_ADDR        : string := "05A691C102E8"; -- (random)
         constant SERVICE_UUID   : string(1 to 32) := "56F46190A07D11E4BCD80800200C9A66";
         constant TEST_SETTINGS  : std_ulogic_vector(1024*8-1 downto 0) :=
-            x"10_60_e2_80_0f_10_09_80_a9_e2_08_1d_20_20_20_20" &
-            x"2c_20_20_ff_20_ff_20_ff_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_01_01_01_01_01_01_01_01_01_01_02_02_02_02" &
-            x"02_02_02_03_03_03_03_03_03_04_04_04_04_04_05_05" &
-            x"05_05_06_06_06_07_07_07_07_08_08_08_09_09_09_0a" &
-            x"0a_0a_0b_0b_0c_0c_0c_0d_0d_0e_0e_0e_0f_0f_10_10" &
-            x"11_11_12_12_13_13_14_15_15_16_16_17_18_18_19_19" &
-            x"1a_1b_1b_1c_1d_1d_1e_1f_20_20_21_22_23_23_24_25" &
-            x"26_27_27_28_29_2a_2b_2c_2d_2e_2f_30_31_31_32_33" &
-            x"34_35_37_38_39_3a_3b_3c_3d_3e_3f_40_42_43_44_45" &
-            x"46_47_49_4a_4b_4d_4e_4f_50_52_53_54_56_57_59_5a" &
-            x"5b_5d_5e_60_61_63_64_66_67_69_6b_6c_6e_6f_71_73" &
-            x"74_76_78_79_7b_7d_7f_80_82_84_86_88_8a_8b_8d_8f" &
-            x"91_93_95_97_99_9b_9d_9f_a1_a3_a5_a7_a9_ac_ae_b0" &
-            x"b2_b4_b6_b9_bb_bd_c0_c2_c4_c6_c9_cb_ce_d0_d2_d5" &
-            x"d7_da_dc_df_e1_e4_e7_e9_ec_ee_f1_f4_f6_f9_fc_ff" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_01_01_01_01_01_01_01_01_01_01_02_02_02_02" &
-            x"02_02_02_03_03_03_03_03_03_04_04_04_04_04_05_05" &
-            x"05_05_06_06_06_07_07_07_07_08_08_08_09_09_09_0a" &
-            x"0a_0a_0b_0b_0c_0c_0c_0d_0d_0e_0e_0e_0f_0f_10_10" &
-            x"11_11_12_12_13_13_14_15_15_16_16_17_18_18_19_19" &
-            x"1a_1b_1b_1c_1d_1d_1e_1f_20_20_21_22_23_23_24_25" &
-            x"26_27_27_28_29_2a_2b_2c_2d_2e_2f_30_31_31_32_33" &
-            x"34_35_37_38_39_3a_3b_3c_3d_3e_3f_40_42_43_44_45" &
-            x"46_47_49_4a_4b_4d_4e_4f_50_52_53_54_56_57_59_5a" &
-            x"5b_5d_5e_60_61_63_64_66_67_69_6b_6c_6e_6f_71_73" &
-            x"74_76_78_79_7b_7d_7f_80_82_84_86_88_8a_8b_8d_8f" &
-            x"91_93_95_97_99_9b_9d_9f_a1_a3_a5_a7_a9_ac_ae_b0" &
-            x"b2_b4_b6_b9_bb_bd_c0_c2_c4_c6_c9_cb_ce_d0_d2_d5" &
-            x"d7_da_dc_df_e1_e4_e7_e9_ec_ee_f1_f4_f6_f9_fc_ff" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_20_20_20_20_20_20_20_20_20_20_20_20_20_20" &
-            x"20_20_01_01_01_01_01_01_01_01_01_01_02_02_02_02" &
-            x"02_02_02_03_03_03_03_03_03_04_04_04_04_04_05_05" &
-            x"05_05_06_06_06_07_07_07_07_08_08_08_09_09_09_0a" &
-            x"0a_0a_0b_0b_0c_0c_0c_0d_0d_0e_0e_0e_0f_0f_10_10" &
-            x"11_11_12_12_13_13_14_15_15_16_16_17_18_18_19_19" &
-            x"1a_1b_1b_1c_1d_1d_1e_1f_20_20_21_22_23_23_24_25" &
-            x"26_27_27_28_29_2a_2b_2c_2d_2e_2f_30_31_31_32_33" &
-            x"34_35_37_38_39_3a_3b_3c_3d_3e_3f_40_42_43_44_45" &
-            x"46_47_49_4a_4b_4d_4e_4f_50_52_53_54_56_57_59_5a" &
-            x"5b_5d_5e_60_61_63_64_66_67_69_6b_6c_6e_6f_71_73" &
-            x"74_76_78_79_7b_7d_7f_80_82_84_86_88_8a_8b_8d_8f" &
-            x"91_93_95_97_99_9b_9d_9f_a1_a3_a5_a7_a9_ac_ae_b0" &
-            x"b2_b4_b6_b9_bb_bd_c0_c2_c4_c6_c9_cb_ce_d0_d2_d5" &
-            x"d7_da_dc_df_e1_e4_e7_e9_ec_ee_f1_f4_f6_f9_fc_ff";
+            x"10_60_E2_80_0F_10_09_80_A9_E2_08_1D_00_00_00_00" &
+            x"20_00_00_FF_00_FF_00_FF_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"01_01_01_01_01_01_01_02_02_02_02_02_03_03_03_03" &
+            x"04_04_04_04_05_05_05_05_06_06_06_07_07_07_08_08" &
+            x"09_09_09_0A_0A_0B_0B_0B_0C_0C_0D_0D_0E_0E_0F_0F" &
+            x"10_10_11_11_12_12_13_13_14_14_15_16_16_17_17_18" &
+            x"19_19_1A_1B_1B_1C_1D_1D_1E_1F_1F_20_21_21_22_23" &
+            x"24_24_25_26_27_28_28_29_2A_2B_2C_2C_2D_2E_2F_30" &
+            x"31_32_32_33_34_35_36_37_38_39_3A_3B_3C_3D_3E_3F" &
+            x"40_41_42_43_44_45_46_47_48_49_4A_4B_4C_4D_4F_50" &
+            x"51_52_53_54_55_57_58_59_5A_5B_5D_5E_5F_60_61_63" &
+            x"64_65_66_68_69_6A_6C_6D_6E_70_71_72_74_75_76_78" &
+            x"79_7A_7C_7D_7F_80_81_83_84_86_87_89_8A_8C_8D_8F" &
+            x"90_92_93_95_96_98_99_9B_9C_9E_A0_A1_A3_A4_A6_A8" &
+            x"A9_AB_AC_AE_B0_B1_B3_B5_B6_B8_BA_BC_BD_BF_C1_C3" &
+            x"C4_C6_C8_CA_CB_CD_CF_D1_D3_D4_D6_D8_DA_DC_DE_E0" &
+            x"E1_E3_E5_E7_E9_EB_ED_EF_F1_F3_F5_F7_F9_FB_FD_FF" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"01_01_01_01_01_01_01_02_02_02_02_02_03_03_03_03" &
+            x"04_04_04_04_05_05_05_05_06_06_06_07_07_07_08_08" &
+            x"09_09_09_0A_0A_0B_0B_0B_0C_0C_0D_0D_0E_0E_0F_0F" &
+            x"10_10_11_11_12_12_13_13_14_14_15_16_16_17_17_18" &
+            x"19_19_1A_1B_1B_1C_1D_1D_1E_1F_1F_20_21_21_22_23" &
+            x"24_24_25_26_27_28_28_29_2A_2B_2C_2C_2D_2E_2F_30" &
+            x"31_32_32_33_34_35_36_37_38_39_3A_3B_3C_3D_3E_3F" &
+            x"40_41_42_43_44_45_46_47_48_49_4A_4B_4C_4D_4F_50" &
+            x"51_52_53_54_55_57_58_59_5A_5B_5D_5E_5F_60_61_63" &
+            x"64_65_66_68_69_6A_6C_6D_6E_70_71_72_74_75_76_78" &
+            x"79_7A_7C_7D_7F_80_81_83_84_86_87_89_8A_8C_8D_8F" &
+            x"90_92_93_95_96_98_99_9B_9C_9E_A0_A1_A3_A4_A6_A8" &
+            x"A9_AB_AC_AE_B0_B1_B3_B5_B6_B8_BA_BC_BD_BF_C1_C3" &
+            x"C4_C6_C8_CA_CB_CD_CF_D1_D3_D4_D6_D8_DA_DC_DE_E0" &
+            x"E1_E3_E5_E7_E9_EB_ED_EF_F1_F3_F5_F7_F9_FB_FD_FF" &
+            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"01_01_01_01_01_01_01_02_02_02_02_02_03_03_03_03" &
+            x"04_04_04_04_05_05_05_05_06_06_06_07_07_07_08_08" &
+            x"09_09_09_0A_0A_0B_0B_0B_0C_0C_0D_0D_0E_0E_0F_0F" &
+            x"10_10_11_11_12_12_13_13_14_14_15_16_16_17_17_18" &
+            x"19_19_1A_1B_1B_1C_1D_1D_1E_1F_1F_20_21_21_22_23" &
+            x"24_24_25_26_27_28_28_29_2A_2B_2C_2C_2D_2E_2F_30" &
+            x"31_32_32_33_34_35_36_37_38_39_3A_3B_3C_3D_3E_3F" &
+            x"40_41_42_43_44_45_46_47_48_49_4A_4B_4C_4D_4F_50" &
+            x"51_52_53_54_55_57_58_59_5A_5B_5D_5E_5F_60_61_63" &
+            x"64_65_66_68_69_6A_6C_6D_6E_70_71_72_74_75_76_78" &
+            x"79_7A_7C_7D_7F_80_81_83_84_86_87_89_8A_8C_8D_8F" &
+            x"90_92_93_95_96_98_99_9B_9C_9E_A0_A1_A3_A4_A6_A8" &
+            x"A9_AB_AC_AE_B0_B1_B3_B5_B6_B8_BA_BC_BD_BF_C1_C3" &
+            x"C4_C6_C8_CA_CB_CD_CF_D1_D3_D4_D6_D8_DA_DC_DE_E0" &
+            x"E1_E3_E5_E7_E9_EB_ED_EF_F1_F3_F5_F7_F9_FB_FD_FF";
         constant CRLF           : string := CR & LF;
         variable cmd_buf        : string(1 to 128);
         variable cmd_len        : natural;
@@ -271,9 +271,9 @@ begin
         begin
             tmp(tmp'high downto tmp'high-7)     := DATA_MAGIC;
             tmp(tmp'high-8 downto tmp'high-15)  := stdulv(packet_num, 8);
-            tmp(tmp'high-16 downto tmp'high-23) := stdulv(v'length/8, 8);
+            tmp(tmp'high-16 downto tmp'high-23) := stdulv(v'length/8-1, 8);
             tmp(tmp'high-24 downto 8)           := v;
-            checksum                            := DATA_MAGIC+packet_num+v'length/8;
+            checksum                            := DATA_MAGIC+packet_num+v'length/8-1;
             for i in v'length/8+1 downto 2 loop
                 checksum    := checksum+tmp(i*8-1 downto i*8-8);
             end loop;
@@ -303,53 +303,59 @@ begin
                 when "AT+JAAC"  => send_string_to_b("OK" & CRLF);
                     
                     -- connect
-                    wait for 10 ms;
+                    wait for 2 ms;
                     report "Connecting";
                     send_string_to_b("+RSLE" & CRLF);
                     send_string_to_b("+RCOI=" & BT_ADDR & CRLF);
                     send_string_to_b("+RCCRCNF=500," & SERVICE_UUID & ",0" & CRLF);
                     send_string_to_b("+RSNFCNF=0320,2" & CRLF);
                     send_string_to_b("+ESNS=0320,0320,0000,0002" & CRLF);
-                    wait for 10 ms;
+                    wait for 2 ms;
                     
-                    -- send "load settings from flash" request to the module (device B)
-                    report "Sending 'load settings from flash' request";
-                    send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(0, x"20"));
-                    send_string_to_b(CRLF);
-                    wait for 10 ms;
-                    
-                    -- send "save settings to flash" request to the module (device B)
-                    report "Sending 'save settings to flash' request";
-                    send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(1, x"21"));
-                    send_string_to_b(CRLF);
-                    wait for 10 ms;
-                    
-                    -- send "receive settings from UART" request to the module (device B)
-                    report "Sending 'receive settings from UART' request";
-                    send_string_to_b("+RDAI=500,");
-                    send_bytes_to_b(wrap_as_tl_packet(2, x"22" & TEST_SETTINGS(1024*8-1 downto 529*8)));
-                    send_string_to_b(CRLF);
-                    send_string_to_b("+RDAI=500,");
-                    send_bytes_to_b(wrap_as_tl_packet(3, TEST_SETTINGS(529*8-1 downto 33*8)));
-                    send_string_to_b(CRLF);
-                    send_string_to_b("+RDAI=37,");
-                    send_bytes_to_b(wrap_as_tl_packet(4, TEST_SETTINGS(33*8-1 downto 0)));
-                    send_string_to_b(CRLF);
-                    wait for 10 ms;
+--                    -- send "load settings from flash" request to the module (device B)
+--                    report "Sending 'load settings from flash' request";
+--                    send_string_to_b("+RDAI=005,");
+--                    send_bytes_to_b(wrap_as_tl_packet(0, x"20"));
+--                    send_string_to_b(CRLF);
+--                    wait for 2 ms;
+--                    
+--                    -- send "save settings to flash" request to the module (device B)
+--                    report "Sending 'save settings to flash' request";
+--                    send_string_to_b("+RDAI=005,");
+--                    send_bytes_to_b(wrap_as_tl_packet(1, x"21"));
+--                    send_string_to_b(CRLF);
+--                    wait for 2 ms;
+--                    
+--                    -- send "receive settings from UART" request to the module (device B)
+--                    report "Sending 'receive settings from UART' request";
+--                    send_string_to_b("+RDAI=005,");
+--                    send_bytes_to_b(wrap_as_tl_packet(2, x"22"));
+--                    send_string_to_b(CRLF);
+--                    send_string_to_b("+RDAI=260,");
+--                    send_bytes_to_b(wrap_as_tl_packet(3, TEST_SETTINGS(1024*8-1 downto 768*8)));
+--                    send_string_to_b(CRLF);
+--                    send_string_to_b("+RDAI=260,");
+--                    send_bytes_to_b(wrap_as_tl_packet(4, TEST_SETTINGS(768*8-1 downto 512*8)));
+--                    send_string_to_b(CRLF);
+--                    send_string_to_b("+RDAI=260,");
+--                    send_bytes_to_b(wrap_as_tl_packet(5, TEST_SETTINGS(512*8-1 downto 256*8)));
+--                    send_string_to_b(CRLF);
+--                    send_string_to_b("+RDAI=260,");
+--                    send_bytes_to_b(wrap_as_tl_packet(6, TEST_SETTINGS(256*8-1 downto 0)));
+--                    send_string_to_b(CRLF);
+--                    wait for 2 ms;
                     
                     -- send "send settings to UART" request to the module (device B)
                     report "Sending 'send settings to UART' request";
                     send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(5, x"23"));
+                    send_bytes_to_b(wrap_as_tl_packet(0, x"23"));
                     send_string_to_b(CRLF);
-                    wait for 10 ms;
+                    wait for 2 ms;
                     
                     -- disconnect
                     report "Disconnecting";
                     send_string_to_b("+RDII" & CRLF);
-                    wait for 10 ms;
+                    wait for 2 ms;
                     
                     report "NONE. All tests completed."
                         severity FAILURE;

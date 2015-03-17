@@ -73,3 +73,7 @@ values += calcCorrectionTable(GAMMA_CORRECTION, MIN_BLUE, MAX_BLUE)
 f = open('settings.bin', 'wb')
 f.write(bytes(values))
 f.close()
+
+f = open('settings.hex', 'w')
+f.write(''.join('{:02X}'.format(value) for value in values))
+f.close()

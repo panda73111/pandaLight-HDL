@@ -49,7 +49,7 @@ entity PANDA_LIGHT is
         G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
         FCTRL_CLK_MULT      : positive :=  2; -- Flash clock: 20 MHz
         FCTRL_CLK_DIV       : positive :=  5;
-        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"060000"
+        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"000000" --x"060000"
     );
     port (
         CLK20   : in std_ulogic;
@@ -308,7 +308,8 @@ begin
     
     UART_BLUETOOTH_CONTROL_inst : entity work.UART_BLUETOOTH_CONTROL
         generic map (
-            CLK_IN_PERIOD   => G_CLK_PERIOD
+            CLK_IN_PERIOD   => G_CLK_PERIOD,
+            BUFFER_SIZE     => 1024
         )
         port map (
             CLK => btctrl_clk,
@@ -377,18 +378,17 @@ begin
         );
         
         signal cmd_eval_state   : cmd_eval_state_type := WAITING_FOR_COMMAND;
-        signal cmd_eval_counter : unsigned(10 downto 0) := uns(1023, 11);
+        signal cmd_eval_counter : unsigned(10 downto 0) := uns(1022, 11);
         
         type data_handling_state_type is (
             WAITING_FOR_COMMAND,
+            WAITING_FOR_DATA,
             SENDING_SETTINGS_TO_UART
         );
         
         signal data_handling_state      : data_handling_state_type := WAITING_FOR_COMMAND;
         signal data_handling_counter    : unsigned(10 downto 0) := uns(1023, 11);
     begin
-        
-        tl_din  <= conf_settings_dout;
         
         tl_evaluation_proc : process(g_clk, g_rst)
         begin
@@ -427,9 +427,9 @@ begin
                     when RECEIVING_SETTINGS_FROM_UART =>
                         if tl_dout_valid='1' then
                             cmd_eval_counter    <= cmd_eval_counter-1;
-                            if cmd_eval_counter(cmd_eval_counter'high)='1' then
-                                cmd_eval_state  <= WAITING_FOR_COMMAND;
-                            end if;
+                        end if;
+                        if cmd_eval_counter(cmd_eval_counter'high)='1' then
+                            cmd_eval_state  <= WAITING_FOR_COMMAND;
                         end if;
                     
                 end case;
@@ -440,20 +440,31 @@ begin
         begin
             if g_rst='1' then
                 data_handling_state     <= WAITING_FOR_COMMAND;
-                data_handling_counter   <= uns(1023, 11);
+                data_handling_counter   <= uns(1022, 11);
                 tl_din_wr_en            <= '0';
+                tl_send_packet          <= '0';
             elsif rising_edge(g_clk) then
+                tl_din_wr_en    <= '0';
+                tl_send_packet  <= '0';
+                
                 case data_handling_state is
                     
                     when WAITING_FOR_COMMAND =>
                         if start_settings_write_to_uart then
-                            data_handling_counter   <= uns(1023, 11);
-                            data_handling_state     <= SENDING_SETTINGS_TO_UART;
+                            data_handling_counter   <= uns(1022, 11);
+                            data_handling_state     <= WAITING_FOR_DATA;
                         end if;
+                    
+                    when WAITING_FOR_DATA =>
+                        data_handling_state <= SENDING_SETTINGS_TO_UART;
                     
                     when SENDING_SETTINGS_TO_UART =>
                         tl_din_wr_en            <= '1';
+                        tl_din                  <= conf_settings_dout;
                         data_handling_counter   <= data_handling_counter-1;
+                        if data_handling_counter(7 downto 0)=uns(255, 8) then
+                            tl_send_packet  <= '1';
+                        end if;
                         if data_handling_counter(data_handling_counter'high)='1' then
                             data_handling_state <= WAITING_FOR_COMMAND;
                         end if;
@@ -539,6 +550,7 @@ begin
                 conf_configure_ledcor   <= '0';
                 counter                 <= uns(1023, 11);
                 settings_addr           <= (others => '0');
+                conf_settings_addr      <= (others => '0');
             elsif rising_edge(g_clk) then
                 conf_settings_wr_en     <= '0';
                 conf_calculate          <= '0';
@@ -548,9 +560,9 @@ begin
                 case state is
                     
                     when INIT =>
-                        counter             <= uns(1023, counter'length);
-                        settings_addr       <= (others => '0');
-                        state               <= READING_SETTINGS_FROM_FLASH;
+                        counter         <= uns(1023, counter'length);
+                        settings_addr   <= (others => '0');
+                        state           <= READING_SETTINGS_FROM_FLASH;
                     
                     when READING_SETTINGS_FROM_FLASH =>
                         conf_settings_addr  <= settings_addr;
@@ -603,7 +615,9 @@ begin
                         end if;
                     
                     when IDLE =>
-                        counter <= uns(1023, counter'length);
+                        counter             <= uns(1023, counter'length);
+                        settings_addr       <= (others => '0');
+                        conf_settings_addr  <= (others => '0');
                         if start_settings_read_from_flash then
                             state   <= READING_SETTINGS_FROM_FLASH;
                         end if;
@@ -630,7 +644,7 @@ begin
                         conf_settings_addr  <= settings_addr;
                         conf_settings_wr_en <= tl_dout_valid;
                         conf_settings_din   <= tl_dout;
-                        if fctrl_valid='1' then
+                        if tl_dout_valid='1' then
                             counter         <= counter-1;
                             settings_addr   <= settings_addr+1;
                         end if;
@@ -640,9 +654,8 @@ begin
                         end if;
                     
                     when SENDING_SETTINGS_TO_UART =>
-                        conf_settings_addr  <= settings_addr;
+                        conf_settings_addr  <= conf_settings_addr+1;
                         counter             <= counter-1;
-                        settings_addr       <= settings_addr+1;
                         if counter(counter'high)='1' then
                             -- sent 1k bytes
                             state   <= IDLE;
@@ -696,6 +709,7 @@ begin
             INIT,
             IDLE,
             READING_SETTINGS,
+            WAITING_FOR_DATA,
             WRITING_SETTINGS
         );
         
@@ -727,23 +741,28 @@ begin
                             state   <= READING_SETTINGS;
                         end if;
                         if start_settings_write_to_flash then
-                            state   <= WRITING_SETTINGS;
+                            state   <= WAITING_FOR_DATA;
                         end if;
                     
                     when READING_SETTINGS =>
-                        fctrl_rd_en <= '1';
                         if counter(counter'high)='1' then
                             state   <= IDLE;
+                        else
+                            fctrl_rd_en <= '1';
                         end if;
                         if fctrl_valid='1' then
                             counter <= counter-1;
                         end if;
                     
+                    when WAITING_FOR_DATA =>
+                        state   <= WRITING_SETTINGS;
+                    
                     when WRITING_SETTINGS =>
-                        fctrl_wr_en <= '1';
                         counter     <= counter-1;
                         if counter(counter'high)='1' then
                             state   <= IDLE;
+                        else
+                            fctrl_wr_en <= '1';
                         end if;
                     
                 end case;
