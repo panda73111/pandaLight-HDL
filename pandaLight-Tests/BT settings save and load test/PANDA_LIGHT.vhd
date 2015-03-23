@@ -49,7 +49,7 @@ entity PANDA_LIGHT is
         G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
         FCTRL_CLK_MULT      : positive :=  2; -- Flash clock: 20 MHz
         FCTRL_CLK_DIV       : positive :=  5;
-        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"000000" --x"060000"
+        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000"
     );
     port (
         CLK20   : in std_ulogic;
@@ -239,8 +239,8 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    g_rst   <= '1' when g_clk_locked='0' or pmod0_deb(0)='1' else '0';
---    g_rst   <= not g_clk_locked or pmod0_deb(0);
+--    g_rst   <= '1' when g_clk_locked='0' or pmod0_deb(0)='1' else '0';
+    g_rst   <= not g_clk_locked or pmod0_deb(0);
     
     FLASH_MOSI  <= fctrl_mosi;
     FLASH_CS    <= fctrl_sn;
@@ -309,7 +309,7 @@ begin
     UART_BLUETOOTH_CONTROL_inst : entity work.UART_BLUETOOTH_CONTROL
         generic map (
             CLK_IN_PERIOD   => G_CLK_PERIOD,
-            BUFFER_SIZE     => 1024
+            BUFFER_SIZE     => 2048
         )
         port map (
             CLK => btctrl_clk,
