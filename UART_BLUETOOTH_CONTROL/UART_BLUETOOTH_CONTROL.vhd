@@ -88,40 +88,44 @@ architecture rtl of UART_BLUETOOTH_CONTROL is
         SENDING_PACKET_LENGTH2,
         SENDING_PACKET_LENGTH3,
         SENDING_PACKET_COMMA,
+        SENDING_PACKET_WAITING_FOR_DATA,
         SENDING_PACKET,
+        SENDING_PACKET_LAST_BYTE,
         SENDING_PACKET_END_CR,
         SENDING_PACKET_END_LF,
         EVALUATING_ERROR
     );
     
     type reg_type is record
-        state                   : state_type;
-        bt_rstn                 : std_ulogic;
-        bt_wake                 : std_ulogic;
-        bt_rts                  : std_ulogic;
-        retry_count             : unsigned(2 downto 0);
-        rst_count               : unsigned(4 downto 0);
-        char_index              : unsigned(6 downto 0);
-        tx_din                  : std_ulogic_vector(7 downto 0);
-        tx_wr_en                : std_ulogic;
-        error                   : std_ulogic;
-        data_buf_rd_en          : std_ulogic;
-        rst_data_len_counter    : boolean;
+        state               : state_type;
+        bt_rstn             : std_ulogic;
+        bt_wake             : std_ulogic;
+        bt_rts              : std_ulogic;
+        retry_count         : unsigned(2 downto 0);
+        rst_count           : unsigned(4 downto 0);
+        char_index          : unsigned(6 downto 0);
+        tx_din              : std_ulogic_vector(7 downto 0);
+        tx_wr_en            : std_ulogic;
+        error               : std_ulogic;
+        data_buf_rd_en      : std_ulogic;
+        bytes_left_counter  : unsigned(11 downto 0);
+        packet_pending      : boolean;
     end record;
     
     constant reg_type_def   : reg_type := (
-        state                   => HARD_RESETTING,
-        bt_rstn                 => '0',
-        bt_wake                 => '1',
-        bt_rts                  => '0',
-        retry_count             => "011",
-        rst_count               => "01111",
-        char_index              => uns(1, 7),
-        tx_din                  => x"00",
-        tx_wr_en                => '0',
-        error                   => '0',
-        data_buf_rd_en          => '0',
-        rst_data_len_counter    => false
+        state               => HARD_RESETTING,
+        bt_rstn             => '0',
+        bt_wake             => '1',
+        bt_rts              => '0',
+        retry_count         => "011",
+        rst_count           => "01111",
+        char_index          => uns(1, 7),
+        tx_din              => x"00",
+        tx_wr_en            => '0',
+        error               => '0',
+        data_buf_rd_en      => '0',
+        bytes_left_counter  => uns(0, 12),
+        packet_pending      => false
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -139,12 +143,15 @@ architecture rtl of UART_BLUETOOTH_CONTROL is
     signal rx_error     : std_ulogic := '0';
     
     signal data_buf_dout    : std_ulogic_vector(7 downto 0) := x"00";
-    signal data_buf_valid   : std_ulogic := '0';
-    signal data_buf_empty   : std_ulogic := '0';
+    
+    signal send_packet_q    : std_ulogic := '0';
     
     -- 3 digit BCD counter for ASCII data length string
-    signal data_len_counter         : unsigned(11 downto 0) := uns(0, 12);
-    signal data_len_counter_ascii   : std_ulogic_vector(23 downto 0) := (others => '0');
+    signal data_len_counter                     : unsigned(11 downto 0) := uns(0, 12);
+    signal data_len_counter_to_send             : unsigned(11 downto 0) := uns(0, 12);
+    signal hex_data_len_counter                 : unsigned(11 downto 0) := uns(0, 12);
+    signal hex_data_len_counter_ascii           : std_ulogic_vector(23 downto 0) := x"000000";
+    signal hex_data_len_counter_ascii_to_send   : std_ulogic_vector(23 downto 0) := x"000000";
     
 begin
     
@@ -163,11 +170,11 @@ begin
     ERROR   <= cur_reg.error;
     BUSY    <= '1' when cur_reg.state/=WAITING_FOR_PACKET_TO_SEND else '0';
     
-    data_len_counter_ascii(23 downto 16)    <= stdulv(resize(data_len_counter(11 downto 8), 8) + int('0'));
-    data_len_counter_ascii(15 downto  8)    <= stdulv(resize(data_len_counter( 7 downto 4), 8) + int('0'));
-    data_len_counter_ascii( 7 downto  0)    <= stdulv(resize(data_len_counter( 3 downto 0), 8) + int('0'));
-    
     rx_rst  <= RST or not cur_reg.bt_rstn;
+    
+    hex_data_len_counter_ascii(23 downto 16)    <= stdulv(resize(hex_data_len_counter(11 downto 8), 8) + character'pos('0'));
+    hex_data_len_counter_ascii(15 downto  8)    <= stdulv(resize(hex_data_len_counter( 7 downto 4), 8) + character'pos('0'));
+    hex_data_len_counter_ascii( 7 downto  0)    <= stdulv(resize(hex_data_len_counter( 3 downto 0), 8) + character'pos('0'));
     
     UART_SENDER_inst : entity work.UART_SENDER
         generic map (
@@ -225,43 +232,53 @@ begin
             WR_EN   => DIN_WR_EN,
             RD_EN   => cur_reg.data_buf_rd_en,
             
-            DOUT    => data_buf_dout,
-            VALID   => data_buf_valid,
-            EMPTY   => data_buf_empty
+            DOUT    => data_buf_dout
         );
     
-    data_len_counter_proc : process(cur_reg.rst_data_len_counter, CLK)
+    data_len_counter_proc : process(RST, CLK)
     begin
-        if cur_reg.rst_data_len_counter then
-            data_len_counter    <= uns(0, 12);
+        if RST='1' then
+            data_len_counter        <= uns(0, 12);
+            hex_data_len_counter    <= uns(0, 12);
         elsif rising_edge(CLK) then
             if DIN_WR_EN='1' then
-                -- simple 3 digit BCD counter
                 data_len_counter    <= data_len_counter+1;
-                if data_len_counter(3 downto 0)=9 then
-                    data_len_counter    <= data_len_counter+7;
-                    if data_len_counter(7 downto 4)=9 then
-                        data_len_counter    <= data_len_counter+103;
+                -- simple 3 digit BCD counter
+                hex_data_len_counter    <= hex_data_len_counter+1;
+                if hex_data_len_counter(3 downto 0)=9 then
+                    hex_data_len_counter    <= hex_data_len_counter+7;
+                    if hex_data_len_counter(7 downto 4)=9 then
+                        hex_data_len_counter    <= hex_data_len_counter+103;
                     end if;
                 end if;
             end if;
+            if send_packet_q='1' then
+                hex_data_len_counter_ascii_to_send  <= hex_data_len_counter_ascii;
+                data_len_counter_to_send            <= data_len_counter;
+                hex_data_len_counter                <= uns(0, 12);
+                data_len_counter                    <= uns(0, 12);
+            end if;
+            send_packet_q   <= SEND_PACKET;
         end if;
     end process;
     
-    stm_proc : process(cur_reg, RST, rx_ok, rx_error, data_buf_empty,
-        data_buf_dout, data_buf_valid, data_len_counter_ascii, SEND_PACKET)
+    stm_proc : process(cur_reg, RST, rx_ok, rx_error, data_buf_dout,
+        data_len_counter_to_send, hex_data_len_counter_ascii_to_send, SEND_PACKET)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
         r   := cr;
         
-        r.bt_rstn               := '1';
-        r.bt_wake               := '1';
-        r.bt_rts                := '1';
-        r.tx_wr_en              := '0';
-        r.error                 := '0';
-        r.data_buf_rd_en        := '0';
-        r.rst_data_len_counter  := false;
+        r.bt_rstn           := '1';
+        r.bt_wake           := '1';
+        r.bt_rts            := '1';
+        r.tx_wr_en          := '0';
+        r.error             := '0';
+        r.data_buf_rd_en    := '0';
+        
+        if SEND_PACKET='1' then
+            r.packet_pending    := true;
+        end if;
         
         case cr.state is
             
@@ -349,8 +366,9 @@ begin
             
             when WAITING_FOR_PACKET_TO_SEND =>
                 r.char_index    := uns(1, 7);
-                if SEND_PACKET='1' then
-                    r.state := SENDING_SEND_DATA_CMD_PREFIX;
+                if cr.packet_pending then
+                    r.packet_pending    := false;
+                    r.state             := SENDING_SEND_DATA_CMD_PREFIX;
                 end if;
             
             when SENDING_SEND_DATA_CMD_PREFIX =>
@@ -363,32 +381,44 @@ begin
             
             when SENDING_PACKET_LENGTH1 =>
                 r.tx_wr_en  := '1';
-                r.tx_din    := data_len_counter_ascii(23 downto 16);
+                r.tx_din    := hex_data_len_counter_ascii_to_send(23 downto 16);
                 r.state     := SENDING_PACKET_LENGTH2;
             
             when SENDING_PACKET_LENGTH2 =>
                 r.tx_wr_en  := '1';
-                r.tx_din    := data_len_counter_ascii(15 downto 8);
+                r.tx_din    := hex_data_len_counter_ascii_to_send(15 downto 8);
                 r.state     := SENDING_PACKET_LENGTH3;
             
             when SENDING_PACKET_LENGTH3 =>
                 r.tx_wr_en  := '1';
-                r.tx_din    := data_len_counter_ascii(7 downto 0);
+                r.tx_din    := hex_data_len_counter_ascii_to_send(7 downto 0);
                 r.state     := SENDING_PACKET_COMMA;
             
             when SENDING_PACKET_COMMA =>
-                r.rst_data_len_counter  := true;
                 r.tx_wr_en              := '1';
                 r.tx_din                := stdulv(',');
-                r.state                 := SENDING_PACKET;
+                r.bytes_left_counter    := data_len_counter_to_send-3;
+                r.data_buf_rd_en        := '1';
+                r.state                 := SENDING_PACKET_WAITING_FOR_DATA;
+            
+            when SENDING_PACKET_WAITING_FOR_DATA =>
+                r.data_buf_rd_en    := '1';
+                r.state             := SENDING_PACKET;
             
             when SENDING_PACKET =>
-                r.data_buf_rd_en    := '1';
-                r.tx_wr_en          := data_buf_valid;
-                r.tx_din            := data_buf_dout;
-                if data_buf_empty='1' then
-                    r.state := SENDING_PACKET_END_CR;
+                r.tx_wr_en              := '1';
+                r.tx_din                := data_buf_dout;
+                r.bytes_left_counter    := cr.bytes_left_counter-1;
+                if cr.bytes_left_counter(11)='1' then
+                    r.state := SENDING_PACKET_LAST_BYTE;
+                else
+                    r.data_buf_rd_en    := '1';
                 end if;
+            
+            when SENDING_PACKET_LAST_BYTE =>
+                r.tx_wr_en  := '1';
+                r.tx_din    := data_buf_dout;
+                r.state     := SENDING_PACKET_END_CR;
             
             when SENDING_PACKET_END_CR =>
                 r.tx_wr_en  := '1';
