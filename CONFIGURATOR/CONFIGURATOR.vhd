@@ -200,27 +200,39 @@ begin
     
     -- ensure block RAM usage
     settings_buf_proc : process(CLK)
-        alias rd_p          is next_reg.buf_rd_p;
-        alias wr_p          is next_reg.buf_wr_p;
-        alias di            is next_reg.buf_di;
-        alias do            is buf_do;
-        alias scaled_do     is scaled_buf_do;
-        alias wr_en         is next_reg.buf_wr_en;
-        alias scaled_wr_en  is next_reg.scaled_buf_wr_en;
+        alias rd_p  is next_reg.buf_rd_p;
+        alias wr_p  is next_reg.buf_wr_p;
+        alias di    is next_reg.buf_di;
+        alias do    is buf_do;
+        alias wr_en is next_reg.buf_wr_en;
     begin
         if rising_edge(CLK) then
             -- write first mode
-            do          <= settings_buf(int(rd_p));
-            scaled_do   <= scaled_settings_buf(int(rd_p(3 downto 0)));
+            do  <= settings_buf(int(rd_p));
             if wr_en='1' then
                 settings_buf(int(wr_p)) <= di;
             end if;
-            if scaled_wr_en='1' then
+            if wr_en='1' and rd_p=wr_p then
+                do  <= di;
+            end if;
+        end if;
+    end process;
+    
+    scaled_settings_buf_proc : process(CLK)
+        alias rd_p  is next_reg.buf_rd_p;
+        alias wr_p  is next_reg.buf_wr_p;
+        alias di    is next_reg.buf_di;
+        alias do    is scaled_buf_do;
+        alias wr_en is next_reg.scaled_buf_wr_en;
+    begin
+        if rising_edge(CLK) then
+            -- write first mode
+            do  <= scaled_settings_buf(int(rd_p(3 downto 0)));
+            if wr_en='1' then
                 scaled_settings_buf(int(wr_p(3 downto 0)))  <= di;
             end if;
             if wr_en='1' and rd_p=wr_p then
-                do          <= di;
-                scaled_do   <= di;
+                do  <= di;
             end if;
         end if;
     end process;
