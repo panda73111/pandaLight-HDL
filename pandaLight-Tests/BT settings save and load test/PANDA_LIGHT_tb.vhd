@@ -312,24 +312,31 @@ begin
                     send_string_to_b("+ESNS=0320,0320,0000,0002" & CRLF);
                     wait for 2 ms;
                     
+                    -- send "send system information via UART" request to the module (device B)
+                    report "Sending 'send system information via UART' request";
+                    send_string_to_b("+RDAI=005,");
+                    send_bytes_to_b(wrap_as_tl_packet(0, x"00"));
+                    send_string_to_b(CRLF);
+                    wait for 2 ms;
+                    
                     -- send "load settings from flash" request to the module (device B)
                     report "Sending 'load settings from flash' request";
                     send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(0, x"20"));
+                    send_bytes_to_b(wrap_as_tl_packet(1, x"20"));
                     send_string_to_b(CRLF);
                     wait for 2 ms;
                     
                     -- send "save settings to flash" request to the module (device B)
                     report "Sending 'save settings to flash' request";
                     send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(1, x"21"));
+                    send_bytes_to_b(wrap_as_tl_packet(2, x"21"));
                     send_string_to_b(CRLF);
                     wait for 2 ms;
                     
                     -- send "receive settings from UART" request to the module (device B)
                     report "Sending 'receive settings from UART' request";
                     send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(2, x"22"));
+                    send_bytes_to_b(wrap_as_tl_packet(3, x"22"));
                     send_string_to_b(CRLF);
                     for block_i in 4 downto 1 loop
                         send_string_to_b("+RDAI=260,");
@@ -341,7 +348,7 @@ begin
                     -- send "send settings to UART" request to the module (device B)
                     report "Sending 'send settings to UART' request";
                     send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(7, x"23"));
+                    send_bytes_to_b(wrap_as_tl_packet(8, x"23"));
                     send_string_to_b(CRLF);
                     wait for 2 ms;
                     

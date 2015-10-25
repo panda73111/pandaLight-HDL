@@ -18,7 +18,7 @@
 --    
 --      000xxxxx - system commands                          | implemented
 --                                                          | 
---      00000000 | 0x00 - send system information via UART  | 
+--      00000000 | 0x00 - send system information via UART  | x
 --      00000001 | 0x01 - reboot                            | 
 --                                                          | 
 --      001xxxxx - settings related commands                | 
@@ -44,6 +44,9 @@ use work.help_funcs.all;
 
 entity PANDA_LIGHT is
     generic (
+        PANDALIGHT_MAGIC    : string := "PANDALIGHT";
+        VERSION_MAJOR       : natural range 0 to 255 := 0;
+        VERSION_MINOR       : natural range 0 to 255 := 1;
         G_CLK_MULT          : positive range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
         G_CLK_DIV           : positive range 1 to 256 := 2;
         G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
@@ -96,6 +99,7 @@ architecture rtl of PANDA_LIGHT is
     signal pmod0_deb    : std_ulogic_vector(3 downto 0) := x"0";
     signal pmod0_deb_q  : std_ulogic_vector(3 downto 0) := x"0";
     
+    signal start_sysinfo_to_uart            : boolean := false;
     signal start_settings_read_from_flash   : boolean := false;
     signal start_settings_write_to_flash    : boolean := false;
     signal start_settings_read_from_uart    : boolean := false;
@@ -378,28 +382,34 @@ begin
         );
         
         signal cmd_eval_state   : cmd_eval_state_type := WAITING_FOR_COMMAND;
-        signal cmd_eval_counter : unsigned(10 downto 0) := uns(1022, 11);
+        signal cmd_eval_counter : unsigned(10 downto 0) := uns(1023, 11);
         
         type data_handling_state_type is (
             WAITING_FOR_COMMAND,
+            SENDING_PANDALIGHT_MAGIC_TO_UART,
+            SENDING_MAJOR_VERSION_TO_UART,
+            SENDING_MINOR_VERSION_TO_UART,
             WAITING_FOR_DATA,
             SENDING_SETTINGS_TO_UART
         );
         
         signal data_handling_state      : data_handling_state_type := WAITING_FOR_COMMAND;
-        signal data_handling_counter    : unsigned(10 downto 0) := uns(1023, 11);
+        signal data_handling_counter    : unsigned(10 downto 0) := uns(1022, 11);
+        signal magic_char_index         : unsigned(7 downto 0) := uns(1, 8);
     begin
         
         tl_evaluation_proc : process(g_clk, g_rst)
         begin
             if g_rst='1' then
                 cmd_eval_state                  <= WAITING_FOR_COMMAND;
-                cmd_eval_counter                <= uns(1023, 11);
+                cmd_eval_counter                <= uns(1023, cmd_eval_counter'length);
+                start_sysinfo_to_uart           <= false;
                 start_settings_read_from_flash  <= false;
                 start_settings_write_to_flash   <= false;
                 start_settings_read_from_uart   <= false;
                 start_settings_write_to_uart    <= false;
             elsif rising_edge(g_clk) then
+                start_sysinfo_to_uart           <= false;
                 start_settings_read_from_flash  <= false;
                 start_settings_write_to_flash   <= false;
                 start_settings_read_from_uart   <= false;
@@ -409,6 +419,8 @@ begin
                     when WAITING_FOR_COMMAND =>
                         if tl_dout_valid='1' then
                             case tl_dout is
+                                when x"00" => -- send system information via UART
+                                    start_sysinfo_to_uart           <= true;
                                 when x"20" => -- load settings from flash
                                     start_settings_read_from_flash  <= true;
                                 when x"21" => -- save settings to flash
@@ -416,7 +428,7 @@ begin
                                 when x"22" => -- receive settings from UART
                                     start_settings_read_from_uart   <= true;
                                     cmd_eval_counter    <= uns(1023, cmd_eval_counter'length);
-                                    cmd_eval_state  <= RECEIVING_SETTINGS_FROM_UART;
+                                    cmd_eval_state      <= RECEIVING_SETTINGS_FROM_UART;
                                 when x"23" => -- send settings to UART
                                     start_settings_write_to_uart    <= true;
                                 when others =>
@@ -440,7 +452,8 @@ begin
         begin
             if g_rst='1' then
                 data_handling_state     <= WAITING_FOR_COMMAND;
-                data_handling_counter   <= uns(1022, 11);
+                data_handling_counter   <= uns(1022, data_handling_counter'length);
+                magic_char_index        <= uns(1, magic_char_index'length);
                 tl_din_wr_en            <= '0';
                 tl_send_packet          <= '0';
             elsif rising_edge(g_clk) then
@@ -450,10 +463,36 @@ begin
                 case data_handling_state is
                     
                     when WAITING_FOR_COMMAND =>
+                        if start_sysinfo_to_uart then
+                            data_handling_counter   <=
+                                uns(PANDALIGHT_MAGIC'length-2, data_handling_counter'length);
+                            magic_char_index        <= uns(1, magic_char_index'length);
+                            data_handling_state     <= SENDING_PANDALIGHT_MAGIC_TO_UART;
+                        end if;
                         if start_settings_write_to_uart then
-                            data_handling_counter   <= uns(1022, 11);
+                            data_handling_counter   <= uns(1022, data_handling_counter'length);
                             data_handling_state     <= WAITING_FOR_DATA;
                         end if;
+                    
+                    when SENDING_PANDALIGHT_MAGIC_TO_UART =>
+                        tl_din_wr_en            <= '1';
+                        tl_din                  <= stdulv(PANDALIGHT_MAGIC(int(magic_char_index)));
+                        magic_char_index        <= magic_char_index+1;
+                        data_handling_counter   <= data_handling_counter-1;
+                        if data_handling_counter(data_handling_counter'high)='1' then
+                            data_handling_state <= SENDING_MAJOR_VERSION_TO_UART;
+                        end if;
+                    
+                    when SENDING_MAJOR_VERSION_TO_UART =>
+                        tl_din_wr_en        <= '1';
+                        tl_din              <= stdulv(VERSION_MAJOR, 8);
+                        data_handling_state <= SENDING_MINOR_VERSION_TO_UART;
+                    
+                    when SENDING_MINOR_VERSION_TO_UART =>
+                        tl_din_wr_en        <= '1';
+                        tl_din              <= stdulv(VERSION_MINOR, 8);
+                        tl_send_packet      <= '1';
+                        data_handling_state <= WAITING_FOR_COMMAND;
                     
                     when WAITING_FOR_DATA =>
                         data_handling_state <= SENDING_SETTINGS_TO_UART;
