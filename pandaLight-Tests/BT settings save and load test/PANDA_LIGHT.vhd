@@ -30,8 +30,8 @@
 --                                                          | 
 --      010xxxxx - bitfile related commands                 | 
 --                                                          | 
---      01000000 | 0x40 - send bitfile to UART              | 
---      01000001 | 0x41 - receive bitfile from UART         | 
+--      01000000 | 0x40 - receive bitfile from UART         | 
+--      01000001 | 0x41 - send bitfile to UART              | 
 --      
 ----------------------------------------------------------------------------------
 library IEEE;
