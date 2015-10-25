@@ -45,6 +45,8 @@ architecture behavior of testbench is
     
     constant UART_CLK_PERIOD    : time := 1 sec / 115_200;
     
+    constant SETTINGS_FLASH_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
+    
     signal rxd, txd : std_ulogic := '0';
     
     signal tx_data      : std_ulogic_vector(7 downto 0) := x"00";
@@ -64,6 +66,9 @@ begin
     BT_CTSN <= '0';
     
     PANDA_LIGHT_inst : entity work.panda_light
+    generic map (
+        SETTINGS_FLASH_ADDR => SETTINGS_FLASH_ADDR
+    )
     port map (
         CLK20   => g_clk20,
         

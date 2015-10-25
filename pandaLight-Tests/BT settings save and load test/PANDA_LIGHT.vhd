@@ -243,8 +243,7 @@ begin
     ------ global signal management ------
     --------------------------------------
     
---    g_rst   <= '1' when g_clk_locked='0' or pmod0_deb(0)='1' else '0';
-    g_rst   <= not g_clk_locked or pmod0_deb(0);
+    g_rst   <= '1' when g_clk_locked='0' or pmod0_deb(0)='1' else '0';
     
     FLASH_MOSI  <= fctrl_mosi;
     FLASH_CS    <= fctrl_sn;
