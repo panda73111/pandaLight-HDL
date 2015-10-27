@@ -14,7 +14,7 @@ architecture behavior of testbench is
     signal g_rst    : std_ulogic := '0';
     
     -- USB UART
-    signal USB_RXD  : std_ulogic := '0';
+    signal USB_RXD  : std_ulogic := '1';
     signal USB_TXD  : std_ulogic := '1';
     signal USB_CTSN : std_ulogic := '0';
     signal USB_RTSN : std_ulogic := '0';

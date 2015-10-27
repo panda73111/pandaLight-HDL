@@ -139,6 +139,29 @@ architecture rtl of PANDA_LIGHT is
     signal btctrl_busy  : std_ulogic := '0';
     
     
+    ------------------------
+    --- UART USB control ---
+    ------------------------
+    
+    signal usbctrl_clk  : std_ulogic := '0';
+    signal usbctrl_rst  : std_ulogic := '0';
+    
+    signal usbctrl_cts  : std_ulogic := '0';
+    signal usbctrl_rts  : std_ulogic := '0';
+    signal usbctrl_rxd  : std_ulogic := '0';
+    signal usbctrl_txd  : std_ulogic := '0';
+    
+    signal usbctrl_din          : std_ulogic_vector(7 downto 0) := x"00";
+    signal usbctrl_din_wr_en    : std_ulogic := '0';
+    
+    signal usbctrl_dout         : std_ulogic_vector(7 downto 0) := x"00";
+    signal usbctrl_dout_valid   : std_ulogic := '0';
+    
+    signal usbctrl_full     : std_ulogic := '0';
+    signal usbctrl_error    : std_ulogic := '0';
+    signal usbctrl_busy     : std_ulogic := '0';
+    
+    
     ----------------------------
     --- UART transport layer ---
     ----------------------------
@@ -259,19 +282,14 @@ begin
     PMOD1(2)    <= 'Z';
     PMOD1(3)    <= 'Z';
     
-    -- monitor Bluetooth UART
     BT_TXD  <= btctrl_bt_txd;
-    USB_TXD <= btctrl_bt_txd;
+    USB_TXD <= usbctrl_txd;
     
-    -- monitor both Bluetooth and USB UART
---    BT_TXD  <= btctrl_bt_txd and USB_RXD;
---    USB_TXD <= btctrl_bt_txd and BT_RXD;
+    USB_RTSN    <= not usbctrl_rts;
+    BT_RTSN     <= not btctrl_bt_rts;
     
-    USB_RTSN    <= '1';
-    BT_RTSN     <= not BTCTRL_BT_RTS;
-    
-    BT_RSTN <= BTCTRL_BT_RSTN;
-    BT_WAKE <= BTCTRL_BT_WAKE;
+    BT_RSTN <= btctrl_bt_rstn;
+    BT_WAKE <= btctrl_bt_wake;
     
     pmod0_DEBOUNCE_gen : for i in 0 to 3 generate
         
@@ -342,6 +360,45 @@ begin
         );
     
     
+    ------------------------
+    --- UART USB control ---
+    ------------------------
+    
+    usbctrl_clk <= g_clk;
+    usbctrl_rst <= g_rst;
+    
+    usbctrl_cts <= not USB_CTSN;
+    usbctrl_rxd <= USB_RXD;
+    
+    usbctrl_din         <= tl_packet_out;
+    usbctrl_din_wr_en   <= tl_packet_out_valid;
+    
+    UART_CONTROL_inst : entity work.UART_CONTROL
+        generic map (
+            CLK_IN_PERIOD   => G_CLK_PERIOD,
+            BUFFER_SIZE     => 2048
+        )
+        port map (
+            CLK => usbctrl_clk,
+            RST => usbctrl_rst,
+            
+            CTS => usbctrl_cts,
+            RTS => usbctrl_rts,
+            RXD => usbctrl_rxd,
+            TXD => usbctrl_txd,
+            
+            DIN         => usbctrl_din,
+            DIN_WR_EN   => usbctrl_din_wr_en,
+            
+            DOUT        => usbctrl_dout,
+            DOUT_VALID  => usbctrl_dout_valid,
+            
+            FULL    => usbctrl_full,
+            ERROR   => usbctrl_error,
+            BUSY    => usbctrl_busy
+        );
+    
+    
     ----------------------------
     --- UART transport layer ---
     ----------------------------
@@ -349,8 +406,8 @@ begin
     tl_clk  <= g_clk;
     tl_rst  <= g_rst;
     
-    tl_packet_in        <= btctrl_dout;
-    tl_packet_in_wr_en  <= btctrl_dout_valid;
+    tl_packet_in        <= btctrl_dout when btctrl_dout_valid='1' else usbctrl_dout;
+    tl_packet_in_wr_en  <= btctrl_dout_valid or usbctrl_dout_valid;
     
     TRANSPORT_LAYER_inst : entity work.TRANSPORT_LAYER
         port map (
