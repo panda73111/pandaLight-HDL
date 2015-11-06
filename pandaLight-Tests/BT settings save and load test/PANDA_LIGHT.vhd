@@ -387,17 +387,6 @@ begin
             O   => usb_dsrn_deb
         );
     
-    usbctrl_disconnect_proc : process(g_clk, g_rst)
-    begin
-        if g_rst='1' then
-            usbctrl_disconnected    <= '0';
-        elsif rising_edge(g_clk) then
-            usb_dsrn_deb_q          <= usb_dsrn_deb;
-            -- detect falling edge of USB_DSRN
-            usbctrl_disconnected    <= usb_dsrn_deb and not usb_dsrn_deb_q;
-        end if;
-    end process;
-    
     UART_CONTROL_inst : entity work.UART_CONTROL
         generic map (
             CLK_IN_PERIOD   => G_CLK_PERIOD,
@@ -429,7 +418,7 @@ begin
     ----------------------------
     
     tl_clk  <= g_clk;
-    tl_rst  <= g_rst or usbctrl_disconnected;
+    tl_rst  <= g_rst or not (btctrl_connected or not usb_dsrn_deb); -- if one device connects, tl_rst <= '0'
     
     tl_packet_in        <= btctrl_dout when btctrl_dout_valid='1' else usbctrl_dout;
     tl_packet_in_wr_en  <= btctrl_dout_valid or usbctrl_dout_valid;
@@ -479,9 +468,9 @@ begin
         signal magic_char_index         : unsigned(7 downto 0) := uns(1, 8);
     begin
         
-        tl_evaluation_proc : process(g_clk, g_rst)
+        tl_evaluation_proc : process(tl_clk, tl_rst)
         begin
-            if g_rst='1' then
+            if tl_rst='1' then
                 cmd_eval_state                  <= WAITING_FOR_COMMAND;
                 cmd_eval_counter                <= uns(1023, cmd_eval_counter'length);
                 start_sysinfo_to_uart           <= false;
@@ -489,7 +478,7 @@ begin
                 start_settings_write_to_flash   <= false;
                 start_settings_read_from_uart   <= false;
                 start_settings_write_to_uart    <= false;
-            elsif rising_edge(g_clk) then
+            elsif rising_edge(tl_clk) then
                 start_sysinfo_to_uart           <= false;
                 start_settings_read_from_flash  <= false;
                 start_settings_write_to_flash   <= false;
@@ -529,15 +518,15 @@ begin
             end if;
         end process;
         
-        tl_stim_proc : process(g_rst, g_clk)
+        tl_stim_proc : process(tl_rst, tl_clk)
         begin
-            if g_rst='1' then
+            if tl_rst='1' then
                 data_handling_state     <= WAITING_FOR_COMMAND;
                 data_handling_counter   <= uns(1022, data_handling_counter'length);
                 magic_char_index        <= uns(1, magic_char_index'length);
                 tl_din_wr_en            <= '0';
                 tl_send_packet          <= '0';
-            elsif rising_edge(g_clk) then
+            elsif rising_edge(tl_clk) then
                 tl_din_wr_en    <= '0';
                 tl_send_packet  <= '0';
                 
