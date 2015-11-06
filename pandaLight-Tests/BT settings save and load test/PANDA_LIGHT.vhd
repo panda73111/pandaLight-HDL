@@ -105,6 +105,10 @@ architecture rtl of PANDA_LIGHT is
     signal start_settings_read_from_uart    : boolean := false;
     signal start_settings_write_to_uart     : boolean := false;
     
+    signal usb_dsrn_deb         : std_ulogic := '0';
+    signal usb_dsrn_deb_q       : std_ulogic := '0';
+    signal usbctrl_disconnected : std_ulogic := '0';
+    
     
     ------------------------------
     --- UART Bluetooth control ---
@@ -373,6 +377,27 @@ begin
     usbctrl_din         <= tl_packet_out;
     usbctrl_din_wr_en   <= tl_packet_out_valid;
     
+    usb_dsrn_DEBOUNCE_inst : entity work.DEBOUNCE
+        generic map (
+            CYCLE_COUNT => 100
+        )
+        port map (
+            CLK => g_clk,
+            I   => USB_DSRN,
+            O   => usb_dsrn_deb
+        );
+    
+    usbctrl_disconnect_proc : process(g_clk, g_rst)
+    begin
+        if g_rst='1' then
+            usbctrl_disconnected    <= '0';
+        elsif rising_edge(g_clk) then
+            usb_dsrn_deb_q          <= usb_dsrn_deb;
+            -- detect falling edge of USB_DSRN
+            usbctrl_disconnected    <= usb_dsrn_deb and not usb_dsrn_deb_q;
+        end if;
+    end process;
+    
     UART_CONTROL_inst : entity work.UART_CONTROL
         generic map (
             CLK_IN_PERIOD   => G_CLK_PERIOD,
@@ -404,7 +429,7 @@ begin
     ----------------------------
     
     tl_clk  <= g_clk;
-    tl_rst  <= g_rst;
+    tl_rst  <= g_rst or usbctrl_disconnected;
     
     tl_packet_in        <= btctrl_dout when btctrl_dout_valid='1' else usbctrl_dout;
     tl_packet_in_wr_en  <= btctrl_dout_valid or usbctrl_dout_valid;
