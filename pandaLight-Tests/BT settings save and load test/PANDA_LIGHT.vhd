@@ -16,22 +16,27 @@
 --    bit 7..5 - category
 --    bit 4..0 - specific command
 --    
---      000xxxxx - system commands                          | implemented
---                                                          | 
---      00000000 | 0x00 - send system information via UART  | x
---      00000001 | 0x01 - reboot                            | 
---                                                          | 
---      001xxxxx - settings related commands                | 
---                                                          | 
---      00100000 | 0x20 - load settings from flash          | x
---      00100001 | 0x21 - save settings to flash            | x
---      00100010 | 0x22 - receive settings from UART        | x
---      00100011 | 0x23 - send settings to UART             | x
---                                                          | 
---      010xxxxx - bitfile related commands                 | 
---                                                          | 
---      01000000 | 0x40 - receive bitfile from UART         | 
---      01000001 | 0x41 - send bitfile to UART              | 
+--      000xxxxx - system commands                            | implemented
+--                                                            | 
+--      00000000 | 0x00 - send system information via UART    | x
+--      00000001 | 0x01 - reboot                              | 
+--                                                            | 
+--      001xxxxx - settings related commands                  | 
+--                                                            | 
+--      00100000 | 0x20 - load settings from flash            | x
+--      00100001 | 0x21 - save settings to flash              | x
+--      00100010 | 0x22 - receive settings from UART          | x
+--      00100011 | 0x23 - send settings to UART               | x
+--                                                            | 
+--      010xxxxx - bitfile related commands                   | 
+--                                                            | 
+--      01000000 | 0x40 - receive bitfile from UART           | 
+--      01000001 | 0x41 - send bitfile to UART                | 
+--                                                            | 
+--      011xxxxx - status indications/handshakes from device  | 
+--                                                            | 
+--      01100000 | 0x60 - pause UART                          | 
+--      01100001 | 0x61 - resume UART                         | 
 --      
 ----------------------------------------------------------------------------------
 library IEEE;
@@ -52,7 +57,8 @@ entity PANDA_LIGHT is
         G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
         FCTRL_CLK_MULT      : positive :=  2; -- Flash clock: 20 MHz
         FCTRL_CLK_DIV       : positive :=  5;
-        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000"
+        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000";
+        BITFILE_SIZE        : positive := 342816
     );
     port (
         CLK20   : in std_ulogic;
@@ -104,10 +110,11 @@ architecture rtl of PANDA_LIGHT is
     signal start_settings_write_to_flash    : boolean := false;
     signal start_settings_read_from_uart    : boolean := false;
     signal start_settings_write_to_uart     : boolean := false;
+    signal start_bitfile_read_from_uart     : boolean := false;
+    signal start_bitfile_write_to_uart      : boolean := false;
     
     signal usb_dsrn_deb         : std_ulogic := '0';
     signal usb_dsrn_deb_q       : std_ulogic := '0';
-    signal usbctrl_disconnected : std_ulogic := '0';
     
     
     ------------------------------
@@ -418,7 +425,9 @@ begin
     ----------------------------
     
     tl_clk  <= g_clk;
-    tl_rst  <= g_rst or not (btctrl_connected or not usb_dsrn_deb); -- if one device connects, tl_rst <= '0'
+    
+    -- if one device connects, tl_rst <= '0'
+    tl_rst  <= g_rst or not (btctrl_connected or not usb_dsrn_deb);
     
     tl_packet_in        <= btctrl_dout when btctrl_dout_valid='1' else usbctrl_dout;
     tl_packet_in_wr_en  <= btctrl_dout_valid or usbctrl_dout_valid;
@@ -448,11 +457,11 @@ begin
     tl_stim_gen : if true generate
         type cmd_eval_state_type is (
             WAITING_FOR_COMMAND,
-            RECEIVING_SETTINGS_FROM_UART
+            RECEIVING_DATA_FROM_UART
         );
         
         signal cmd_eval_state   : cmd_eval_state_type := WAITING_FOR_COMMAND;
-        signal cmd_eval_counter : unsigned(10 downto 0) := uns(1023, 11);
+        signal cmd_eval_counter : unsigned(20 downto 0) := uns(1023, 11);
         
         type data_handling_state_type is (
             WAITING_FOR_COMMAND,
@@ -460,7 +469,8 @@ begin
             SENDING_MAJOR_VERSION_TO_UART,
             SENDING_MINOR_VERSION_TO_UART,
             WAITING_FOR_DATA,
-            SENDING_SETTINGS_TO_UART
+            SENDING_SETTINGS_TO_UART,
+            SENDING_BITFILE_TO_UART
         );
         
         signal data_handling_state      : data_handling_state_type := WAITING_FOR_COMMAND;
@@ -478,12 +488,16 @@ begin
                 start_settings_write_to_flash   <= false;
                 start_settings_read_from_uart   <= false;
                 start_settings_write_to_uart    <= false;
+                start_bitfile_read_from_uart    <= false;
+                start_bitfile_write_to_uart     <= false;
             elsif rising_edge(tl_clk) then
                 start_sysinfo_to_uart           <= false;
                 start_settings_read_from_flash  <= false;
                 start_settings_write_to_flash   <= false;
                 start_settings_read_from_uart   <= false;
                 start_settings_write_to_uart    <= false;
+                start_bitfile_read_from_uart    <= false;
+                start_bitfile_write_to_uart     <= false;
                 case cmd_eval_state is
                     
                     when WAITING_FOR_COMMAND =>
@@ -498,15 +512,21 @@ begin
                                 when x"22" => -- receive settings from UART
                                     start_settings_read_from_uart   <= true;
                                     cmd_eval_counter    <= uns(1023, cmd_eval_counter'length);
-                                    cmd_eval_state      <= RECEIVING_SETTINGS_FROM_UART;
+                                    cmd_eval_state      <= RECEIVING_DATA_FROM_UART;
                                 when x"23" => -- send settings to UART
                                     start_settings_write_to_uart    <= true;
+                                when x"40" => -- receive bitfile from UART
+                                    start_bitfile_read_from_uart    <= true;
+                                    cmd_eval_counter    <= uns(BITFILE_SIZE, cmd_eval_counter'length);
+                                    cmd_eval_state      <= RECEIVING_DATA_FROM_UART;
+                                when x"41" => -- send bitfile to UART
+                                    start_bitfile_write_to_uart     <= true;
                                 when others =>
                                     null;
                             end case;
                         end if;
                     
-                    when RECEIVING_SETTINGS_FROM_UART =>
+                    when RECEIVING_DATA_FROM_UART =>
                         if tl_dout_valid='1' then
                             cmd_eval_counter    <= cmd_eval_counter-1;
                         end if;
@@ -577,6 +597,9 @@ begin
                         if data_handling_counter(data_handling_counter'high)='1' then
                             data_handling_state <= WAITING_FOR_COMMAND;
                         end if;
+                    
+                    when SENDING_BITFILE_TO_UART =>
+                        null;
                     
                 end case;
             end if;
@@ -819,7 +842,9 @@ begin
             IDLE,
             READING_SETTINGS,
             WAITING_FOR_DATA,
-            WRITING_SETTINGS
+            WRITING_SETTINGS,
+            READING_BITFILE,
+            WRITING_BITFILE
         );
         
         signal state    : state_type := INIT;
@@ -873,6 +898,12 @@ begin
                         else
                             fctrl_wr_en <= '1';
                         end if;
+                    
+                    when READING_BITFILE =>
+                        null;
+                    
+                    when WRITING_BITFILE =>
+                        null;
                     
                 end case;
             end if;
