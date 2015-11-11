@@ -113,6 +113,8 @@ architecture rtl of PANDA_LIGHT is
     signal start_bitfile_read_from_uart     : boolean := false;
     signal start_bitfile_write_to_uart      : boolean := false;
     
+    signal bitfile_index    : unsigned(0 downto 0) := "0";
+    
     signal usb_dsrn_deb         : std_ulogic := '0';
     signal usb_dsrn_deb_q       : std_ulogic := '0';
     
@@ -457,7 +459,9 @@ begin
     tl_stim_gen : if true generate
         type cmd_eval_state_type is (
             WAITING_FOR_COMMAND,
-            RECEIVING_DATA_FROM_UART
+            RECEIVING_DATA_FROM_UART,
+            RECEIVING_BITFILE_READ_INDEX_FROM_UART,
+            RECEIVING_BITFILE_WRITE_INDEX_FROM_UART
         );
         
         signal cmd_eval_state   : cmd_eval_state_type := WAITING_FOR_COMMAND;
@@ -516,11 +520,9 @@ begin
                                 when x"23" => -- send settings to UART
                                     start_settings_write_to_uart    <= true;
                                 when x"40" => -- receive bitfile from UART
-                                    start_bitfile_read_from_uart    <= true;
-                                    cmd_eval_counter    <= uns(BITFILE_SIZE, cmd_eval_counter'length);
-                                    cmd_eval_state      <= RECEIVING_DATA_FROM_UART;
+                                    cmd_eval_state      <= RECEIVING_BITFILE_READ_INDEX_FROM_UART;
                                 when x"41" => -- send bitfile to UART
-                                    start_bitfile_write_to_uart     <= true;
+                                    cmd_eval_state      <= RECEIVING_BITFILE_WRITE_INDEX_FROM_UART;
                                 when others =>
                                     null;
                             end case;
@@ -532,6 +534,21 @@ begin
                         end if;
                         if cmd_eval_counter(cmd_eval_counter'high)='1' then
                             cmd_eval_state  <= WAITING_FOR_COMMAND;
+                        end if;
+                    
+                    when RECEIVING_BITFILE_READ_INDEX_FROM_UART =>
+                        if tl_dout_valid='1' then
+                            bitfile_index                   <= tl_dout(0);
+                            start_bitfile_read_from_uart    <= true;
+                            cmd_eval_counter    <= uns(BITFILE_SIZE, cmd_eval_counter'length);
+                            cmd_eval_state      <= RECEIVING_DATA_FROM_UART;
+                        end if;
+                    
+                    when RECEIVING_BITFILE_WRITE_INDEX_FROM_UART =>
+                        if tl_dout_valid='1' then
+                            bitfile_index                   <= tl_dout(0);
+                            start_bitfile_write_to_uart     <= true;
+                            cmd_eval_state      <= WAITING_FOR_COMMAND;
                         end if;
                     
                 end case;
