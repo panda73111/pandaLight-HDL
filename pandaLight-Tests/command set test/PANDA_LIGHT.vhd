@@ -57,6 +57,8 @@ entity PANDA_LIGHT is
         G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
         FCTRL_CLK_MULT      : positive :=  2; -- Flash clock: 20 MHz
         FCTRL_CLK_DIV       : positive :=  5;
+        RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
+        RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
         SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000";
         BITFILE_SIZE        : positive := 342816
     );
@@ -465,7 +467,7 @@ begin
         );
         
         signal cmd_eval_state   : cmd_eval_state_type := WAITING_FOR_COMMAND;
-        signal cmd_eval_counter : unsigned(20 downto 0) := uns(1023, 11);
+        signal cmd_eval_counter : unsigned(20 downto 0) := uns(1023, 21);
         
         type data_handling_state_type is (
             WAITING_FOR_COMMAND,
@@ -478,7 +480,7 @@ begin
         );
         
         signal data_handling_state      : data_handling_state_type := WAITING_FOR_COMMAND;
-        signal data_handling_counter    : unsigned(10 downto 0) := uns(1022, 11);
+        signal data_handling_counter    : unsigned(20 downto 0) := uns(1022, 21);
         signal magic_char_index         : unsigned(7 downto 0) := uns(1, 8);
     begin
         
@@ -538,7 +540,7 @@ begin
                     
                     when RECEIVING_BITFILE_READ_INDEX_FROM_UART =>
                         if tl_dout_valid='1' then
-                            bitfile_index                   <= tl_dout(0);
+                            bitfile_index                   <= uns(tl_dout(0 downto 0));
                             start_bitfile_read_from_uart    <= true;
                             cmd_eval_counter    <= uns(BITFILE_SIZE, cmd_eval_counter'length);
                             cmd_eval_state      <= RECEIVING_DATA_FROM_UART;
@@ -546,7 +548,7 @@ begin
                     
                     when RECEIVING_BITFILE_WRITE_INDEX_FROM_UART =>
                         if tl_dout_valid='1' then
-                            bitfile_index                   <= tl_dout(0);
+                            bitfile_index                   <= uns(tl_dout(0 downto 0));
                             start_bitfile_write_to_uart     <= true;
                             cmd_eval_state      <= WAITING_FOR_COMMAND;
                         end if;
@@ -857,26 +859,32 @@ begin
         type state_type is (
             INIT,
             IDLE,
-            READING_SETTINGS,
+            READING_DATA,
             WAITING_FOR_DATA,
-            WRITING_SETTINGS,
-            READING_BITFILE,
-            WRITING_BITFILE
+            WRITING_DATA
         );
         
         signal state    : state_type := INIT;
-        signal counter  : unsigned(10 downto 0) := uns(1023, 11);
+        signal counter  : unsigned(20 downto 0) := uns(1023, 21);
+        
+        signal handling_settings    : boolean := true;
+        
+        signal bitfile_address  : std_ulogic_vector(23 downto 0) := x"000000";
     begin
         
-        fctrl_addr  <= SETTINGS_FLASH_ADDR;
-        fctrl_din   <= conf_settings_dout;
+        bitfile_address <= RX0_BITFILE_ADDR when bitfile_index=0 else RX1_BITFILE_ADDR;
+        
+        fctrl_addr  <= SETTINGS_FLASH_ADDR when handling_settings else bitfile_address;
+        fctrl_din   <= conf_settings_dout when handling_settings else tl_dout;
         
         spi_flash_control_stim_proc : process(g_clk, g_rst)
+            variable next_state : state_type := INIT;
         begin
             if g_rst='1' then
-                state       <= INIT;
-                fctrl_rd_en <= '0';
-                fctrl_wr_en <= '0';
+                state               <= INIT;
+                fctrl_rd_en         <= '0';
+                fctrl_wr_en         <= '0';
+                handling_settings   <= true;
             elsif rising_edge(g_clk) then
                 fctrl_rd_en <= '0';
                 fctrl_wr_en <= '0';
@@ -884,18 +892,33 @@ begin
                 case state is
                     
                     when INIT =>
-                        state   <= READING_SETTINGS;
+                        state   <= READING_DATA;
                     
                     when IDLE =>
-                        counter <= uns(1023, 11);
+                        handling_settings   <= true;
+                        counter             <= uns(1023, counter'length);
+                        
+                        if start_bitfile_read_from_uart or start_bitfile_write_to_uart then
+                            handling_settings   <= false;
+                            counter             <= uns(BITFILE_SIZE, counter'length);
+                        end if;
+                        
+                        next_state  := state;
                         if start_settings_read_from_flash then
-                            state   <= READING_SETTINGS;
+                            next_state  := READING_DATA;
                         end if;
                         if start_settings_write_to_flash then
-                            state   <= WAITING_FOR_DATA;
+                            next_state  := WAITING_FOR_DATA;
                         end if;
+                        if start_bitfile_read_from_uart then
+                            next_state  := READING_DATA;
+                        end if;
+                        if start_bitfile_write_to_uart then
+                            next_state  := WAITING_FOR_DATA;
+                        end if;
+                        state   <= next_state;
                     
-                    when READING_SETTINGS =>
+                    when READING_DATA =>
                         if counter(counter'high)='1' then
                             state   <= IDLE;
                         else
@@ -906,21 +929,15 @@ begin
                         end if;
                     
                     when WAITING_FOR_DATA =>
-                        state   <= WRITING_SETTINGS;
+                        state   <= WRITING_DATA;
                     
-                    when WRITING_SETTINGS =>
+                    when WRITING_DATA =>
                         counter     <= counter-1;
                         if counter(counter'high)='1' then
                             state   <= IDLE;
                         else
                             fctrl_wr_en <= '1';
                         end if;
-                    
-                    when READING_BITFILE =>
-                        null;
-                    
-                    when WRITING_BITFILE =>
-                        null;
                     
                 end case;
             end if;
