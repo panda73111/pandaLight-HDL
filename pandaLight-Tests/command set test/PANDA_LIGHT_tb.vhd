@@ -45,8 +45,6 @@ architecture behavior of testbench is
     
     constant UART_CLK_PERIOD    : time := 1 sec / 115_200;
     
-    constant SETTINGS_FLASH_ADDR    : std_ulogic_vector(23 downto 0) := x"0C0000";
-    
     signal rxd, txd : std_ulogic := '0';
     
     signal tx_data      : std_ulogic_vector(7 downto 0) := x"00";
@@ -66,9 +64,6 @@ begin
     BT_CTSN <= '0';
     
     PANDA_LIGHT_inst : entity work.panda_light
-    generic map (
-        SETTINGS_FLASH_ADDR => SETTINGS_FLASH_ADDR
-    )
     port map (
         CLK20   => g_clk20,
         
@@ -102,9 +97,9 @@ begin
     
     test_spi_flash_inst : entity work.test_spi_flash
         generic map (
-            BYTE_COUNT      => 1024,
+            BYTE_COUNT      => 1024*1024, -- 8 MBit
             INIT_FILE_PATH  => "../pandaLight.hex",
-            INIT_ADDR       => x"000000",
+            INIT_FILE_ADDR  => x"000000",
             VERBOSE         => false
         )
         port map (
@@ -370,23 +365,23 @@ begin
                     
                     tl_acket_i  := tl_acket_i+1;
                     
-                    -- send "receive bitfile from UART" (RX0 bitfile) request to the module (device B)
-                    report "Sending 'send settings to UART' request";
-                    send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(tl_acket_i, x"4000"));
-                    send_string_to_b(CRLF);
-                    wait for 2 ms;
-                    
-                    tl_acket_i  := tl_acket_i+1;
-                    
-                    -- send "send bitfile to UART" (RX0 bitfile) request to the module (device B)
-                    report "Sending 'send settings to UART' request";
-                    send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(tl_acket_i, x"4100"));
-                    send_string_to_b(CRLF);
-                    wait for 2 ms;
-                    
-                    tl_acket_i  := tl_acket_i+1;
+--                    -- send "receive bitfile from UART" (RX0 bitfile) request to the module (device B)
+--                    report "Sending 'send settings to UART' request";
+--                    send_string_to_b("+RDAI=005,");
+--                    send_bytes_to_b(wrap_as_tl_packet(tl_acket_i, x"4000"));
+--                    send_string_to_b(CRLF);
+--                    wait for 2 ms;
+--                    
+--                    tl_acket_i  := tl_acket_i+1;
+--                    
+--                    -- send "send bitfile to UART" (RX0 bitfile) request to the module (device B)
+--                    report "Sending 'send settings to UART' request";
+--                    send_string_to_b("+RDAI=005,");
+--                    send_bytes_to_b(wrap_as_tl_packet(tl_acket_i, x"4100"));
+--                    send_string_to_b(CRLF);
+--                    wait for 2 ms;
+--                    
+--                    tl_acket_i  := tl_acket_i+1;
                     
                     -- disconnect
                     report "Disconnecting";
