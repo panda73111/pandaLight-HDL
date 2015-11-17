@@ -98,9 +98,9 @@ begin
     test_spi_flash_inst : entity work.test_spi_flash
         generic map (
             BYTE_COUNT      => 1024*1024, -- 8 MBit
-            INIT_FILE_PATH  => "../pandaLight.hex",
+            INIT_FILE_PATH  => "../pandaLight_split.hex",
             INIT_FILE_ADDR  => x"000000",
-            VERBOSE         => false
+            VERBOSE         => true
         )
         port map (
             MISO    => FLASH_MOSI,
