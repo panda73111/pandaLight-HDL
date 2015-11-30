@@ -3,7 +3,6 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.help_funcs.all;
 use work.txt_util.all;
-use work.linked_list.all;
 use work.transport_layer_pkg.all;
 
 entity testbench is
@@ -281,49 +280,7 @@ begin
             tmp(7 downto 0) := checksum;
             return tmp;
         end function;
-        
-        variable list   : ll_item_pointer_type;
     begin
-        report "---" severity NOTE;
-        ll_report(list);
-        ll_remove(list);
-        report "---" severity NOTE;
-        ll_report(list);
-        ll_append(list, "item0");
-        report "---" severity NOTE;
-        ll_report(list);
-        ll_append(list, "item1");
-        report "---" severity NOTE;
-        ll_report(list);
-        ll_remove(list);
-        report "---" severity NOTE;
-        ll_report(list);
-        ll_remove(list);
-        report "---" severity NOTE;
-        ll_report(list);
-        ll_append(list, "item0");
-        ll_append(list, "item2");
-        report "---" severity NOTE;
-        ll_report(list);
-        ll_insert(list, "item1", 1);
-        report "---" severity NOTE;
-        ll_report(list);
-        ll_insert(list, "item-1", 0);
-        report "---" severity NOTE;
-        ll_report(list);
-        ll_remove(list, 1);
-        report "---" severity NOTE;
-        ll_report(list);
-        ll_remove(list, 0);
-        report "---" severity NOTE;
-        ll_report(list);
-        ll_remove(list, "data2");
-        report "---" severity NOTE;
-        ll_report(list);
-        ll_remove(list, "data0");
-        report "---" severity NOTE;
-        ll_report(list);
-        
         g_rst   <= '1';
         wait for 200 ns;
         g_rst   <= '0';
