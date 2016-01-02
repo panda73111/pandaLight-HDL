@@ -351,7 +351,7 @@ begin
                 r.cfg_sel_ledex := '1';
                 r.cfg_wr_en     := '1';
                 r.cfg_addr      := cr.cfg_addr+1;
-                case cr.cfg_addr+1 is
+                case r.cfg_addr is
                     when "0000000000"   =>  r.cfg_data  := buf_do;          r.buf_rd_p  := BUF_I_HOR_LED_WIDTH;  -- hor. LED count
                     when "0000000001"   =>  r.cfg_data  := scaled_buf_do;   r.buf_rd_p  := BUF_I_HOR_LED_HEIGHT; -- hor. LED width
                     when "0000000010"   =>  r.cfg_data  := scaled_buf_do;   r.buf_rd_p  := BUF_I_HOR_LED_STEP;   -- hor. LED height
@@ -375,7 +375,7 @@ begin
                 r.cfg_sel_ledcor    := '1';
                 r.cfg_wr_en         := '1';
                 r.cfg_addr          := cr.cfg_addr+1;
-                case cr.cfg_addr+1 is
+                case r.cfg_addr is
                     when "0000000000"   =>  r.cfg_data  := cr.led_count;    r.buf_rd_p  := BUF_I_START_LED_NUM;
                     when "0000000001"   =>  r.cfg_data  := buf_do;          r.buf_rd_p  := BUF_I_FRAME_DELAY;
                     when "0000000010"   =>  r.cfg_data  := buf_do;          r.buf_rd_p  := BUF_I_RGB_MODE;
