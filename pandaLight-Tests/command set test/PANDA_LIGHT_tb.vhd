@@ -63,10 +63,10 @@ begin
     
     g_clk20 <= not g_clk20 after G_CLK20_PERIOD/2;
     
-    BT_RXD  <= txd;
-    rxd     <= BT_TXD;
+    USB_RXD <= txd;
+    rxd     <= USB_TXD;
     
-    BT_CTSN <= '0';
+    USB_CTSN    <= '0';
     
     PANDA_LIGHT_inst : entity work.panda_light
     port map (
@@ -336,113 +336,82 @@ begin
         if BT_RSTN='0' then
             wait until BT_RSTN='1';
         end if;
-        -- boot complete
-        send_string_to_b("ROK" & CRLF);
         
         main_loop : loop
+                    
+            tl_packet_i := 0;
             
-            get_cmd_from_b(cmd_buf, cmd_len);
-            case cmd_buf(1 to 7) is
-                when "AT+JSEC"  => send_string_to_b("OK" & CRLF);
-                when "AT+JSLN"  => send_string_to_b("OK" & CRLF);
-                when "AT+JRLS"  => send_string_to_b("OK" & CRLF);
-                when "AT+JDIS"  => send_string_to_b("OK" & CRLF);
-                when "AT+JAAC"  => send_string_to_b("OK" & CRLF);
-                    
-                    -- connect
-                    wait for 2 ms;
-                    report "Connecting";
-                    send_string_to_b("+RSLE" & CRLF);
-                    send_string_to_b("+RCOI=" & BT_ADDR & CRLF);
-                    send_string_to_b("+RCCRCNF=500," & SERVICE_UUID & ",0" & CRLF);
-                    send_string_to_b("+RSNFCNF=0320,2" & CRLF);
-                    send_string_to_b("+ESNS=0320,0320,0000,0002" & CRLF);
-                    wait for 2 ms;
-                    
-                    tl_packet_i := 0;
-                    
-                    -- send "send system information via UART" request to the module (device B)
-                    report "Sending 'send system information via UART' request";
-                    send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"00"));
-                    send_string_to_b(CRLF);
-                    wait for 2 ms;
-                    
-                    tl_packet_i := tl_packet_i+1;
-                    
-                    -- send "load settings from flash" request to the module (device B)
-                    report "Sending 'load settings from flash' request";
-                    send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"20"));
-                    send_string_to_b(CRLF);
-                    wait for 2 ms;
-                    
-                    tl_packet_i := tl_packet_i+1;
-                    
-                    -- send "save settings to flash" request to the module (device B)
-                    report "Sending 'save settings to flash' request";
-                    send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"21"));
-                    send_string_to_b(CRLF);
-                    wait for 2 ms;
-                    
-                    tl_packet_i := tl_packet_i+1;
-                    
-                    -- send "receive settings from UART" request to the module (device B)
-                    report "Sending 'receive settings from UART' request";
-                    send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"22"));
-                    send_string_to_b(CRLF);
-                    for block_i in 4 downto 1 loop
-                        send_string_to_b("+RDAI=260,");
-                        send_bytes_to_b(wrap_as_tl_packet(tl_packet_i,
-                            TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8)));
-                        send_string_to_b(CRLF);
-                    
-                        tl_packet_i := tl_packet_i+1;
-                    end loop;
-                    wait for 2 ms;
-                    
-                    -- send "send settings to UART" request to the module (device B)
-                    report "Sending 'send settings to UART' request";
-                    send_string_to_b("+RDAI=005,");
-                    send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"23"));
-                    send_string_to_b(CRLF);
-                    wait for 2 ms;
-                    
-                    tl_packet_i := tl_packet_i+1;
-                    
-                   -- send "receive bitfile from UART" (RX0 bitfile) request to the module (device B)
-                   report "Sending 'send settings to UART' request";
-                   send_string_to_b("+RDAI=005,");
-                   send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"40"));
-                   send_string_to_b(CRLF);
-                   send_wrapped_mcs_file_to_b(BITFILE_MCS_PATH, tl_packet_i, 256);
-                   wait for 2 ms;
-                   
-                   tl_packet_i := tl_packet_i+1;
-                   
-                   -- send "send bitfile to UART" (RX0 bitfile) request to the module (device B)
-                   report "Sending 'send settings to UART' request";
-                   send_string_to_b("+RDAI=005,");
-                   send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"41"));
-                   send_string_to_b(CRLF);
-                   wait for 2 ms;
-                   
-                   tl_packet_i := tl_packet_i+1;
-                    
-                    -- disconnect
-                    report "Disconnecting";
-                    send_string_to_b("+RDII" & CRLF);
-                    wait for 2 ms;
-                    
-                    report "NONE. All tests completed."
-                        severity FAILURE;
-                    
-                when others =>
-                    report "Unknown command!"
-                    severity FAILURE;
-            end case;
+            -- send "send system information via UART" request to the module (device B)
+            report "Sending 'send system information via UART' request";
+            send_string_to_b("+RDAI=005,");
+            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"00"));
+            send_string_to_b(CRLF);
+            wait for 2 ms;
+            
+            tl_packet_i := tl_packet_i+1;
+            
+            -- send "load settings from flash" request to the module (device B)
+            report "Sending 'load settings from flash' request";
+            send_string_to_b("+RDAI=005,");
+            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"20"));
+            send_string_to_b(CRLF);
+            wait for 2 ms;
+            
+            tl_packet_i := tl_packet_i+1;
+            
+            -- send "save settings to flash" request to the module (device B)
+            report "Sending 'save settings to flash' request";
+            send_string_to_b("+RDAI=005,");
+            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"21"));
+            send_string_to_b(CRLF);
+            wait for 2 ms;
+            
+            tl_packet_i := tl_packet_i+1;
+            
+            -- send "receive settings from UART" request to the module (device B)
+            report "Sending 'receive settings from UART' request";
+            send_string_to_b("+RDAI=005,");
+            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"22"));
+            send_string_to_b(CRLF);
+            for block_i in 4 downto 1 loop
+                send_string_to_b("+RDAI=260,");
+                send_bytes_to_b(wrap_as_tl_packet(tl_packet_i,
+                    TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8)));
+                send_string_to_b(CRLF);
+            
+                tl_packet_i := tl_packet_i+1;
+            end loop;
+            wait for 2 ms;
+            
+            -- send "send settings to UART" request to the module (device B)
+            report "Sending 'send settings to UART' request";
+            send_string_to_b("+RDAI=005,");
+            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"23"));
+            send_string_to_b(CRLF);
+            wait for 2 ms;
+            
+            tl_packet_i := tl_packet_i+1;
+            
+           -- send "receive bitfile from UART" (RX0 bitfile) request to the module (device B)
+           report "Sending 'send settings to UART' request";
+           send_string_to_b("+RDAI=005,");
+           send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"40"));
+           send_string_to_b(CRLF);
+           send_wrapped_mcs_file_to_b(BITFILE_MCS_PATH, tl_packet_i, 256);
+           wait for 2 ms;
+           
+           tl_packet_i := tl_packet_i+1;
+           
+           -- send "send bitfile to UART" (RX0 bitfile) request to the module (device B)
+           report "Sending 'send settings to UART' request";
+           send_string_to_b("+RDAI=005,");
+           send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"41"));
+           send_string_to_b(CRLF);
+           wait for 2 ms;
+            
+            report "NONE. All tests completed."
+                severity FAILURE;
+            
         end loop;
         
         wait;
