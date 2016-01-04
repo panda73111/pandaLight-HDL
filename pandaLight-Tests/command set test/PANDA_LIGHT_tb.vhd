@@ -341,77 +341,77 @@ begin
         end if;
         
         main_loop : loop
-                    
+
             tl_packet_i := 0;
-            
-            -- send "send system information via UART" request to the module (device B)
-            report "Sending 'send system information via UART' request";
+
+            -- -- send "send system information via UART" request to the module (device B)
+            -- report "Sending 'send system information via UART' request";
+            -- send_string_to_b("+RDAI=005,");
+            -- send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"00"));
+            -- send_string_to_b(CRLF);
+            -- wait for 2 ms;
+
+            -- tl_packet_i := tl_packet_i+1;
+
+            -- -- send "load settings from flash" request to the module (device B)
+            -- report "Sending 'load settings from flash' request";
+            -- send_string_to_b("+RDAI=005,");
+            -- send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"20"));
+            -- send_string_to_b(CRLF);
+            -- wait for 2 ms;
+
+            -- tl_packet_i := tl_packet_i+1;
+
+            -- -- send "save settings to flash" request to the module (device B)
+            -- report "Sending 'save settings to flash' request";
+            -- send_string_to_b("+RDAI=005,");
+            -- send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"21"));
+            -- send_string_to_b(CRLF);
+            -- wait for 2 ms;
+
+            -- tl_packet_i := tl_packet_i+1;
+
+            -- -- send "receive settings from UART" request to the module (device B)
+            -- report "Sending 'receive settings from UART' request";
+            -- send_string_to_b("+RDAI=005,");
+            -- send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"22"));
+            -- send_string_to_b(CRLF);
+            -- for block_i in 4 downto 1 loop
+                -- send_string_to_b("+RDAI=260,");
+                -- send_bytes_to_b(wrap_as_tl_packet(tl_packet_i,
+                    -- TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8)));
+                -- send_string_to_b(CRLF);
+
+                -- tl_packet_i := tl_packet_i+1;
+            -- end loop;
+            -- wait for 2 ms;
+
+            -- -- send "send settings to UART" request to the module (device B)
+            -- report "Sending 'send settings to UART' request";
+            -- send_string_to_b("+RDAI=005,");
+            -- send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"23"));
+            -- send_string_to_b(CRLF);
+            -- wait for 2 ms;
+
+            -- tl_packet_i := tl_packet_i+1;
+
+            -- send "receive bitfile from UART" (RX0 bitfile) request to the module (device B)
+            report "Sending 'send bitfile to UART' request";
             send_string_to_b("+RDAI=005,");
-            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"00"));
+            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"40"));
             send_string_to_b(CRLF);
+            send_wrapped_mcs_file_to_b(BITFILE_MCS_PATH, tl_packet_i, 256);
             wait for 2 ms;
-            
+
             tl_packet_i := tl_packet_i+1;
-            
-            -- send "load settings from flash" request to the module (device B)
-            report "Sending 'load settings from flash' request";
+
+            -- send "send bitfile to UART" (RX0 bitfile) request to the module (device B)
+            report "Sending 'send bitfile to UART' request";
             send_string_to_b("+RDAI=005,");
-            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"20"));
+            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"41"));
             send_string_to_b(CRLF);
             wait for 2 ms;
-            
-            tl_packet_i := tl_packet_i+1;
-            
-            -- send "save settings to flash" request to the module (device B)
-            report "Sending 'save settings to flash' request";
-            send_string_to_b("+RDAI=005,");
-            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"21"));
-            send_string_to_b(CRLF);
-            wait for 2 ms;
-            
-            tl_packet_i := tl_packet_i+1;
-            
-            -- send "receive settings from UART" request to the module (device B)
-            report "Sending 'receive settings from UART' request";
-            send_string_to_b("+RDAI=005,");
-            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"22"));
-            send_string_to_b(CRLF);
-            for block_i in 4 downto 1 loop
-                send_string_to_b("+RDAI=260,");
-                send_bytes_to_b(wrap_as_tl_packet(tl_packet_i,
-                    TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8)));
-                send_string_to_b(CRLF);
-            
-                tl_packet_i := tl_packet_i+1;
-            end loop;
-            wait for 2 ms;
-            
-            -- send "send settings to UART" request to the module (device B)
-            report "Sending 'send settings to UART' request";
-            send_string_to_b("+RDAI=005,");
-            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"23"));
-            send_string_to_b(CRLF);
-            wait for 2 ms;
-            
-            tl_packet_i := tl_packet_i+1;
-            
-           -- send "receive bitfile from UART" (RX0 bitfile) request to the module (device B)
-           report "Sending 'send settings to UART' request";
-           send_string_to_b("+RDAI=005,");
-           send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"40"));
-           send_string_to_b(CRLF);
-           send_wrapped_mcs_file_to_b(BITFILE_MCS_PATH, tl_packet_i, 256);
-           wait for 2 ms;
-           
-           tl_packet_i := tl_packet_i+1;
-           
-           -- send "send bitfile to UART" (RX0 bitfile) request to the module (device B)
-           report "Sending 'send settings to UART' request";
-           send_string_to_b("+RDAI=005,");
-           send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"41"));
-           send_string_to_b(CRLF);
-           wait for 2 ms;
-            
+
             report "NONE. All tests completed."
                 severity FAILURE;
             
