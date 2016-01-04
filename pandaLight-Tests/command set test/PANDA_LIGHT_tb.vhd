@@ -305,9 +305,12 @@ begin
                 if i=0 then
                     send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, v));
                     tl_packet_i := tl_packet_i+1;
+                    i   := 255;
+                else
+                    i   := i-1;
                 end if;
                 
-                i   := i-8;
+                prev_mcs_addr   := mcs_addr;
                 mcs_read_byte(list, mcs_addr, mcs_byte, mcs_valid, VERBOSE);
                 
             end loop;
