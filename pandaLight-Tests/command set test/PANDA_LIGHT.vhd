@@ -118,39 +118,6 @@ architecture rtl of PANDA_LIGHT is
     signal usb_dsrn_deb_q       : std_ulogic := '0';
     
     
-    ------------------------------
-    --- UART Bluetooth control ---
-    ------------------------------
-    
-    -- inputs
-    signal btctrl_clk   : std_ulogic := '0';
-    signal btctrl_rst   : std_ulogic := '0';
-    
-    signal btctrl_bt_cts    : std_ulogic := '0';
-    signal btctrl_bt_rxd    : std_ulogic := '0';
-    
-    signal btctrl_din           : std_ulogic_vector(7 downto 0) := x"00";
-    signal btctrl_din_wr_en     : std_ulogic := '0';
-    signal btctrl_send_packet   : std_ulogic := '0';
-    
-    -- outputs
-    signal btctrl_bt_rts    : std_ulogic := '0';
-    signal btctrl_bt_txd    : std_ulogic := '0';
-    signal btctrl_bt_wake   : std_ulogic := '0';
-    signal btctrl_bt_rstn   : std_ulogic := '0';
-    
-    signal btctrl_dout          : std_ulogic_vector(7 downto 0) := x"00";
-    signal btctrl_dout_valid    : std_ulogic := '0';
-    
-    signal btctrl_connected : std_ulogic := '0';
-    
-    signal btctrl_mtu_size          : std_ulogic_vector(9 downto 0) := (others => '0');
-    signal btctrl_mtu_size_valid    : std_ulogic := '0';
-    
-    signal btctrl_error : std_ulogic := '0';
-    signal btctrl_busy  : std_ulogic := '0';
-    
-    
     ------------------------
     --- UART USB control ---
     ------------------------
@@ -294,14 +261,8 @@ begin
     PMOD1(2)    <= 'Z';
     PMOD1(3)    <= 'Z';
     
-    BT_TXD  <= btctrl_bt_txd;
-    USB_TXD <= usbctrl_txd;
-    
+    USB_TXD     <= usbctrl_txd;
     USB_RTSN    <= not usbctrl_rts;
-    BT_RTSN     <= not btctrl_bt_rts;
-    
-    BT_RSTN <= btctrl_bt_rstn;
-    BT_WAKE <= btctrl_bt_wake;
     
     pmod0_DEBOUNCE_gen : for i in 0 to 3 generate
         
@@ -323,53 +284,6 @@ begin
             pmod0_deb_q <= pmod0_deb;
         end if;
     end process;
-    
-    
-    ------------------------------
-    --- UART Bluetooth control ---
-    ------------------------------
-    
-    btctrl_clk  <= g_clk;
-    btctrl_rst  <= g_rst;
-    
-    btctrl_bt_cts   <= not BT_CTSN;
-    btctrl_bt_rxd   <= BT_RXD;
-    
-    btctrl_din          <= tl_packet_out;
-    btctrl_din_wr_en    <= tl_packet_out_valid;
-    btctrl_send_packet  <= tl_packet_out_end;
-    
-    UART_BLUETOOTH_CONTROL_inst : entity work.UART_BLUETOOTH_CONTROL
-        generic map (
-            CLK_IN_PERIOD   => G_CLK_PERIOD,
-            BUFFER_SIZE     => 2048
-        )
-        port map (
-            CLK => btctrl_clk,
-            RST => btctrl_rst,
-            
-            BT_CTS  => btctrl_bt_cts,
-            BT_RTS  => btctrl_bt_rts,
-            BT_RXD  => btctrl_bt_rxd,
-            BT_TXD  => btctrl_bt_txd,
-            BT_WAKE => btctrl_bt_wake,
-            BT_RSTN => btctrl_bt_rstn,
-            
-            DIN         => btctrl_din,
-            DIN_WR_EN   => btctrl_din_wr_en,
-            SEND_PACKET => btctrl_send_packet,
-            
-            DOUT        => btctrl_dout,
-            DOUT_VALID  => btctrl_dout_valid,
-            
-            CONNECTED   => btctrl_connected,
-            
-            MTU_SIZE        => btctrl_mtu_size,
-            MTU_SIZE_VALID  => btctrl_mtu_size_valid,
-            
-            ERROR   => btctrl_error,
-            BUSY    => btctrl_busy
-        );
     
     
     ------------------------
@@ -428,10 +342,10 @@ begin
     tl_clk  <= g_clk;
     
     -- if one device connects, tl_rst <= '0'
-    tl_rst  <= g_rst or not (btctrl_connected or not usb_dsrn_deb);
+    tl_rst  <= g_rst or usb_dsrn_deb;
     
-    tl_packet_in        <= btctrl_dout when btctrl_dout_valid='1' else usbctrl_dout;
-    tl_packet_in_wr_en  <= btctrl_dout_valid or usbctrl_dout_valid;
+    tl_packet_in        <= usbctrl_dout;
+    tl_packet_in_wr_en  <= usbctrl_dout_valid;
     
     TRANSPORT_LAYER_inst : entity work.TRANSPORT_LAYER
         port map (

@@ -292,6 +292,7 @@ begin
             
             i   := 255;
             mcs_read_byte(list, mcs_addr, mcs_byte, mcs_valid, VERBOSE);
+            mcs_addr        := stdulv(0, 32);
             prev_mcs_addr   := mcs_addr-1;
             
             while mcs_valid loop
