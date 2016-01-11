@@ -401,9 +401,9 @@ begin
                                 when x"23" => -- send settings to UART
                                     start_settings_write_to_uart    <= true;
                                 when x"40" => -- receive bitfile from UART
-                                    cmd_eval_state      <= RECEIVING_BITFILE_READ_INDEX_FROM_UART;
-                                when x"41" => -- send bitfile to UART
                                     cmd_eval_state      <= RECEIVING_BITFILE_WRITE_INDEX_FROM_UART;
+                                when x"41" => -- send bitfile to UART
+                                    cmd_eval_state      <= RECEIVING_BITFILE_READ_INDEX_FROM_UART;
                                 when others =>
                                     null;
                             end case;
@@ -417,7 +417,7 @@ begin
                             cmd_eval_state  <= WAITING_FOR_COMMAND;
                         end if;
                     
-                    when RECEIVING_BITFILE_READ_INDEX_FROM_UART =>
+                    when RECEIVING_BITFILE_WRITE_INDEX_FROM_UART =>
                         if tl_dout_valid='1' then
                             bitfile_index                   <= uns(tl_dout(0 downto 0));
                             start_bitfile_read_from_uart    <= true;
@@ -425,7 +425,7 @@ begin
                             cmd_eval_state      <= RECEIVING_DATA_FROM_UART;
                         end if;
                     
-                    when RECEIVING_BITFILE_WRITE_INDEX_FROM_UART =>
+                    when RECEIVING_BITFILE_READ_INDEX_FROM_UART =>
                         if tl_dout_valid='1' then
                             bitfile_index                   <= uns(tl_dout(0 downto 0));
                             start_bitfile_write_to_uart     <= true;
