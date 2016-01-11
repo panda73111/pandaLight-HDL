@@ -115,6 +115,7 @@ architecture rtl of PANDA_LIGHT is
     
     signal usb_dsrn_deb         : std_ulogic := '0';
     signal usb_dsrn_deb_q       : std_ulogic := '0';
+    signal usb_connected        : boolean := false;
     
     
     ------------------------
@@ -246,6 +247,8 @@ begin
     
     g_rst   <= '1' when g_clk_locked='0' or pmod0_deb(0)='1' else '0';
     
+    usb_connected   <= usb_dsrn_deb='0';
+    
     FLASH_MOSI  <= fctrl_mosi;
     FLASH_CS    <= fctrl_sn;
     FLASH_SCK   <= fctrl_c;
@@ -334,7 +337,7 @@ begin
     tl_clk  <= g_clk;
     
     -- if one device connects, tl_rst <= '0'
-    tl_rst  <= g_rst or usb_dsrn_deb;
+    tl_rst  <= '1' when g_rst='1' or not usb_connected else '0';
     
     tl_packet_in        <= usbctrl_dout;
     tl_packet_in_wr_en  <= usbctrl_dout_valid;
