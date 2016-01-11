@@ -102,7 +102,6 @@ architecture rtl of PANDA_LIGHT is
     signal g_clk_locked : std_ulogic := '0';
     
     signal pmod0_deb    : std_ulogic_vector(3 downto 0) := x"0";
-    signal pmod0_deb_q  : std_ulogic_vector(3 downto 0) := x"0";
     
     signal start_sysinfo_to_uart            : boolean := false;
     signal start_settings_read_from_flash   : boolean := false;
@@ -277,13 +276,6 @@ begin
             );
         
     end generate;
-    
-    pmod0_deb_sync_proc : process(g_clk)
-    begin
-        if rising_edge(g_clk) then
-            pmod0_deb_q <= pmod0_deb;
-        end if;
-    end process;
     
     
     ------------------------

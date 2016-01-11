@@ -68,6 +68,8 @@ begin
     
     USB_CTSN    <= '0';
     
+    PMOD0(0)    <= g_rst;
+    
     PANDA_LIGHT_inst : entity work.panda_light
     port map (
         CLK20   => g_clk20,
@@ -302,8 +304,10 @@ begin
                     severity FAILURE;
                 
                 v(i*8+7 downto i*8) := mcs_byte;
+                report "Added byte 0x" & hstr(mcs_byte) & " to v(" & str(i*8+7) & " downto " & str(i*8) & ")";
                 
                 if i=0 then
+                    report "Sending v to b, tl_packet_i=" & str(tl_packet_i);
                     send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, v));
                     tl_packet_i := tl_packet_i+1;
                     i   := 255;
@@ -336,10 +340,6 @@ begin
         wait for 200 ns;
         g_rst   <= '0';
         wait for 200 ns;
-        
-        if BT_RSTN='0' then
-            wait until BT_RSTN='1';
-        end if;
         
         main_loop : loop
 
