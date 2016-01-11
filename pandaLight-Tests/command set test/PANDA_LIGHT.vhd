@@ -418,18 +418,18 @@ begin
                         end if;
                     
                     when RECEIVING_BITFILE_WRITE_INDEX_FROM_UART =>
+                        cmd_eval_counter    <= uns(BITFILE_SIZE, cmd_eval_counter'length);
                         if tl_dout_valid='1' then
                             bitfile_index                   <= uns(tl_dout(0 downto 0));
                             start_bitfile_read_from_uart    <= true;
-                            cmd_eval_counter    <= uns(BITFILE_SIZE, cmd_eval_counter'length);
-                            cmd_eval_state      <= RECEIVING_DATA_FROM_UART;
+                            cmd_eval_state                  <= RECEIVING_DATA_FROM_UART;
                         end if;
                     
                     when RECEIVING_BITFILE_READ_INDEX_FROM_UART =>
                         if tl_dout_valid='1' then
                             bitfile_index                   <= uns(tl_dout(0 downto 0));
                             start_bitfile_write_to_uart     <= true;
-                            cmd_eval_state      <= WAITING_FOR_COMMAND;
+                            cmd_eval_state                  <= WAITING_FOR_COMMAND;
                         end if;
                     
                 end case;
@@ -790,10 +790,10 @@ begin
                             next_state  := WAITING_FOR_DATA;
                         end if;
                         if start_bitfile_read_from_uart then
-                            next_state  := READING_DATA;
+                            next_state  := WAITING_FOR_DATA;
                         end if;
                         if start_bitfile_write_to_uart then
-                            next_state  := WAITING_FOR_DATA;
+                            next_state  := READING_DATA;
                         end if;
                         state   <= next_state;
                     
