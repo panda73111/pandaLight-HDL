@@ -461,6 +461,10 @@ begin
                             data_handling_counter   <= uns(1022, data_handling_counter'length);
                             data_handling_state     <= WAITING_FOR_DATA;
                         end if;
+                        if start_bitfile_write_to_uarl then
+                            data_handling_counter   <= uns(BITFILE_SIZE, data_handling_counter'length);
+                            data_handling_state     <= SENDING_BITFILE_TO_UART;
+                        end if;
                     
                     when SENDING_PANDALIGHT_MAGIC_TO_UART =>
                         tl_din_wr_en            <= '1';
@@ -497,7 +501,14 @@ begin
                         end if;
                     
                     when SENDING_BITFILE_TO_UART =>
-                        null;
+                        if fctrl_valid='1' then
+                            tl_din_wr_en            <= '1';
+                            tl_din                  <= fctrl_dout;
+                            data_handling_counter   <= data_handling_counter-1;
+                            if data_handling_counter(data_handling_counter'high)='1' then
+                                data_handling_state <= WAITING_FOR_COMMAND;
+                            end if;
+                        end if;
                     
                 end case;
             end if;
