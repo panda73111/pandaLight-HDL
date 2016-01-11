@@ -1,0 +1,28 @@
+    
+    command byte format (from the view of the device):
+
+    bit 7..5 - category
+    bit 4..0 - specific command
+
+    000xxxxx - system commands                            | implemented
+                                                          | 
+    00000000 | 0x00 - send system information via UART    | x
+    00000001 | 0x01 - reboot                              | 
+                                                          | 
+    001xxxxx - settings related commands                  | 
+                                                          | 
+    00100000 | 0x20 - load settings from flash            | x
+    00100001 | 0x21 - save settings to flash              | x
+    00100010 | 0x22 - receive settings from UART          | x
+    00100011 | 0x23 - send settings to UART               | x
+                                                          | 
+    010xxxxx - bitfile related commands                   | 
+                                                          | 
+    01000000 | 0x40 - receive bitfile from UART           | 
+    01000001 | 0x41 - send bitfile to UART                | 
+                                                          | 
+    011xxxxx - status indications/handshakes from device  | 
+                                                          | 
+  ( 01100000 | 0x60 - pause UART )                        | 
+  ( 01100001 | 0x61 - resume UART )                       | 
+    
