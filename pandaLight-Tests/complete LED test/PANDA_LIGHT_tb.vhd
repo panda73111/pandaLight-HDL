@@ -89,7 +89,7 @@ begin
         generic map (
             BYTE_COUNT      => 1024*1024,
             INIT_FILE_PATH  => "../settings.bin",
-            INIT_ADDR       => x"0C0000",
+            INIT_FILE_ADDR  => x"0C0000",
             VERBOSE         => true
         )
         port map (
