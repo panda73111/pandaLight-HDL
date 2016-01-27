@@ -360,7 +360,7 @@ begin
         
         signal data_handling_state      : data_handling_state_type := WAITING_FOR_COMMAND;
         signal data_handling_counter    : unsigned(20 downto 0) := uns(1022, 21);
-        signal magic_char_index         : unsigned(7 downto 0) := uns(1, 8);
+        signal magic_char_index         : unsigned(3 downto 0) := uns(1, 4);
     begin
         
         tl_evaluation_proc : process(tl_clk, tl_rst)
@@ -461,8 +461,8 @@ begin
                             data_handling_counter   <= uns(1022, data_handling_counter'length);
                             data_handling_state     <= WAITING_FOR_DATA;
                         end if;
-                        if start_bitfile_write_to_uarl then
-                            data_handling_counter   <= uns(BITFILE_SIZE, data_handling_counter'length);
+                        if start_bitfile_write_to_uart then
+                            data_handling_counter   <= uns(BITFILE_SIZE-2, data_handling_counter'length);
                             data_handling_state     <= SENDING_BITFILE_TO_UART;
                         end if;
                     
