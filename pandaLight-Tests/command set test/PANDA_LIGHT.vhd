@@ -74,7 +74,9 @@ architecture rtl of PANDA_LIGHT is
     
     signal g_clk_locked : std_ulogic := '0';
     
-    signal pmod0_deb    : std_ulogic_vector(3 downto 0) := x"0";
+    signal pmod0_deb        : std_ulogic_vector(3 downto 0) := x"0";
+    signal blinker          : std_ulogic := '0';
+    signal blink_counter    : unsigned(24 downto 0) := (others => '0');
     
     signal start_sysinfo_to_uart            : boolean := false;
     signal start_settings_read_from_flash   : boolean := false;
@@ -189,6 +191,7 @@ architecture rtl of PANDA_LIGHT is
     signal fctrl_wr_ack : std_ulogic := '0';
     signal fctrl_busy   : std_ulogic := '0';
     signal fctrl_full   : std_ulogic := '0';
+    signal fctrl_afull  : std_ulogic := '0';
     signal fctrl_mosi   : std_ulogic := '0';
     signal fctrl_c      : std_ulogic := '0';
     signal fctrl_sn     : std_ulogic := '1';
@@ -226,18 +229,18 @@ begin
     FLASH_CS    <= fctrl_sn;
     FLASH_SCK   <= fctrl_c;
     
-    PMOD0(0)    <= 'Z';
+    PMOD0(0)    <= blinker; --'Z';
     PMOD0(1)    <= 'Z';
     PMOD0(2)    <= 'Z';
     PMOD0(3)    <= 'Z';
     
-    PMOD1(0)    <= 'Z';
+    PMOD1(0)    <= not blinker; --'Z';
     PMOD1(1)    <= 'Z';
     PMOD1(2)    <= 'Z';
     PMOD1(3)    <= 'Z';
     
     USB_TXD     <= usbctrl_txd;
-    USB_RTSN    <= not usbctrl_rts;
+    USB_RTSN    <= not (usbctrl_rts and not fctrl_afull);
     
     pmod0_DEBOUNCE_gen : for i in 0 to 3 generate
         
@@ -252,6 +255,14 @@ begin
             );
         
     end generate;
+    
+    blink_proc : process(g_clk)
+    begin
+        if rising_edge(g_clk) then
+            blink_counter   <= blink_counter+1;
+            blinker         <= blink_counter(blink_counter'high);
+        end if;
+    end process;
     
     
     ------------------------
@@ -723,7 +734,8 @@ begin
             CLK_IN_PERIOD   => G_CLK_PERIOD,
             CLK_OUT_MULT    => FCTRL_CLK_MULT,
             CLK_OUT_DIV     => FCTRL_CLK_DIV,
-            BUF_SIZE        => 1024
+            BUF_SIZE        => 1024,
+            BUF_AFULL_COUNT => 786
         )
         port map (
             CLK => fctrl_clk,
@@ -740,6 +752,7 @@ begin
             WR_ACK  => fctrl_wr_ack,
             BUSY    => fctrl_busy,
             FULL    => fctrl_full,
+            AFULL   => fctrl_afull,
             MOSI    => fctrl_mosi,
             C       => fctrl_c,
             SN      => fctrl_sn
