@@ -18,7 +18,7 @@
                                                           |             | 
     010xxxxx - bitfile related commands                   |             | 
                                                           |             | 
-    01000000 | 0x40 - receive bitfile from UART           |             | Next byte: bitfile write index (0|1)
+    01000000 | 0x40 - receive bitfile from UART           |             | Next bytes: 0: bitfile index (0|1), 1..3: bitfile size
                                                           |             | 
     011xxxxx - status indications/handshakes from device  |             | 
                                                           |             | 

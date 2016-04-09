@@ -29,8 +29,7 @@ entity PANDA_LIGHT is
         FCTRL_CLK_DIV       : positive :=  5;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
-        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000";
-        BITFILE_SIZE        : positive := 342816
+        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000"
     );
     port (
         CLK20   : in std_ulogic;
@@ -86,6 +85,7 @@ architecture rtl of PANDA_LIGHT is
     signal start_bitfile_read_from_uart     : boolean := false;
     
     signal bitfile_index    : unsigned(0 downto 0) := "0";
+    signal bitfile_size     : unsigned(23 downto 0) := x"000000";
     
     signal usb_dsrn_deb         : std_ulogic := '0';
     signal usb_dsrn_deb_q       : std_ulogic := '0';
@@ -351,11 +351,12 @@ begin
         type cmd_eval_state_type is (
             WAITING_FOR_COMMAND,
             RECEIVING_DATA_FROM_UART,
-            RECEIVING_BITFILE_INDEX_FROM_UART
+            RECEIVING_BITFILE_INDEX_FROM_UART,
+            RECEIVING_BITFILE_SIZE_FROM_UART
         );
         
         signal cmd_eval_state   : cmd_eval_state_type := WAITING_FOR_COMMAND;
-        signal cmd_eval_counter : unsigned(20 downto 0) := uns(1023, 21);
+        signal cmd_eval_counter : unsigned(23 downto 0) := uns(1023, 24);
         
         type data_handling_state_type is (
             WAITING_FOR_COMMAND,
@@ -402,7 +403,7 @@ begin
                                     start_settings_write_to_flash   <= true;
                                 when x"22" => -- receive settings from UART
                                     start_settings_read_from_uart   <= true;
-                                    cmd_eval_counter    <= uns(1023, cmd_eval_counter'length);
+                                    cmd_eval_counter    <= uns(1022, cmd_eval_counter'length);
                                     cmd_eval_state      <= RECEIVING_DATA_FROM_UART;
                                 when x"23" => -- send settings to UART
                                     start_settings_write_to_uart    <= true;
@@ -416,17 +417,29 @@ begin
                     when RECEIVING_DATA_FROM_UART =>
                         if tl_dout_valid='1' then
                             cmd_eval_counter    <= cmd_eval_counter-1;
-                        end if;
-                        if cmd_eval_counter(cmd_eval_counter'high)='1' then
-                            cmd_eval_state  <= WAITING_FOR_COMMAND;
+                            if cmd_eval_counter(cmd_eval_counter'high)='1' then
+                                cmd_eval_state  <= WAITING_FOR_COMMAND;
+                            end if;
                         end if;
                     
                     when RECEIVING_BITFILE_INDEX_FROM_UART =>
-                        cmd_eval_counter    <= uns(BITFILE_SIZE, cmd_eval_counter'length);
+                        cmd_eval_counter    <= uns(1, cmd_eval_counter'length);
                         if tl_dout_valid='1' then
-                            bitfile_index                   <= uns(tl_dout(0 downto 0));
-                            start_bitfile_read_from_uart    <= true;
-                            cmd_eval_state                  <= RECEIVING_DATA_FROM_UART;
+                            bitfile_index   <= uns(tl_dout(0 downto 0));
+                            cmd_eval_state  <= RECEIVING_BITFILE_SIZE_FROM_UART;
+                        end if;
+                    
+                    when RECEIVING_BITFILE_SIZE_FROM_UART =>
+                        if tl_dout_valid='1' then
+                            cmd_eval_counter    <= cmd_eval_counter-1;
+                            -- shift the bitfile size in from the right
+                            bitfile_size        <= bitfile_size(15 downto 0) & uns(tl_dout);
+                            if cmd_eval_counter(cmd_eval_counter'high)='1' then
+                                cmd_eval_counter                <= (
+                                    bitfile_size(15 downto 0) & uns(tl_dout)) - 2;
+                                start_bitfile_read_from_uart    <= true;
+                                cmd_eval_state                  <= RECEIVING_DATA_FROM_UART;
+                            end if;
                         end if;
                     
                 end case;
@@ -735,12 +748,12 @@ begin
             INIT,
             IDLE,
             READING_DATA,
-            WAITING_FOR_DATA,
+            WAITING_FOR_DATA_TO_WRITE,
             WRITING_DATA
         );
         
         signal state    : state_type := INIT;
-        signal counter  : unsigned(20 downto 0) := uns(1023, 21);
+        signal counter  : unsigned(23 downto 0) := uns(1023, 24);
         
         signal handling_settings    : boolean := true;
         
@@ -775,7 +788,7 @@ begin
                         
                         if start_bitfile_read_from_uart then
                             handling_settings   <= false;
-                            counter             <= uns(BITFILE_SIZE, counter'length);
+                            counter             <= resize(bitfile_size, counter'length);
                         end if;
                         
                         next_state  := state;
@@ -783,10 +796,10 @@ begin
                             next_state  := READING_DATA;
                         end if;
                         if start_settings_write_to_flash then
-                            next_state  := WAITING_FOR_DATA;
+                            next_state  := WAITING_FOR_DATA_TO_WRITE;
                         end if;
                         if start_bitfile_read_from_uart then
-                            next_state  := WAITING_FOR_DATA;
+                            next_state  := WAITING_FOR_DATA_TO_WRITE;
                         end if;
                         state   <= next_state;
                     
@@ -800,7 +813,7 @@ begin
                             counter <= counter-1;
                         end if;
                     
-                    when WAITING_FOR_DATA =>
+                    when WAITING_FOR_DATA_TO_WRITE =>
                         state   <= WRITING_DATA;
                     
                     when WRITING_DATA =>
