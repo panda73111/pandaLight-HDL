@@ -84,7 +84,6 @@ architecture rtl of PANDA_LIGHT is
     signal start_settings_read_from_uart    : boolean := false;
     signal start_settings_write_to_uart     : boolean := false;
     signal start_bitfile_read_from_uart     : boolean := false;
-    signal start_bitfile_write_to_uart      : boolean := false;
     
     signal bitfile_index    : unsigned(0 downto 0) := "0";
     
@@ -352,8 +351,7 @@ begin
         type cmd_eval_state_type is (
             WAITING_FOR_COMMAND,
             RECEIVING_DATA_FROM_UART,
-            RECEIVING_BITFILE_READ_INDEX_FROM_UART,
-            RECEIVING_BITFILE_WRITE_INDEX_FROM_UART
+            RECEIVING_BITFILE_INDEX_FROM_UART
         );
         
         signal cmd_eval_state   : cmd_eval_state_type := WAITING_FOR_COMMAND;
@@ -365,8 +363,7 @@ begin
             SENDING_MAJOR_VERSION_TO_UART,
             SENDING_MINOR_VERSION_TO_UART,
             WAITING_FOR_DATA,
-            SENDING_SETTINGS_TO_UART,
-            SENDING_BITFILE_TO_UART
+            SENDING_SETTINGS_TO_UART
         );
         
         signal data_handling_state      : data_handling_state_type := WAITING_FOR_COMMAND;
@@ -385,7 +382,6 @@ begin
                 start_settings_read_from_uart   <= false;
                 start_settings_write_to_uart    <= false;
                 start_bitfile_read_from_uart    <= false;
-                start_bitfile_write_to_uart     <= false;
             elsif rising_edge(tl_clk) then
                 start_sysinfo_to_uart           <= false;
                 start_settings_read_from_flash  <= false;
@@ -393,7 +389,6 @@ begin
                 start_settings_read_from_uart   <= false;
                 start_settings_write_to_uart    <= false;
                 start_bitfile_read_from_uart    <= false;
-                start_bitfile_write_to_uart     <= false;
                 case cmd_eval_state is
                     
                     when WAITING_FOR_COMMAND =>
@@ -412,9 +407,7 @@ begin
                                 when x"23" => -- send settings to UART
                                     start_settings_write_to_uart    <= true;
                                 when x"40" => -- receive bitfile from UART
-                                    cmd_eval_state      <= RECEIVING_BITFILE_WRITE_INDEX_FROM_UART;
-                                when x"41" => -- send bitfile to UART
-                                    cmd_eval_state      <= RECEIVING_BITFILE_READ_INDEX_FROM_UART;
+                                    cmd_eval_state      <= RECEIVING_BITFILE_INDEX_FROM_UART;
                                 when others =>
                                     null;
                             end case;
@@ -428,19 +421,12 @@ begin
                             cmd_eval_state  <= WAITING_FOR_COMMAND;
                         end if;
                     
-                    when RECEIVING_BITFILE_WRITE_INDEX_FROM_UART =>
+                    when RECEIVING_BITFILE_INDEX_FROM_UART =>
                         cmd_eval_counter    <= uns(BITFILE_SIZE, cmd_eval_counter'length);
                         if tl_dout_valid='1' then
                             bitfile_index                   <= uns(tl_dout(0 downto 0));
                             start_bitfile_read_from_uart    <= true;
                             cmd_eval_state                  <= RECEIVING_DATA_FROM_UART;
-                        end if;
-                    
-                    when RECEIVING_BITFILE_READ_INDEX_FROM_UART =>
-                        if tl_dout_valid='1' then
-                            bitfile_index                   <= uns(tl_dout(0 downto 0));
-                            start_bitfile_write_to_uart     <= true;
-                            cmd_eval_state                  <= WAITING_FOR_COMMAND;
                         end if;
                     
                 end case;
@@ -471,10 +457,6 @@ begin
                         if start_settings_write_to_uart then
                             data_handling_counter   <= uns(1022, data_handling_counter'length);
                             data_handling_state     <= WAITING_FOR_DATA;
-                        end if;
-                        if start_bitfile_write_to_uart then
-                            data_handling_counter   <= uns(BITFILE_SIZE-2, data_handling_counter'length);
-                            data_handling_state     <= SENDING_BITFILE_TO_UART;
                         end if;
                     
                     when SENDING_PANDALIGHT_MAGIC_TO_UART =>
@@ -509,16 +491,6 @@ begin
                         end if;
                         if data_handling_counter(data_handling_counter'high)='1' then
                             data_handling_state <= WAITING_FOR_COMMAND;
-                        end if;
-                    
-                    when SENDING_BITFILE_TO_UART =>
-                        if fctrl_valid='1' then
-                            tl_din_wr_en            <= '1';
-                            tl_din                  <= fctrl_dout;
-                            data_handling_counter   <= data_handling_counter-1;
-                            if data_handling_counter(data_handling_counter'high)='1' then
-                                data_handling_state <= WAITING_FOR_COMMAND;
-                            end if;
                         end if;
                     
                 end case;
@@ -801,7 +773,7 @@ begin
                         handling_settings   <= true;
                         counter             <= uns(1023, counter'length);
                         
-                        if start_bitfile_read_from_uart or start_bitfile_write_to_uart then
+                        if start_bitfile_read_from_uart then
                             handling_settings   <= false;
                             counter             <= uns(BITFILE_SIZE, counter'length);
                         end if;
@@ -815,9 +787,6 @@ begin
                         end if;
                         if start_bitfile_read_from_uart then
                             next_state  := WAITING_FOR_DATA;
-                        end if;
-                        if start_bitfile_write_to_uart then
-                            next_state  := READING_DATA;
                         end if;
                         state   <= next_state;
                     
