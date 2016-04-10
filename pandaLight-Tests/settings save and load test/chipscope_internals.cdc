@@ -1,5 +1,5 @@
 #ChipScope Core Inserter Project File Version 3.0
-#Mon Mar 09 13:07:22 CET 2015
+#Sun Apr 10 21:41:31 CEST 2016
 Project.device.designInputFile=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\settings save and load test\\PANDA_LIGHT_cs.ngc
 Project.device.designOutputFile=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\settings save and load test\\PANDA_LIGHT_cs.ngc
 Project.device.deviceFamily=18
@@ -32,7 +32,8 @@ Project.unit<0>.dataChannel<20>=SPI_FLASH_CONTROL_inst/clk_out_locked
 Project.unit<0>.dataChannel<21>=SPI_FLASH_CONTROL_inst/cur_reg_mosi
 Project.unit<0>.dataChannel<22>=SPI_FLASH_CONTROL_inst/cur_reg_sn
 Project.unit<0>.dataChannel<23>=SPI_FLASH_CONTROL_inst/cur_reg_valid
-Project.unit<0>.dataChannel<24>=SPI_FLASH_CONTROL_inst/fifo_empty
+Project.unit<0>.dataChannel<24>=SPI_FLASH_CONTROL_inst/write_buffer_inst/is_empty
+Project.unit<0>.dataChannel<25>=SPI_FLASH_CONTROL_inst/write_buffer_inst/is_full
 Project.unit<0>.dataChannel<2>=SPI_FLASH_CONTROL_inst/cur_reg_data_bit_index<2>
 Project.unit<0>.dataChannel<3>=SPI_FLASH_CONTROL_inst/cur_reg_addr_bit_index<0>
 Project.unit<0>.dataChannel<4>=SPI_FLASH_CONTROL_inst/cur_reg_addr_bit_index<1>
@@ -43,7 +44,7 @@ Project.unit<0>.dataChannel<8>=SPI_FLASH_CONTROL_inst/cur_reg_addr_bit_index<5>
 Project.unit<0>.dataChannel<9>=SPI_FLASH_CONTROL_inst/cur_reg_data<0>
 Project.unit<0>.dataDepth=4096
 Project.unit<0>.dataEqualsTrigger=true
-Project.unit<0>.dataPortWidth=25
+Project.unit<0>.dataPortWidth=26
 Project.unit<0>.enableGaps=false
 Project.unit<0>.enableStorageQualification=true
 Project.unit<0>.enableTimestamps=false
