@@ -1,10 +1,10 @@
 #ChipScope Core Inserter Project File Version 3.0
-#Thu Apr 14 22:04:38 CEST 2016
-Project.device.designInputFile=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\settings save and load test\\PANDA_LIGHT_cs.ngc
-Project.device.designOutputFile=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\settings save and load test\\PANDA_LIGHT_cs.ngc
+#Thu Apr 14 23:13:52 CEST 2016
+Project.device.designInputFile=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\flash read and write test\\PANDA_LIGHT_cs.ngc
+Project.device.designOutputFile=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\flash read and write test\\PANDA_LIGHT_cs.ngc
 Project.device.deviceFamily=18
 Project.device.enableRPMs=true
-Project.device.outputDirectory=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\settings save and load test\\_ngo
+Project.device.outputDirectory=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\flash read and write test\\_ngo
 Project.device.useSRL16=true
 Project.filter.dimension=7
 Project.filter<0>=*next_data_byte*

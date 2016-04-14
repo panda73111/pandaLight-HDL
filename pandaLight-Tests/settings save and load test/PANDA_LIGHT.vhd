@@ -22,8 +22,8 @@ entity PANDA_LIGHT is
     generic (
         G_CLK_MULT          : positive range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
         G_CLK_DIV           : positive range 1 to 256 := 2;
-        FCTRL_CLK_MULT      : positive := 2; -- 2; -- Flash clock: 20 MHz
-        FCTRL_CLK_DIV       : positive := 100; -- 5;
+        FCTRL_CLK_MULT      : positive := 2; -- Flash clock: 20 MHz
+        FCTRL_CLK_DIV       : positive := 5;
         SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"060000"
     );
     port (
@@ -142,7 +142,7 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    g_rst   <= not g_clk_locked; -- or pmod0_deb(0);
+    g_rst   <= not g_clk_locked or pmod0_deb(0);
     
     FLASH_MOSI  <= fctrl_mosi;
     FLASH_CS    <= fctrl_sn;
