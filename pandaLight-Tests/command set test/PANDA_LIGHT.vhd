@@ -24,7 +24,6 @@ entity PANDA_LIGHT is
         VERSION_MINOR       : natural range 0 to 255 := 1;
         G_CLK_MULT          : positive range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
         G_CLK_DIV           : positive range 1 to 256 := 2;
-        G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
         FCTRL_CLK_MULT      : positive :=  2; -- Flash clock: 20 MHz
         FCTRL_CLK_DIV       : positive :=  5;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
@@ -60,13 +59,17 @@ entity PANDA_LIGHT is
         
         -- PMOD
         PMOD0   : inout std_ulogic_vector(3 downto 0) := "0000";
-        PMOD1   : inout std_ulogic_vector(3 downto 0) := "0000"
+        PMOD1   : inout std_ulogic_vector(3 downto 0) := "0000";
+        PMOD2   : inout std_ulogic_vector(3 downto 0) := "0000";
+        PMOD3   : inout std_ulogic_vector(3 downto 0) := "0000"
     );
 end PANDA_LIGHT;
 
 architecture rtl of PANDA_LIGHT is
     
     attribute keep  : boolean;
+    
+    constant G_CLK_PERIOD   : real := 50.0 * real(G_CLK_DIV) / real(G_CLK_MULT);
     
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
@@ -220,7 +223,7 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    g_rst   <= '1' when g_clk_locked='0' or pmod0_deb(0)='1' else '0';
+    g_rst   <= '1' when g_clk_locked='0' or pmod0_deb(3)='1' else '0';
     
     usb_connected   <= usb_dsrn_deb='0';
     
@@ -233,10 +236,20 @@ begin
     PMOD0(2)    <= 'Z';
     PMOD0(3)    <= 'Z';
     
-    PMOD1(0)    <= not blinker; --'Z';
+    PMOD1(0)    <= fctrl_full; --'Z';
     PMOD1(1)    <= 'Z';
     PMOD1(2)    <= 'Z';
     PMOD1(3)    <= 'Z';
+    
+    PMOD2(0)    <= '1' when usb_connected else '0'; --'Z';
+    PMOD2(1)    <= 'Z';
+    PMOD2(2)    <= 'Z';
+    PMOD2(3)    <= 'Z';
+    
+    PMOD3(0)    <= not tl_rst and tl_busy; --'Z';
+    PMOD3(1)    <= 'Z';
+    PMOD3(2)    <= 'Z';
+    PMOD3(3)    <= 'Z';
     
     USB_TXD     <= usbctrl_txd;
     USB_RTSN    <= not (usbctrl_rts and not fctrl_afull);
@@ -370,7 +383,11 @@ begin
         signal data_handling_state      : data_handling_state_type := WAITING_FOR_COMMAND;
         signal data_handling_counter    : unsigned(20 downto 0) := uns(1022, 21);
         signal magic_char_index         : unsigned(3 downto 0) := uns(1, 4);
+        
+        signal counter_expired  : boolean := false;
     begin
+        
+        counter_expired <= cmd_eval_counter(cmd_eval_counter'high)='1';
         
         tl_evaluation_proc : process(tl_clk, tl_rst)
         begin
@@ -393,7 +410,7 @@ begin
                 case cmd_eval_state is
                     
                     when WAITING_FOR_COMMAND =>
-                        if tl_dout_valid='1' then
+                        if data_handling_state=WAITING_FOR_COMMAND and tl_dout_valid='1' then
                             case tl_dout is
                                 when x"00" => -- send system information via UART
                                     start_sysinfo_to_uart           <= true;
@@ -417,7 +434,7 @@ begin
                     when RECEIVING_DATA_FROM_UART =>
                         if tl_dout_valid='1' then
                             cmd_eval_counter    <= cmd_eval_counter-1;
-                            if cmd_eval_counter(cmd_eval_counter'high)='1' then
+                            if counter_expired then
                                 cmd_eval_state  <= WAITING_FOR_COMMAND;
                             end if;
                         end if;
@@ -434,9 +451,9 @@ begin
                             cmd_eval_counter    <= cmd_eval_counter-1;
                             -- shift the bitfile size in from the right
                             bitfile_size        <= bitfile_size(15 downto 0) & uns(tl_dout);
-                            if cmd_eval_counter(cmd_eval_counter'high)='1' then
+                            if counter_expired then
                                 cmd_eval_counter                <= (
-                                    bitfile_size(15 downto 0) & uns(tl_dout)) - 2;
+                                    bitfile_size(15 downto 0) & uns(tl_dout))-2;
                                 start_bitfile_read_from_uart    <= true;
                                 cmd_eval_state                  <= RECEIVING_DATA_FROM_UART;
                             end if;
@@ -716,11 +733,11 @@ begin
     
     SPI_FLASH_CONTROL_inst : entity work.SPI_FLASH_CONTROL
         generic map (
-            CLK_IN_PERIOD   => G_CLK_PERIOD,
-            CLK_OUT_MULT    => FCTRL_CLK_MULT,
-            CLK_OUT_DIV     => FCTRL_CLK_DIV,
-            BUF_SIZE        => 1024,
-            BUF_AFULL_COUNT => 786
+            CLK_IN_PERIOD       => G_CLK_PERIOD,
+            CLK_OUT_MULT        => FCTRL_CLK_MULT,
+            CLK_OUT_DIV         => FCTRL_CLK_DIV,
+            BUFFER_SIZE         => 2048,
+            BUFFER_AFULL_COUNT  => 1024
         )
         port map (
             CLK => fctrl_clk,
@@ -748,22 +765,17 @@ begin
             INIT,
             IDLE,
             READING_DATA,
-            WAITING_FOR_DATA_TO_WRITE,
-            WRITING_DATA
+            WRITING_SETTINGS,
+            WRITING_BITFILE
         );
         
         signal state    : state_type := INIT;
-        signal counter  : unsigned(23 downto 0) := uns(1023, 24);
-        
-        signal handling_settings    : boolean := true;
+        signal counter  : unsigned(23 downto 0) := uns(1022, 24);
         
         signal bitfile_address  : std_ulogic_vector(23 downto 0) := x"000000";
     begin
         
         bitfile_address <= RX0_BITFILE_ADDR when bitfile_index=0 else RX1_BITFILE_ADDR;
-        
-        fctrl_addr  <= SETTINGS_FLASH_ADDR when handling_settings else bitfile_address;
-        fctrl_din   <= conf_settings_dout when handling_settings else tl_dout;
         
         spi_flash_control_stim_proc : process(g_clk, g_rst)
             variable next_state : state_type := INIT;
@@ -772,7 +784,6 @@ begin
                 state               <= INIT;
                 fctrl_rd_en         <= '0';
                 fctrl_wr_en         <= '0';
-                handling_settings   <= true;
             elsif rising_edge(g_clk) then
                 fctrl_rd_en <= '0';
                 fctrl_wr_en <= '0';
@@ -783,23 +794,20 @@ begin
                         state   <= READING_DATA;
                     
                     when IDLE =>
-                        handling_settings   <= true;
-                        counter             <= uns(1023, counter'length);
-                        
-                        if start_bitfile_read_from_uart then
-                            handling_settings   <= false;
-                            counter             <= resize(bitfile_size, counter'length);
-                        end if;
+                        counter     <= uns(1022, counter'length);
+                        fctrl_addr  <= SETTINGS_FLASH_ADDR;
                         
                         next_state  := state;
                         if start_settings_read_from_flash then
                             next_state  := READING_DATA;
                         end if;
                         if start_settings_write_to_flash then
-                            next_state  := WAITING_FOR_DATA_TO_WRITE;
+                            next_state  := WRITING_SETTINGS;
                         end if;
                         if start_bitfile_read_from_uart then
-                            next_state  := WAITING_FOR_DATA_TO_WRITE;
+                            counter     <= resize(bitfile_size-2, counter'length);
+                            fctrl_addr  <= bitfile_address;
+                            next_state  := WRITING_BITFILE;
                         end if;
                         state   <= next_state;
                     
@@ -813,15 +821,24 @@ begin
                             counter <= counter-1;
                         end if;
                     
-                    when WAITING_FOR_DATA_TO_WRITE =>
-                        state   <= WRITING_DATA;
+                    when WRITING_SETTINGS =>
+                        fctrl_din   <= conf_settings_dout;
+                        if tl_dout_valid='1' then
+                            counter     <= counter-1;
+                            fctrl_wr_en <= '1';                        
+                            if counter(counter'high)='1' then
+                                state   <= IDLE;
+                            end if;
+                        end if;
                     
-                    when WRITING_DATA =>
-                        counter     <= counter-1;
-                        if counter(counter'high)='1' then
-                            state   <= IDLE;
-                        else
+                    when WRITING_BITFILE =>
+                        fctrl_din   <= tl_dout;
+                        if tl_dout_valid='1' then
+                            counter     <= counter-1;
                             fctrl_wr_en <= '1';
+                            if counter(counter'high)='1' then
+                                state   <= IDLE;
+                            end if;
                         end if;
                     
                 end case;
