@@ -1,5 +1,5 @@
 #ChipScope Core Inserter Project File Version 3.0
-#Sat Apr 16 02:53:04 CEST 2016
+#Sun Apr 17 14:11:09 CEST 2016
 Project.device.designInputFile=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\command set test\\PANDA_LIGHT_cs.ngc
 Project.device.designOutputFile=D\:\\GitHub\\VHDL\\pandaLight-HDL\\pandaLight-Tests\\command set test\\PANDA_LIGHT_cs.ngc
 Project.device.deviceFamily=18

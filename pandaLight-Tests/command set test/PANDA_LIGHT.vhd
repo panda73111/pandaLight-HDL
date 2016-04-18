@@ -339,6 +339,9 @@ begin
     tl_packet_in_wr_en  <= usbctrl_dout_valid;
     
     TRANSPORT_LAYER_inst : entity work.TRANSPORT_LAYER
+        generic map (
+            CLK_IN_PERIOD   => G_CLK_PERIOD
+        )
         port map (
             CLK => tl_clk,
             RST => tl_rst,
@@ -589,7 +592,11 @@ begin
         signal state            : state_type := INIT;
         signal counter          : unsigned(10 downto 0) := uns(1023, 11);
         signal settings_addr    : std_ulogic_vector(9 downto 0) := (others => '0');
+        
+        signal counter_expired  : boolean := false;
     begin
+        
+        counter_expired <= counter(counter'high)='1';
         
         conf_frame_width    <= stdulv(640, 11);
         conf_frame_height   <= stdulv(480, 11);
@@ -626,7 +633,7 @@ begin
                             counter         <= counter-1;
                             settings_addr   <= settings_addr+1;
                         end if;
-                        if counter(counter'high)='1' then
+                        if counter_expired then
                             -- read 1k bytes
                             state   <= CALCULATING;
                         end if;
@@ -689,7 +696,7 @@ begin
                         conf_settings_addr  <= settings_addr;
                         counter             <= counter-1;
                         settings_addr       <= settings_addr+1;
-                        if counter(counter'high)='1' then
+                        if counter_expired then
                             -- wrote 1k bytes
                             state   <= IDLE;
                         end if;
@@ -702,7 +709,7 @@ begin
                             counter         <= counter-1;
                             settings_addr   <= settings_addr+1;
                         end if;
-                        if counter(counter'high)='1' then
+                        if counter_expired then
                             -- received 1k bytes
                             state   <= CALCULATING;
                         end if;
@@ -710,7 +717,7 @@ begin
                     when SENDING_SETTINGS_TO_UART =>
                         conf_settings_addr  <= conf_settings_addr+1;
                         counter             <= counter-1;
-                        if counter(counter'high)='1' then
+                        if counter_expired then
                             -- sent 1k bytes
                             state   <= IDLE;
                         end if;
