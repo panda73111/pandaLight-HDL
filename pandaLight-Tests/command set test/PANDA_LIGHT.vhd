@@ -58,10 +58,10 @@ entity PANDA_LIGHT is
         FLASH_SCK   : out std_ulogic := '0';
         
         -- PMOD
-        PMOD0   : inout std_ulogic_vector(3 downto 0) := "0000";
-        PMOD1   : inout std_ulogic_vector(3 downto 0) := "0000";
-        PMOD2   : inout std_ulogic_vector(3 downto 0) := "0000";
-        PMOD3   : inout std_ulogic_vector(3 downto 0) := "0000"
+        PMOD0   : in std_ulogic_vector(3 downto 0) := "ZZZZ";
+        PMOD1   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
+        PMOD2   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
+        PMOD3   : inout std_ulogic_vector(3 downto 0) := "ZZZZ"
     );
 end PANDA_LIGHT;
 
@@ -231,25 +231,10 @@ begin
     FLASH_CS    <= fctrl_sn;
     FLASH_SCK   <= fctrl_c;
     
-    PMOD0(0)    <= blinker; --'Z';
-    PMOD0(1)    <= 'Z';
-    PMOD0(2)    <= 'Z';
-    PMOD0(3)    <= 'Z';
-    
-    PMOD1(0)    <= fctrl_full; --'Z';
-    PMOD1(1)    <= 'Z';
-    PMOD1(2)    <= 'Z';
-    PMOD1(3)    <= 'Z';
-    
-    PMOD2(0)    <= '1' when usb_connected else '0'; --'Z';
-    PMOD2(1)    <= 'Z';
-    PMOD2(2)    <= 'Z';
-    PMOD2(3)    <= 'Z';
-    
-    PMOD3(0)    <= not tl_rst and tl_busy; --'Z';
-    PMOD3(1)    <= 'Z';
-    PMOD3(2)    <= 'Z';
-    PMOD3(3)    <= 'Z';
+    PMOD1(0)    <= blinker; --'Z';
+    PMOD1(1)    <= fctrl_full; --'Z';
+    PMOD1(2)    <= '1' when usb_connected else '0'; --'Z';
+    PMOD1(3)    <= not tl_rst and tl_busy; --'Z';
     
     USB_TXD     <= usbctrl_txd;
     USB_RTSN    <= not (usbctrl_rts and not fctrl_afull);

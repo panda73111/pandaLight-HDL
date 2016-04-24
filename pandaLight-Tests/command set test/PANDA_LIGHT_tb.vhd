@@ -13,7 +13,7 @@ end testbench;
 
 architecture behavior of testbench is
     
-    constant VERBOSE    : boolean := false;
+    constant VERBOSE    : boolean := true;
 
     signal g_clk20  : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
@@ -45,6 +45,8 @@ architecture behavior of testbench is
     -- PMOD
     signal PMOD0    : std_ulogic_vector(3 downto 0) := x"0";
     signal PMOD1    : std_ulogic_vector(3 downto 0) := x"0";
+    signal PMOD2    : std_ulogic_vector(3 downto 0) := x"0";
+    signal PMOD3    : std_ulogic_vector(3 downto 0) := x"0";
     
     constant G_CLK20_PERIOD : time := 50 ns;
     
@@ -68,7 +70,7 @@ begin
     
     USB_CTSN    <= '0';
     
-    PMOD0(0)    <= g_rst;
+    PMOD0(3)    <= g_rst;
     
     PANDA_LIGHT_inst : entity work.panda_light
     port map (
@@ -99,7 +101,9 @@ begin
         FLASH_CS    => FLASH_CS,
         
         PMOD0   => PMOD0,
-        PMOD1   => PMOD1
+        PMOD1   => PMOD1,
+        PMOD2   => PMOD2,
+        PMOD3   => PMOD3
     );
     
     test_spi_flash_inst : entity work.test_spi_flash
@@ -345,72 +349,51 @@ begin
 
             tl_packet_i := 0;
 
-            -- -- send "send system information via UART" request to the module (device B)
-            -- report "Sending 'send system information via UART' request";
-            -- send_string_to_b("+RDAI=005,");
-            -- send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"00"));
-            -- send_string_to_b(CRLF);
-            -- wait for 2 ms;
-
-            -- tl_packet_i := tl_packet_i+1;
-
-            -- -- send "load settings from flash" request to the module (device B)
-            -- report "Sending 'load settings from flash' request";
-            -- send_string_to_b("+RDAI=005,");
-            -- send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"20"));
-            -- send_string_to_b(CRLF);
-            -- wait for 2 ms;
-
-            -- tl_packet_i := tl_packet_i+1;
-
-            -- -- send "save settings to flash" request to the module (device B)
-            -- report "Sending 'save settings to flash' request";
-            -- send_string_to_b("+RDAI=005,");
-            -- send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"21"));
-            -- send_string_to_b(CRLF);
-            -- wait for 2 ms;
-
-            -- tl_packet_i := tl_packet_i+1;
-
-            -- -- send "receive settings from UART" request to the module (device B)
-            -- report "Sending 'receive settings from UART' request";
-            -- send_string_to_b("+RDAI=005,");
-            -- send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"22"));
-            -- send_string_to_b(CRLF);
-            -- for block_i in 4 downto 1 loop
-                -- send_string_to_b("+RDAI=260,");
-                -- send_bytes_to_b(wrap_as_tl_packet(tl_packet_i,
-                    -- TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8)));
-                -- send_string_to_b(CRLF);
-
-                -- tl_packet_i := tl_packet_i+1;
-            -- end loop;
-            -- wait for 2 ms;
-
-            -- -- send "send settings to UART" request to the module (device B)
-            -- report "Sending 'send settings to UART' request";
-            -- send_string_to_b("+RDAI=005,");
-            -- send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"23"));
-            -- send_string_to_b(CRLF);
-            -- wait for 2 ms;
-
-            -- tl_packet_i := tl_packet_i+1;
+--             -- send "send system information via UART" request to the module (device B)
+--             report "Sending 'send system information via UART' request";
+--             send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"00"));
+--             wait for 2 ms;
+--
+--             tl_packet_i := tl_packet_i+1;
+--
+--             -- send "load settings from flash" request to the module (device B)
+--             report "Sending 'load settings from flash' request";
+--             send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"20"));
+--             wait for 2 ms;
+--
+--             tl_packet_i := tl_packet_i+1;
+--
+--             -- send "save settings to flash" request to the module (device B)
+--             report "Sending 'save settings to flash' request";
+--             send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"21"));
+--             wait for 2 ms;
+--
+--             tl_packet_i := tl_packet_i+1;
+--
+--             -- send "receive settings from UART" request to the module (device B)
+--             report "Sending 'receive settings from UART' request";
+--             send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"22"));
+--             for block_i in 4 downto 1 loop
+--                 send_bytes_to_b(wrap_as_tl_packet(tl_packet_i,
+--                     TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8)));
+--
+--                 tl_packet_i := tl_packet_i+1;
+--             end loop;
+--             wait for 2 ms;
+--
+--             -- send "send settings to UART" request to the module (device B)
+--             report "Sending 'send settings to UART' request";
+--             send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"23"));
+--             wait for 2 ms;
+--
+--             tl_packet_i := tl_packet_i+1;
 
             -- send "receive bitfile from UART" (RX0 bitfile) request to the module (device B)
-            report "Sending 'send bitfile to UART' request";
-            send_string_to_b("+RDAI=005,");
+            report "Sending 'receive bitfile from UART' request";
             send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"40"));
-            send_string_to_b(CRLF);
+            send_byte_to_b(x"00"); -- bitfile index
+            send_bytes_to_b(x"800000"); -- bitfile size (whole 8 Mbit)
             send_wrapped_mcs_file_to_b(BITFILE_MCS_PATH, tl_packet_i, 256);
-            wait for 2 ms;
-
-            tl_packet_i := tl_packet_i+1;
-
-            -- send "send bitfile to UART" (RX0 bitfile) request to the module (device B)
-            report "Sending 'send bitfile to UART' request";
-            send_string_to_b("+RDAI=005,");
-            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"41"));
-            send_string_to_b(CRLF);
             wait for 2 ms;
 
             report "NONE. All tests completed."
