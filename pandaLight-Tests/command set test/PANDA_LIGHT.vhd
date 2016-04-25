@@ -94,6 +94,8 @@ architecture rtl of PANDA_LIGHT is
     signal usb_dsrn_deb_q       : std_ulogic := '0';
     signal usb_connected        : boolean := false;
     
+    signal spi_flash_control_stim_busy  : std_ulogic := '0';
+    
     
     ------------------------
     --- UART USB control ---
@@ -185,6 +187,7 @@ architecture rtl of PANDA_LIGHT is
     signal fctrl_din    : std_ulogic_vector(7 downto 0) := x"00";
     signal fctrl_rd_en  : std_ulogic := '0';
     signal fctrl_wr_en  : std_ulogic := '0';
+    signal fctrl_end_wr : std_ulogic := '0';
     signal fctrl_miso   : std_ulogic := '0';
     
     -- outputs
@@ -231,10 +234,10 @@ begin
     FLASH_CS    <= fctrl_sn;
     FLASH_SCK   <= fctrl_c;
     
-    PMOD1(0)    <= blinker; --'Z';
-    PMOD1(1)    <= fctrl_full; --'Z';
-    PMOD1(2)    <= '1' when usb_connected else '0'; --'Z';
-    PMOD1(3)    <= not tl_rst and tl_busy; --'Z';
+    PMOD1(0)    <= fctrl_afull;
+    PMOD1(1)    <= fctrl_full;
+    PMOD1(2)    <= spi_flash_control_stim_busy;
+    PMOD1(3)    <= not tl_rst and tl_busy;
     
     USB_TXD     <= usbctrl_txd;
     USB_RTSN    <= not (usbctrl_rts and not fctrl_afull);
@@ -739,6 +742,7 @@ begin
             DIN     => fctrl_din,
             RD_EN   => fctrl_rd_en,
             WR_EN   => fctrl_wr_en,
+            END_WR  => fctrl_end_wr,
             MISO    => fctrl_miso,
             
             DOUT    => fctrl_dout,
@@ -766,6 +770,8 @@ begin
         
         signal bitfile_address  : std_ulogic_vector(23 downto 0) := x"000000";
     begin
+        
+        spi_flash_control_stim_busy <= '1' when state/=IDLE else '0';
         
         bitfile_address <= RX0_BITFILE_ADDR when bitfile_index=0 else RX1_BITFILE_ADDR;
         
