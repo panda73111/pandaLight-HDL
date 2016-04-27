@@ -762,7 +762,8 @@ begin
             IDLE,
             READING_DATA,
             WRITING_SETTINGS,
-            WRITING_BITFILE
+            WRITING_BITFILE,
+            WAITING_FOR_IDLE
         );
         
         signal state    : state_type := INIT;
@@ -779,12 +780,14 @@ begin
             variable next_state : state_type := INIT;
         begin
             if g_rst='1' then
-                state               <= INIT;
-                fctrl_rd_en         <= '0';
-                fctrl_wr_en         <= '0';
+                state           <= INIT;
+                fctrl_rd_en     <= '0';
+                fctrl_wr_en     <= '0';
+                fctrl_end_wr    <= '0';
             elsif rising_edge(g_clk) then
-                fctrl_rd_en <= '0';
-                fctrl_wr_en <= '0';
+                fctrl_rd_en     <= '0';
+                fctrl_wr_en     <= '0';
+                fctrl_end_wr    <= '0';
                 
                 case state is
                     
@@ -835,8 +838,14 @@ begin
                             counter     <= counter-1;
                             fctrl_wr_en <= '1';
                             if counter(counter'high)='1' then
-                                state   <= IDLE;
+                                state   <= WAITING_FOR_IDLE;
                             end if;
+                        end if;
+                    
+                    when WAITING_FOR_IDLE =>
+                        fctrl_end_wr    <= '1';
+                        if fctrl_busy='0' then
+                            state   <= IDLE;
                         end if;
                     
                 end case;
