@@ -375,10 +375,12 @@ begin
         signal data_handling_counter    : unsigned(20 downto 0) := uns(1022, 21);
         signal magic_char_index         : unsigned(3 downto 0) := uns(1, 4);
         
-        signal counter_expired  : boolean := false;
+        signal cmd_counter_expired  : boolean := false;
+        signal data_counter_expired : boolean := false;
     begin
         
-        counter_expired <= cmd_eval_counter(cmd_eval_counter'high)='1';
+        cmd_counter_expired     <= cmd_eval_counter(cmd_eval_counter'high)='1';
+        data_counter_expired    <= data_handling_counter(data_handling_counter'high)='1';
         
         tl_evaluation_proc : process(tl_clk, tl_rst)
         begin
@@ -425,7 +427,7 @@ begin
                     when RECEIVING_DATA_FROM_UART =>
                         if tl_dout_valid='1' then
                             cmd_eval_counter    <= cmd_eval_counter-1;
-                            if counter_expired then
+                            if cmd_counter_expired then
                                 cmd_eval_state  <= WAITING_FOR_COMMAND;
                             end if;
                         end if;
@@ -442,7 +444,7 @@ begin
                             cmd_eval_counter    <= cmd_eval_counter-1;
                             -- shift the bitfile size in from the right
                             bitfile_size        <= bitfile_size(15 downto 0) & uns(tl_dout);
-                            if counter_expired then
+                            if cmd_counter_expired then
                                 cmd_eval_counter                <= (
                                     bitfile_size(15 downto 0) & uns(tl_dout))-2;
                                 start_bitfile_read_from_uart    <= true;
@@ -485,7 +487,7 @@ begin
                         tl_din                  <= stdulv(PANDALIGHT_MAGIC(int(magic_char_index)));
                         magic_char_index        <= magic_char_index+1;
                         data_handling_counter   <= data_handling_counter-1;
-                        if data_handling_counter(data_handling_counter'high)='1' then
+                        if data_counter_expired then
                             data_handling_state <= SENDING_MAJOR_VERSION_TO_UART;
                         end if;
                     
@@ -507,10 +509,7 @@ begin
                         tl_din_wr_en            <= '1';
                         tl_din                  <= conf_settings_dout;
                         data_handling_counter   <= data_handling_counter-1;
-                        if data_handling_counter(7 downto 0)=uns(255, 8) then
-                            tl_send_packet  <= '1';
-                        end if;
-                        if data_handling_counter(data_handling_counter'high)='1' then
+                        if data_counter_expired then
                             data_handling_state <= WAITING_FOR_COMMAND;
                         end if;
                     
