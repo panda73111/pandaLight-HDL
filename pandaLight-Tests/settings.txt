@@ -1,0 +1,41 @@
+
+  BYTE ADDRESS |             VALUE |                         UNIT |                                                                           NOTES
+ --------------+-------------------+------------------------------+---------------------------------------------------------------------------------
+               |        HORIZONTAL |                              |
+ --------------+-------------------+------------------------------+---------------------------------------------------------------------------------
+     0 (0x000) |        LED  count |       number of LEDs [0-255] |                              number of LEDs on each top and bottom of the frame
+     1 (0x001) |        LED  width |                            * |                                                   the width of a horizontal LED
+     2 (0x002) |        LED height |                           ** |                                                  the height of a horizontal LED
+     3 (0x003) |        LED   step |                            * |                    pixels from one horizontal LED's left column to the next one
+     4 (0x004) |        LED    pad |                           ** |         pixels between the frame top and the first horizontal LED's left column
+     5 (0x005) |        LED offset |                            * | pixels between the frame's left side and the first horizontal LED's left column
+ --------------+-------------------+------------------------------+---------------------------------------------------------------------------------
+               |          VERTICAL |                              |
+ --------------+-------------------+------------------------------+---------------------------------------------------------------------------------
+     6 (0x006) |        LED  count |       number of LEDs [0-255] |                         number of LEDs on each left and right side of the frame
+     7 (0x007) |        LED  width |                            * |                                                     the width of a vertical LED
+     8 (0x008) |        LED height |                           ** |                                                    the height of a vertical LED
+     9 (0x009) |        LED   step |                           ** |                          pixels from one vertical LED's top row to the next one
+    10 (0x00A) |        LED    pad |                            * |         pixels between the frame left side and the first vertical LED's top row
+    11 (0x00B) |        LED offset |                           ** |             pixels between the frame's top and the first vertical LED's top row
+ --------------+-------------------+------------------------------+---------------------------------------------------------------------------------
+    12 (0x00C) |  start LED number | zero based LED index [0-255] |            index of the LED in the chain which is placed at the top left corner
+    13 (0x00D) |       frame delay |     number of frames [0-255] |                                                       number of buffered frames
+    14 (0x00E) |          RGB mode |             mode index [0-5] |                    LED strip channel order, 0=RGB 1=RBG 2=GRB 3=GBR 4=BRG 5=BGR
+    15 (0x00F) |    LED strip type |             type index [0-3] |            0=ws2801, 1=ws2811 fast mode (800 kHz), 2=ws2811 slow mode (400 kHz)
+ --------------+-------------------+------------------------------+---------------------------------------------------------------------------------
+               | LOOKUP RECREATION |                              |
+ --------------+-------------------+------------------------------+---------------------------------------------------------------------------------
+    16 (0x010) |  gamma correction |   4 Bit + 12 Bit fixed point |
+    18 (0x012) |     minimum   red |                          *** |
+    19 (0x013) |     maximum   red |                          *** |
+    20 (0x014) |     minimum green |                          *** |
+    21 (0x015) |     maximum green |                          *** |
+    22 (0x016) |     minimum  blue |                          *** |
+    23 (0x017) |     maximum  blue |                          *** |
+ --------------+-------------------+------------------------------+---------------------------------------------------------------------------------
+   256 (0x100) |        RGB lookup |                              |             0x100 to 0x1FF : red, 0x200 to 0x2FF : green, 0x300 to 0x3FF : blue
+
+    *   number of pixels scaled by maximum horizontal LED  width [0-255]
+    **  number of pixels scaled by maximum horizontal LED height [0-255]
+    ***                                      color channel value [0-255]
