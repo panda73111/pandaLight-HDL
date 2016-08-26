@@ -8,8 +8,8 @@
 -- Description: 
 --
 -- Additional Comments:
---  Maximum LED  width = 2 * (frame  width / 2^(FRAME_SIZE_BITS-7)) + 1
---  Maximum LED height = 2 * (frame height / 2^(FRAME_SIZE_BITS-7)) + 1
+--  Maximum LED  width = 2 * floor(frame  width / 16) + 1
+--  Maximum LED height = 2 * floor(frame height / 16) + 1
 --  This limits the maximum LED size to an 8 bit value
 --  
 --  Horizontal scale = maximum LED  width / 256
@@ -41,9 +41,6 @@ use IEEE.NUMERIC_STD.ALL;
 use work.help_funcs.all;
 
 entity CONFIGURATOR is
-    generic (
-        FRAME_SIZE_BITS : natural := 11
-    );
     port (
         CLK : in std_ulogic;
         RST : in std_ulogic;
@@ -52,8 +49,8 @@ entity CONFIGURATOR is
         CONFIGURE_LEDEX     : in std_ulogic;
         CONFIGURE_LEDCOR    : in std_ulogic;
         
-        FRAME_WIDTH     : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
-        FRAME_HEIGHT    : in std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0);
+        FRAME_WIDTH     : in std_ulogic_vector(10 downto 0);
+        FRAME_HEIGHT    : in std_ulogic_vector(10 downto 0);
         
         SETTINGS_ADDR   : in std_ulogic_vector(9 downto 0);
         SETTINGS_WR_EN  : in std_ulogic;

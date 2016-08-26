@@ -20,9 +20,6 @@ use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
 ENTITY CONFIGURATOR_tb IS
-    generic (
-        FRAME_SIZE_BITS : natural := 11
-    );
 END CONFIGURATOR_tb;
 
 ARCHITECTURE behavior OF CONFIGURATOR_tb IS 
@@ -35,8 +32,8 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     signal CONFIGURE_LEDEX  : std_ulogic := '0';
     signal CONFIGURE_LEDCOR : std_ulogic := '0';
     
-    signal FRAME_WIDTH  : std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0) := (others => '0');
-    signal FRAME_HEIGHT : std_ulogic_vector(FRAME_SIZE_BITS-1 downto 0) := (others => '0');
+    signal FRAME_WIDTH  : std_ulogic_vector(10 downto 0) := (others => '0');
+    signal FRAME_HEIGHT : std_ulogic_vector(10 downto 0) := (others => '0');
     
     signal SETTINGS_ADDR    : std_ulogic_vector(9 downto 0) := (others => '0');
     signal SETTINGS_WR_EN   : std_ulogic := '0';
@@ -59,9 +56,6 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
 BEGIN
     
     CONFIGURATOR_inst : entity work.CONFIGURATOR
-        generic map (
-            FRAME_SIZE_BITS => FRAME_SIZE_BITS
-        )
         port map (
             CLK => CLK,
             RST => RST,
@@ -219,8 +213,8 @@ BEGIN
             wait until rising_edge(CLK);
         end loop;
         
-        FRAME_WIDTH     <= stdulv(1280, FRAME_SIZE_BITS);
-        FRAME_HEIGHT    <= stdulv( 720, FRAME_SIZE_BITS);
+        FRAME_WIDTH     <= stdulv(1280, 11);
+        FRAME_HEIGHT    <= stdulv( 720, 11);
         CALCULATE       <= '1';
         wait until rising_edge(CLK);
         CALCULATE       <= '0';
@@ -229,8 +223,8 @@ BEGIN
         
         configure;
         
-        FRAME_WIDTH     <= stdulv(640, FRAME_SIZE_BITS);
-        FRAME_HEIGHT    <= stdulv(480, FRAME_SIZE_BITS);
+        FRAME_WIDTH     <= stdulv(640, 11);
+        FRAME_HEIGHT    <= stdulv(480, 11);
         CALCULATE       <= '1';
         wait until rising_edge(CLK);
         CALCULATE       <= '0';
