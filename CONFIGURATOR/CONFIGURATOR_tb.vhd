@@ -103,7 +103,7 @@ BEGIN
             R_LOOKUP_TABLE, G_LOOKUP_TABLE, B_LOOKUP_TABLE
                 : channel_lookup_table_type;
         end record;
-        variable settings   : settings_type;
+        variable settings1, settings2   : settings_type;
         
         procedure send_settings(s : in settings_type) is
         begin
@@ -178,7 +178,7 @@ BEGIN
         rst <= '0';
         wait until rising_edge(CLK);
         
-        settings    := (
+        settings1    := (
             HOR_LED_CNT             => stdulv( 16, 8),
             HOR_LED_SCALED_WIDTH    => stdulv( 96, 8), -- 720p: 60 pixel
             HOR_LED_SCALED_HEIGHT   => stdulv(226, 8), -- 720p: 80 pixel
@@ -206,7 +206,37 @@ BEGIN
             G_LOOKUP_TABLE          => (others  => x"FF"),
             B_LOOKUP_TABLE          => (others  => x"FF")
         );
-        send_settings(settings);
+        
+        settings2    := (
+            HOR_LED_CNT             => x"10",
+            HOR_LED_SCALED_WIDTH    => x"00",
+            HOR_LED_SCALED_HEIGHT   => x"00",
+            HOR_LED_SCALED_STEP     => x"00",
+            HOR_LED_SCALED_PAD      => x"00",
+            HOR_LED_SCALED_OFFS     => x"00",
+            VER_LED_CNT             => x"09",
+            VER_LED_SCALED_WIDTH    => x"00",
+            VER_LED_SCALED_HEIGHT   => x"00",
+            VER_LED_SCALED_STEP     => x"00",
+            VER_LED_SCALED_PAD      => x"00",
+            VER_LED_SCALED_OFFS     => x"00",
+            START_LED_NUM           => x"00",
+            FRAME_DELAY             => x"00",
+            RGB_MODE                => x"00",
+            LED_CONTROL_MODE        => x"00",
+            GAMMA_CORRECTION        => x"0000",
+            MIN_RED                 => x"00",
+            MAX_RED                 => x"00",
+            MIN_GREEN               => x"00",
+            MAX_GREEN               => x"00",
+            MIN_BLUE                => x"00",
+            MAX_BLUE                => x"00",
+            R_LOOKUP_TABLE          => (others  => x"FF"),
+            G_LOOKUP_TABLE          => (others  => x"FF"),
+            B_LOOKUP_TABLE          => (others  => x"FF")
+        );
+        
+        send_settings(settings1);
         
         for i in 0 to 1023 loop
             SETTINGS_ADDR   <= stdulv(i, 10);
@@ -225,6 +255,16 @@ BEGIN
         
         FRAME_WIDTH     <= stdulv(640, 11);
         FRAME_HEIGHT    <= stdulv(480, 11);
+        CALCULATE       <= '1';
+        wait until rising_edge(CLK);
+        CALCULATE       <= '0';
+        wait until BUSY='0';
+        wait until rising_edge(CLK);
+        
+        configure;
+        
+        send_settings(settings2);
+        
         CALCULATE       <= '1';
         wait until rising_edge(CLK);
         CALCULATE       <= '0';
