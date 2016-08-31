@@ -90,22 +90,21 @@ BEGIN
     
     -- Stimulus process
     stim_proc: process
+        constant DIMENSION_MAX  : natural := 2 ** DIMENSION_BITS - 1;
+        
         type channel_lookup_table_type is
             array(0 to 255) of
             std_ulogic_vector(7 downto 0);
         
         type settings_type is record
-            HOR_LED_CNT, HOR_LED_SCALED_WIDTH, HOR_LED_SCALED_HEIGHT,
-            HOR_LED_SCALED_STEP, HOR_LED_SCALED_PAD, HOR_LED_SCALED_OFFS,
-            VER_LED_CNT, VER_LED_SCALED_WIDTH, VER_LED_SCALED_HEIGHT,
-            VER_LED_SCALED_STEP, VER_LED_SCALED_PAD, VER_LED_SCALED_OFFS,
-            START_LED_NUM, FRAME_DELAY, RGB_MODE, LED_CONTROL_MODE
-                : std_ulogic_vector(7 downto 0);
-            GAMMA_CORRECTION    : std_ulogic_vector(15 downto 0); -- 4 + 12 Bit fixed point
-            MIN_RED, MAX_RED, MIN_GREEN, MAX_GREEN, MIN_BLUE, MAX_BLUE
-                : std_ulogic_vector(7 downto 0);
-            R_LOOKUP_TABLE, G_LOOKUP_TABLE, B_LOOKUP_TABLE
-                : channel_lookup_table_type;
+            HOR_LED_CNT                                                             : std_ulogic_vector(7 downto 0);
+            HOR_LED_WIDTH, HOR_LED_HEIGHT, HOR_LED_STEP, HOR_LED_PAD, HOR_LED_OFFS  : std_ulogic_vector(DIMENSION_BITS-1 downto 0);
+            VER_LED_CNT                                                             : std_ulogic_vector(7 downto 0);
+            VER_LED_WIDTH, VER_LED_HEIGHT, VER_LED_STEP, VER_LED_PAD, VER_LED_OFFS  : std_ulogic_vector(DIMENSION_BITS-1 downto 0);
+            START_LED_NUM, FRAME_DELAY, RGB_MODE, LED_CONTROL_MODE                  : std_ulogic_vector(7 downto 0);
+            GAMMA_CORRECTION                                                        : std_ulogic_vector(15 downto 0); -- 4 + 12 Bit fixed point
+            MIN_RED, MAX_RED, MIN_GREEN, MAX_GREEN, MIN_BLUE, MAX_BLUE              : std_ulogic_vector(7 downto 0);
+            R_LOOKUP_TABLE, G_LOOKUP_TABLE, B_LOOKUP_TABLE                          : channel_lookup_table_type;
         end record;
         variable settings1, settings2   : settings_type;
         
@@ -116,29 +115,39 @@ BEGIN
                 SETTINGS_ADDR   <= stdulv(settings_i, 10);
                 case settings_i is
                     when 0      =>  SETTINGS_DIN    <= s.HOR_LED_CNT;
-                    when 1      =>  SETTINGS_DIN    <= s.HOR_LED_SCALED_WIDTH;
-                    when 2      =>  SETTINGS_DIN    <= s.HOR_LED_SCALED_HEIGHT;
-                    when 3      =>  SETTINGS_DIN    <= s.HOR_LED_SCALED_STEP;
-                    when 4      =>  SETTINGS_DIN    <= s.HOR_LED_SCALED_PAD;
-                    when 5      =>  SETTINGS_DIN    <= s.HOR_LED_SCALED_OFFS;
-                    when 6      =>  SETTINGS_DIN    <= s.VER_LED_CNT;
-                    when 7      =>  SETTINGS_DIN    <= s.VER_LED_SCALED_WIDTH;
-                    when 8      =>  SETTINGS_DIN    <= s.VER_LED_SCALED_HEIGHT;
-                    when 9      =>  SETTINGS_DIN    <= s.VER_LED_SCALED_STEP;
-                    when 10     =>  SETTINGS_DIN    <= s.VER_LED_SCALED_PAD;
-                    when 11     =>  SETTINGS_DIN    <= s.VER_LED_SCALED_OFFS;
-                    when 12     =>  SETTINGS_DIN    <= s.START_LED_NUM;
-                    when 13     =>  SETTINGS_DIN    <= s.FRAME_DELAY;
-                    when 14     =>  SETTINGS_DIN    <= s.RGB_MODE;
-                    when 15     =>  SETTINGS_DIN    <= s.LED_CONTROL_MODE;
-                    when 16     =>  SETTINGS_DIN    <= s.GAMMA_CORRECTION(15 downto 8);
-                    when 17     =>  SETTINGS_DIN    <= s.GAMMA_CORRECTION(7 downto 0);
-                    when 18     =>  SETTINGS_DIN    <= s.MIN_RED;
-                    when 19     =>  SETTINGS_DIN    <= s.MAX_RED;
-                    when 20     =>  SETTINGS_DIN    <= s.MIN_GREEN;
-                    when 21     =>  SETTINGS_DIN    <= s.MAX_GREEN;
-                    when 22     =>  SETTINGS_DIN    <= s.MIN_BLUE;
-                    when 23     =>  SETTINGS_DIN    <= s.MAX_BLUE;
+                    when 1      =>  SETTINGS_DIN    <= s.HOR_LED_WIDTH(DIMENSION_BITS-1 downto 8);
+                    when 2      =>  SETTINGS_DIN    <= s.HOR_LED_WIDTH(7 downto 8);
+                    when 3      =>  SETTINGS_DIN    <= s.HOR_LED_HEIGHT(DIMENSION_BITS-1 downto 8);
+                    when 4      =>  SETTINGS_DIN    <= s.HOR_LED_HEIGHT(7 downto 8);
+                    when 5      =>  SETTINGS_DIN    <= s.HOR_LED_STEP(DIMENSION_BITS-1 downto 8);
+                    when 6      =>  SETTINGS_DIN    <= s.HOR_LED_STEP(7 downto 8);
+                    when 7      =>  SETTINGS_DIN    <= s.HOR_LED_PAD(DIMENSION_BITS-1 downto 8);
+                    when 8      =>  SETTINGS_DIN    <= s.HOR_LED_PAD(7 downto 8);
+                    when 9      =>  SETTINGS_DIN    <= s.HOR_LED_OFFS(DIMENSION_BITS-1 downto 8);
+                    when 10     =>  SETTINGS_DIN    <= s.HOR_LED_OFFS(7 downto 8);
+                    when 11     =>  SETTINGS_DIN    <= s.VER_LED_CNT;
+                    when 12     =>  SETTINGS_DIN    <= s.VER_LED_WIDTH(DIMENSION_BITS-1 downto 8);
+                    when 13     =>  SETTINGS_DIN    <= s.VER_LED_WIDTH(7 downto 8);
+                    when 14     =>  SETTINGS_DIN    <= s.VER_LED_HEIGHT(DIMENSION_BITS-1 downto 8);
+                    when 15     =>  SETTINGS_DIN    <= s.VER_LED_HEIGHT(7 downto 8);
+                    when 16     =>  SETTINGS_DIN    <= s.VER_LED_STEP(DIMENSION_BITS-1 downto 8);
+                    when 17     =>  SETTINGS_DIN    <= s.VER_LED_STEP(7 downto 8);
+                    when 18     =>  SETTINGS_DIN    <= s.VER_LED_PAD(DIMENSION_BITS-1 downto 8);
+                    when 19     =>  SETTINGS_DIN    <= s.VER_LED_PAD(7 downto 8);
+                    when 20     =>  SETTINGS_DIN    <= s.VER_LED_OFFS(DIMENSION_BITS-1 downto 8);
+                    when 21     =>  SETTINGS_DIN    <= s.VER_LED_OFFS(7 downto 8);
+                    when 22     =>  SETTINGS_DIN    <= s.START_LED_NUM;
+                    when 23     =>  SETTINGS_DIN    <= s.FRAME_DELAY;
+                    when 24     =>  SETTINGS_DIN    <= s.RGB_MODE;
+                    when 25     =>  SETTINGS_DIN    <= s.LED_CONTROL_MODE;
+                    when 26     =>  SETTINGS_DIN    <= s.GAMMA_CORRECTION(15 downto 8);
+                    when 27     =>  SETTINGS_DIN    <= s.GAMMA_CORRECTION(7 downto 0);
+                    when 28     =>  SETTINGS_DIN    <= s.MIN_RED;
+                    when 29     =>  SETTINGS_DIN    <= s.MAX_RED;
+                    when 30     =>  SETTINGS_DIN    <= s.MIN_GREEN;
+                    when 31     =>  SETTINGS_DIN    <= s.MAX_GREEN;
+                    when 32     =>  SETTINGS_DIN    <= s.MIN_BLUE;
+                    when 33     =>  SETTINGS_DIN    <= s.MAX_BLUE;
                     when others =>  SETTINGS_DIN    <= x"00";
                 end case;
                 wait until rising_edge(CLK);
@@ -183,47 +192,47 @@ BEGIN
         wait until rising_edge(CLK);
         
         settings1    := (
-            HOR_LED_CNT             => stdulv( 16, 8),
-            HOR_LED_SCALED_WIDTH    => stdulv( 96, 8), -- 720p: 60 pixel
-            HOR_LED_SCALED_HEIGHT   => stdulv(226, 8), -- 720p: 80 pixel
-            HOR_LED_SCALED_STEP     => stdulv(128, 8), -- 720p: 80 pixel
-            HOR_LED_SCALED_PAD      => stdulv( 15, 8), -- 720p:  5 pixel
-            HOR_LED_SCALED_OFFS     => stdulv( 16, 8), -- 720p: 10 pixel
-            VER_LED_CNT             => stdulv(  9, 8),
-            VER_LED_SCALED_WIDTH    => stdulv(128, 8), -- 720p: 80 pixel
-            VER_LED_SCALED_HEIGHT   => stdulv(169, 8), -- 720p: 60 pixel
-            VER_LED_SCALED_STEP     => stdulv(226, 8), -- 720p: 80 pixel
-            VER_LED_SCALED_PAD      => stdulv(  8, 8), -- 720p:  5 pixel
-            VER_LED_SCALED_OFFS     => stdulv( 29, 8), -- 720p: 10 pixel
-            START_LED_NUM           => stdulv( 10, 8),
-            FRAME_DELAY             => stdulv(120, 8),
-            RGB_MODE                => x"00",
-            LED_CONTROL_MODE        => x"00",
-            GAMMA_CORRECTION        => x"2000", -- 2.0
-            MIN_RED                 => x"00",
-            MAX_RED                 => x"FF",
-            MIN_GREEN               => x"00",
-            MAX_GREEN               => x"FF",
-            MIN_BLUE                => x"00",
-            MAX_BLUE                => x"FF",
-            R_LOOKUP_TABLE          => (others  => x"FF"),
-            G_LOOKUP_TABLE          => (others  => x"FF"),
-            B_LOOKUP_TABLE          => (others  => x"FF")
+            HOR_LED_CNT         => stdulv( 16, 8),
+            HOR_LED_WIDTH       => stdulv( 60 * 720 / DIMENSION_MAX, DIMENSION_BITS),
+            HOR_LED_HEIGHT      => stdulv( 80 * 720 / DIMENSION_MAX, DIMENSION_BITS),
+            HOR_LED_STEP        => stdulv( 80 * 720 / DIMENSION_MAX, DIMENSION_BITS),
+            HOR_LED_PAD         => stdulv(  5 * 720 / DIMENSION_MAX, DIMENSION_BITS),
+            HOR_LED_OFFS        => stdulv( 10 * 720 / DIMENSION_MAX, DIMENSION_BITS),
+            VER_LED_CNT         => stdulv(  9, 8),
+            VER_LED_WIDTH       => stdulv( 80 * 1280 / DIMENSION_MAX, DIMENSION_BITS),
+            VER_LED_HEIGHT      => stdulv( 60 * 1280 / DIMENSION_MAX, DIMENSION_BITS),
+            VER_LED_STEP        => stdulv( 80 * 1280 / DIMENSION_MAX, DIMENSION_BITS),
+            VER_LED_PAD         => stdulv(  5 * 1280 / DIMENSION_MAX, DIMENSION_BITS),
+            VER_LED_OFFS        => stdulv( 10 * 1280 / DIMENSION_MAX, DIMENSION_BITS),
+            START_LED_NUM       => stdulv( 10, 8),
+            FRAME_DELAY         => stdulv(120, 8),
+            RGB_MODE            => x"00",
+            LED_CONTROL_MODE    => x"00",
+            GAMMA_CORRECTION    => x"2000", -- 2.0
+            MIN_RED             => x"00",
+            MAX_RED             => x"FF",
+            MIN_GREEN           => x"00",
+            MAX_GREEN           => x"FF",
+            MIN_BLUE            => x"00",
+            MAX_BLUE            => x"FF",
+            R_LOOKUP_TABLE      => (others  => x"FF"),
+            G_LOOKUP_TABLE      => (others  => x"FF"),
+            B_LOOKUP_TABLE      => (others  => x"FF")
         );
         
         settings2    := (
             HOR_LED_CNT             => x"10",
-            HOR_LED_SCALED_WIDTH    => x"00",
-            HOR_LED_SCALED_HEIGHT   => x"00",
-            HOR_LED_SCALED_STEP     => x"00",
-            HOR_LED_SCALED_PAD      => x"00",
-            HOR_LED_SCALED_OFFS     => x"00",
+            HOR_LED_WIDTH    => x"00",
+            HOR_LED_HEIGHT   => x"00",
+            HOR_LED_STEP     => x"00",
+            HOR_LED_PAD      => x"00",
+            HOR_LED_OFFS     => x"00",
             VER_LED_CNT             => x"09",
-            VER_LED_SCALED_WIDTH    => x"00",
-            VER_LED_SCALED_HEIGHT   => x"00",
-            VER_LED_SCALED_STEP     => x"00",
-            VER_LED_SCALED_PAD      => x"00",
-            VER_LED_SCALED_OFFS     => x"00",
+            VER_LED_WIDTH    => x"00",
+            VER_LED_HEIGHT   => x"00",
+            VER_LED_STEP     => x"00",
+            VER_LED_PAD      => x"00",
+            VER_LED_OFFS     => x"00",
             START_LED_NUM           => x"00",
             FRAME_DELAY             => x"00",
             RGB_MODE                => x"00",
