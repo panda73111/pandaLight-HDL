@@ -32,7 +32,7 @@ entity PANDA_LIGHT is
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
         SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000";
-        ENABLE_IPROG_RECONF : boolean := false
+        ENABLE_IPROG_RECONF : boolean := true
     );
     port (
         CLK20   : in std_ulogic;
