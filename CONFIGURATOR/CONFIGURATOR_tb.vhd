@@ -18,9 +18,6 @@ USE ieee.numeric_std.ALL;
 use work.help_funcs.all;
 
 ENTITY CONFIGURATOR_tb IS
-    generic (
-        DIMENSION_BITS  : positive := 11
-    );
 END CONFIGURATOR_tb;
 
 ARCHITECTURE behavior OF CONFIGURATOR_tb IS 
@@ -33,8 +30,8 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     signal CONFIGURE_LEDEX  : std_ulogic := '0';
     signal CONFIGURE_LEDCOR : std_ulogic := '0';
     
-    signal FRAME_WIDTH  : std_ulogic_vector(DIMENSION_BITS-1 downto 0) := (others => '0');
-    signal FRAME_HEIGHT : std_ulogic_vector(DIMENSION_BITS-1 downto 0) := (others => '0');
+    signal FRAME_WIDTH  : std_ulogic_vector(15 downto 0) := x"0000";
+    signal FRAME_HEIGHT : std_ulogic_vector(15 downto 0) := x"0000";
     
     signal SETTINGS_ADDR    : std_ulogic_vector(9 downto 0) := (others => '0');
     signal SETTINGS_WR_EN   : std_ulogic := '0';
@@ -47,7 +44,7 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     
     signal CFG_ADDR     : std_ulogic_vector(9 downto 0);
     signal CFG_WR_EN    : std_ulogic;
-    signal CFG_DATA     : std_ulogic_vector(DIMENSION_BITS-1 downto 0);
+    signal CFG_DATA     : std_ulogic_vector(7 downto 0);
     
     signal BUSY : std_ulogic;
     
@@ -57,9 +54,6 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
 BEGIN
     
     CONFIGURATOR_inst : entity work.CONFIGURATOR
-        generic map (
-            DIMENSION_BITS  => DIMENSION_BITS
-        )
         port map (
             CLK => CLK,
             RST => RST,
@@ -90,7 +84,7 @@ BEGIN
     
     -- Stimulus process
     stim_proc: process
-        constant DIMENSION_MAX  : natural := 2 ** DIMENSION_BITS - 1;
+        constant DIMENSION_MAX  : natural := 2**16-1;
         
         type channel_lookup_table_type is
             array(0 to 255) of
@@ -98,9 +92,9 @@ BEGIN
         
         type settings_type is record
             HOR_LED_CNT                                                             : std_ulogic_vector(7 downto 0);
-            HOR_LED_WIDTH, HOR_LED_HEIGHT, HOR_LED_STEP, HOR_LED_PAD, HOR_LED_OFFS  : std_ulogic_vector(DIMENSION_BITS-1 downto 0);
+            HOR_LED_WIDTH, HOR_LED_HEIGHT, HOR_LED_STEP, HOR_LED_PAD, HOR_LED_OFFS  : std_ulogic_vector(15 downto 0);
             VER_LED_CNT                                                             : std_ulogic_vector(7 downto 0);
-            VER_LED_WIDTH, VER_LED_HEIGHT, VER_LED_STEP, VER_LED_PAD, VER_LED_OFFS  : std_ulogic_vector(DIMENSION_BITS-1 downto 0);
+            VER_LED_WIDTH, VER_LED_HEIGHT, VER_LED_STEP, VER_LED_PAD, VER_LED_OFFS  : std_ulogic_vector(15 downto 0);
             START_LED_NUM, FRAME_DELAY, RGB_MODE, LED_CONTROL_MODE                  : std_ulogic_vector(7 downto 0);
             GAMMA_CORRECTION                                                        : std_ulogic_vector(15 downto 0); -- 4 + 12 Bit fixed point
             MIN_RED, MAX_RED, MIN_GREEN, MAX_GREEN, MIN_BLUE, MAX_BLUE              : std_ulogic_vector(7 downto 0);
@@ -115,27 +109,27 @@ BEGIN
                 SETTINGS_ADDR   <= stdulv(settings_i, 10);
                 case settings_i is
                     when 0      =>  SETTINGS_DIN    <= s.HOR_LED_CNT;
-                    when 1      =>  SETTINGS_DIN    <= s.HOR_LED_WIDTH(DIMENSION_BITS-1 downto 8);
-                    when 2      =>  SETTINGS_DIN    <= s.HOR_LED_WIDTH(7 downto 8);
-                    when 3      =>  SETTINGS_DIN    <= s.HOR_LED_HEIGHT(DIMENSION_BITS-1 downto 8);
-                    when 4      =>  SETTINGS_DIN    <= s.HOR_LED_HEIGHT(7 downto 8);
-                    when 5      =>  SETTINGS_DIN    <= s.HOR_LED_STEP(DIMENSION_BITS-1 downto 8);
-                    when 6      =>  SETTINGS_DIN    <= s.HOR_LED_STEP(7 downto 8);
-                    when 7      =>  SETTINGS_DIN    <= s.HOR_LED_PAD(DIMENSION_BITS-1 downto 8);
-                    when 8      =>  SETTINGS_DIN    <= s.HOR_LED_PAD(7 downto 8);
-                    when 9      =>  SETTINGS_DIN    <= s.HOR_LED_OFFS(DIMENSION_BITS-1 downto 8);
-                    when 10     =>  SETTINGS_DIN    <= s.HOR_LED_OFFS(7 downto 8);
+                    when 1      =>  SETTINGS_DIN    <= s.HOR_LED_WIDTH(15 downto 8);
+                    when 2      =>  SETTINGS_DIN    <= s.HOR_LED_WIDTH(7 downto 0);
+                    when 3      =>  SETTINGS_DIN    <= s.HOR_LED_HEIGHT(15 downto 8);
+                    when 4      =>  SETTINGS_DIN    <= s.HOR_LED_HEIGHT(7 downto 0);
+                    when 5      =>  SETTINGS_DIN    <= s.HOR_LED_STEP(15 downto 8);
+                    when 6      =>  SETTINGS_DIN    <= s.HOR_LED_STEP(7 downto 0);
+                    when 7      =>  SETTINGS_DIN    <= s.HOR_LED_PAD(15 downto 8);
+                    when 8      =>  SETTINGS_DIN    <= s.HOR_LED_PAD(7 downto 0);
+                    when 9      =>  SETTINGS_DIN    <= s.HOR_LED_OFFS(15 downto 8);
+                    when 10     =>  SETTINGS_DIN    <= s.HOR_LED_OFFS(7 downto 0);
                     when 11     =>  SETTINGS_DIN    <= s.VER_LED_CNT;
-                    when 12     =>  SETTINGS_DIN    <= s.VER_LED_WIDTH(DIMENSION_BITS-1 downto 8);
-                    when 13     =>  SETTINGS_DIN    <= s.VER_LED_WIDTH(7 downto 8);
-                    when 14     =>  SETTINGS_DIN    <= s.VER_LED_HEIGHT(DIMENSION_BITS-1 downto 8);
-                    when 15     =>  SETTINGS_DIN    <= s.VER_LED_HEIGHT(7 downto 8);
-                    when 16     =>  SETTINGS_DIN    <= s.VER_LED_STEP(DIMENSION_BITS-1 downto 8);
-                    when 17     =>  SETTINGS_DIN    <= s.VER_LED_STEP(7 downto 8);
-                    when 18     =>  SETTINGS_DIN    <= s.VER_LED_PAD(DIMENSION_BITS-1 downto 8);
-                    when 19     =>  SETTINGS_DIN    <= s.VER_LED_PAD(7 downto 8);
-                    when 20     =>  SETTINGS_DIN    <= s.VER_LED_OFFS(DIMENSION_BITS-1 downto 8);
-                    when 21     =>  SETTINGS_DIN    <= s.VER_LED_OFFS(7 downto 8);
+                    when 12     =>  SETTINGS_DIN    <= s.VER_LED_WIDTH(15 downto 8);
+                    when 13     =>  SETTINGS_DIN    <= s.VER_LED_WIDTH(7 downto 0);
+                    when 14     =>  SETTINGS_DIN    <= s.VER_LED_HEIGHT(15 downto 8);
+                    when 15     =>  SETTINGS_DIN    <= s.VER_LED_HEIGHT(7 downto 0);
+                    when 16     =>  SETTINGS_DIN    <= s.VER_LED_STEP(15 downto 8);
+                    when 17     =>  SETTINGS_DIN    <= s.VER_LED_STEP(7 downto 0);
+                    when 18     =>  SETTINGS_DIN    <= s.VER_LED_PAD(15 downto 8);
+                    when 19     =>  SETTINGS_DIN    <= s.VER_LED_PAD(7 downto 0);
+                    when 20     =>  SETTINGS_DIN    <= s.VER_LED_OFFS(15 downto 8);
+                    when 21     =>  SETTINGS_DIN    <= s.VER_LED_OFFS(7 downto 0);
                     when 22     =>  SETTINGS_DIN    <= s.START_LED_NUM;
                     when 23     =>  SETTINGS_DIN    <= s.FRAME_DELAY;
                     when 24     =>  SETTINGS_DIN    <= s.RGB_MODE;
@@ -193,17 +187,17 @@ BEGIN
         
         settings1    := (
             HOR_LED_CNT         => stdulv( 16, 8),
-            HOR_LED_WIDTH       => stdulv( 60 * 720 / DIMENSION_MAX, DIMENSION_BITS),
-            HOR_LED_HEIGHT      => stdulv( 80 * 720 / DIMENSION_MAX, DIMENSION_BITS),
-            HOR_LED_STEP        => stdulv( 80 * 720 / DIMENSION_MAX, DIMENSION_BITS),
-            HOR_LED_PAD         => stdulv(  5 * 720 / DIMENSION_MAX, DIMENSION_BITS),
-            HOR_LED_OFFS        => stdulv( 10 * 720 / DIMENSION_MAX, DIMENSION_BITS),
+            HOR_LED_WIDTH       => stdulv( 60 * 720 / DIMENSION_MAX, 16),
+            HOR_LED_HEIGHT      => stdulv( 80 * 720 / DIMENSION_MAX, 16),
+            HOR_LED_STEP        => stdulv( 80 * 720 / DIMENSION_MAX, 16),
+            HOR_LED_PAD         => stdulv(  5 * 720 / DIMENSION_MAX, 16),
+            HOR_LED_OFFS        => stdulv( 10 * 720 / DIMENSION_MAX, 16),
             VER_LED_CNT         => stdulv(  9, 8),
-            VER_LED_WIDTH       => stdulv( 80 * 1280 / DIMENSION_MAX, DIMENSION_BITS),
-            VER_LED_HEIGHT      => stdulv( 60 * 1280 / DIMENSION_MAX, DIMENSION_BITS),
-            VER_LED_STEP        => stdulv( 80 * 1280 / DIMENSION_MAX, DIMENSION_BITS),
-            VER_LED_PAD         => stdulv(  5 * 1280 / DIMENSION_MAX, DIMENSION_BITS),
-            VER_LED_OFFS        => stdulv( 10 * 1280 / DIMENSION_MAX, DIMENSION_BITS),
+            VER_LED_WIDTH       => stdulv( 80 * 1280 / DIMENSION_MAX, 16),
+            VER_LED_HEIGHT      => stdulv( 60 * 1280 / DIMENSION_MAX, 16),
+            VER_LED_STEP        => stdulv( 80 * 1280 / DIMENSION_MAX, 16),
+            VER_LED_PAD         => stdulv(  5 * 1280 / DIMENSION_MAX, 16),
+            VER_LED_OFFS        => stdulv( 10 * 1280 / DIMENSION_MAX, 16),
             START_LED_NUM       => stdulv( 10, 8),
             FRAME_DELAY         => stdulv(120, 8),
             RGB_MODE            => x"00",
@@ -222,17 +216,17 @@ BEGIN
         
         settings2    := (
             HOR_LED_CNT             => x"10",
-            HOR_LED_WIDTH    => x"00",
-            HOR_LED_HEIGHT   => x"00",
-            HOR_LED_STEP     => x"00",
-            HOR_LED_PAD      => x"00",
-            HOR_LED_OFFS     => x"00",
+            HOR_LED_WIDTH           => x"0000",
+            HOR_LED_HEIGHT          => x"0000",
+            HOR_LED_STEP            => x"0000",
+            HOR_LED_PAD             => x"0000",
+            HOR_LED_OFFS            => x"0000",
             VER_LED_CNT             => x"09",
-            VER_LED_WIDTH    => x"00",
-            VER_LED_HEIGHT   => x"00",
-            VER_LED_STEP     => x"00",
-            VER_LED_PAD      => x"00",
-            VER_LED_OFFS     => x"00",
+            VER_LED_WIDTH           => x"0000",
+            VER_LED_HEIGHT          => x"0000",
+            VER_LED_STEP            => x"0000",
+            VER_LED_PAD             => x"0000",
+            VER_LED_OFFS            => x"0000",
             START_LED_NUM           => x"00",
             FRAME_DELAY             => x"00",
             RGB_MODE                => x"00",
