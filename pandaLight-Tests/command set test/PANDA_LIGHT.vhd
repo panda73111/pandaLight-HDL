@@ -234,8 +234,8 @@ begin
     FLASH_CS    <= fctrl_sn;
     FLASH_SCK   <= fctrl_c;
     
-    PMOD1(0)    <= fctrl_afull;
-    PMOD1(1)    <= fctrl_full;
+    PMOD1(0)    <= blinker;
+    PMOD1(1)    <= fctrl_afull;
     PMOD1(2)    <= spi_flash_control_stim_busy;
     PMOD1(3)    <= not tl_rst and tl_busy;
     
