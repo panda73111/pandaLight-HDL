@@ -15,11 +15,12 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
 ENTITY CONFIGURATOR_tb IS
+    generic (
+        DIMENSION_BITS  : positive := 11
+    );
 END CONFIGURATOR_tb;
 
 ARCHITECTURE behavior OF CONFIGURATOR_tb IS 
@@ -32,8 +33,8 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     signal CONFIGURE_LEDEX  : std_ulogic := '0';
     signal CONFIGURE_LEDCOR : std_ulogic := '0';
     
-    signal FRAME_WIDTH  : std_ulogic_vector(10 downto 0) := (others => '0');
-    signal FRAME_HEIGHT : std_ulogic_vector(10 downto 0) := (others => '0');
+    signal FRAME_WIDTH  : std_ulogic_vector(DIMENSION_BITS-1 downto 0) := (others => '0');
+    signal FRAME_HEIGHT : std_ulogic_vector(DIMENSION_BITS-1 downto 0) := (others => '0');
     
     signal SETTINGS_ADDR    : std_ulogic_vector(9 downto 0) := (others => '0');
     signal SETTINGS_WR_EN   : std_ulogic := '0';
@@ -46,7 +47,7 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     
     signal CFG_ADDR     : std_ulogic_vector(9 downto 0);
     signal CFG_WR_EN    : std_ulogic;
-    signal CFG_DATA     : std_ulogic_vector(7 downto 0);
+    signal CFG_DATA     : std_ulogic_vector(DIMENSION_BITS-1 downto 0);
     
     signal BUSY : std_ulogic;
     
@@ -56,6 +57,9 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
 BEGIN
     
     CONFIGURATOR_inst : entity work.CONFIGURATOR
+        generic map (
+            DIMENSION_BITS  => DIMENSION_BITS
+        )
         port map (
             CLK => CLK,
             RST => RST,
