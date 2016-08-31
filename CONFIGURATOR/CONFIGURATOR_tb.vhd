@@ -130,18 +130,18 @@ BEGIN
                     when 19     =>  SETTINGS_DIN    <= s.VER_LED_PAD(7 downto 0);
                     when 20     =>  SETTINGS_DIN    <= s.VER_LED_OFFS(15 downto 8);
                     when 21     =>  SETTINGS_DIN    <= s.VER_LED_OFFS(7 downto 0);
-                    when 22     =>  SETTINGS_DIN    <= s.START_LED_NUM;
-                    when 23     =>  SETTINGS_DIN    <= s.FRAME_DELAY;
-                    when 24     =>  SETTINGS_DIN    <= s.RGB_MODE;
-                    when 25     =>  SETTINGS_DIN    <= s.LED_CONTROL_MODE;
-                    when 26     =>  SETTINGS_DIN    <= s.GAMMA_CORRECTION(15 downto 8);
-                    when 27     =>  SETTINGS_DIN    <= s.GAMMA_CORRECTION(7 downto 0);
-                    when 28     =>  SETTINGS_DIN    <= s.MIN_RED;
-                    when 29     =>  SETTINGS_DIN    <= s.MAX_RED;
-                    when 30     =>  SETTINGS_DIN    <= s.MIN_GREEN;
-                    when 31     =>  SETTINGS_DIN    <= s.MAX_GREEN;
-                    when 32     =>  SETTINGS_DIN    <= s.MIN_BLUE;
-                    when 33     =>  SETTINGS_DIN    <= s.MAX_BLUE;
+                    when 64     =>  SETTINGS_DIN    <= s.START_LED_NUM;
+                    when 65     =>  SETTINGS_DIN    <= s.FRAME_DELAY;
+                    when 66     =>  SETTINGS_DIN    <= s.RGB_MODE;
+                    when 67     =>  SETTINGS_DIN    <= s.LED_CONTROL_MODE;
+                    when 68     =>  SETTINGS_DIN    <= s.GAMMA_CORRECTION(15 downto 8);
+                    when 69     =>  SETTINGS_DIN    <= s.GAMMA_CORRECTION(7 downto 0);
+                    when 70     =>  SETTINGS_DIN    <= s.MIN_RED;
+                    when 71     =>  SETTINGS_DIN    <= s.MAX_RED;
+                    when 72     =>  SETTINGS_DIN    <= s.MIN_GREEN;
+                    when 73     =>  SETTINGS_DIN    <= s.MAX_GREEN;
+                    when 74     =>  SETTINGS_DIN    <= s.MIN_BLUE;
+                    when 75     =>  SETTINGS_DIN    <= s.MAX_BLUE;
                     when others =>  SETTINGS_DIN    <= x"00";
                 end case;
                 wait until rising_edge(CLK);
@@ -187,17 +187,17 @@ BEGIN
         
         settings1    := (
             HOR_LED_CNT         => stdulv( 16, 8),
-            HOR_LED_WIDTH       => stdulv( 60 * 720 / DIMENSION_MAX, 16),
-            HOR_LED_HEIGHT      => stdulv( 80 * 720 / DIMENSION_MAX, 16),
-            HOR_LED_STEP        => stdulv( 80 * 720 / DIMENSION_MAX, 16),
-            HOR_LED_PAD         => stdulv(  5 * 720 / DIMENSION_MAX, 16),
-            HOR_LED_OFFS        => stdulv( 10 * 720 / DIMENSION_MAX, 16),
+            HOR_LED_WIDTH       => stdulv( 60 * DIMENSION_MAX / 1280, 16),
+            HOR_LED_HEIGHT      => stdulv( 80 * DIMENSION_MAX /  720, 16),
+            HOR_LED_STEP        => stdulv( 80 * DIMENSION_MAX / 1280, 16),
+            HOR_LED_PAD         => stdulv(  5 * DIMENSION_MAX /  720, 16),
+            HOR_LED_OFFS        => stdulv( 10 * DIMENSION_MAX / 1280, 16),
             VER_LED_CNT         => stdulv(  9, 8),
-            VER_LED_WIDTH       => stdulv( 80 * 1280 / DIMENSION_MAX, 16),
-            VER_LED_HEIGHT      => stdulv( 60 * 1280 / DIMENSION_MAX, 16),
-            VER_LED_STEP        => stdulv( 80 * 1280 / DIMENSION_MAX, 16),
-            VER_LED_PAD         => stdulv(  5 * 1280 / DIMENSION_MAX, 16),
-            VER_LED_OFFS        => stdulv( 10 * 1280 / DIMENSION_MAX, 16),
+            VER_LED_WIDTH       => stdulv( 80 * DIMENSION_MAX / 1280, 16),
+            VER_LED_HEIGHT      => stdulv( 60 * DIMENSION_MAX /  720, 16),
+            VER_LED_STEP        => stdulv( 80 * DIMENSION_MAX /  720, 16),
+            VER_LED_PAD         => stdulv(  5 * DIMENSION_MAX / 1280, 16),
+            VER_LED_OFFS        => stdulv( 10 * DIMENSION_MAX /  720, 16),
             START_LED_NUM       => stdulv( 10, 8),
             FRAME_DELAY         => stdulv(120, 8),
             RGB_MODE            => x"00",
@@ -215,32 +215,32 @@ BEGIN
         );
         
         settings2    := (
-            HOR_LED_CNT             => x"10",
-            HOR_LED_WIDTH           => x"0000",
-            HOR_LED_HEIGHT          => x"0000",
-            HOR_LED_STEP            => x"0000",
-            HOR_LED_PAD             => x"0000",
-            HOR_LED_OFFS            => x"0000",
-            VER_LED_CNT             => x"09",
-            VER_LED_WIDTH           => x"0000",
-            VER_LED_HEIGHT          => x"0000",
-            VER_LED_STEP            => x"0000",
-            VER_LED_PAD             => x"0000",
-            VER_LED_OFFS            => x"0000",
-            START_LED_NUM           => x"00",
-            FRAME_DELAY             => x"00",
-            RGB_MODE                => x"00",
-            LED_CONTROL_MODE        => x"00",
-            GAMMA_CORRECTION        => x"0000",
-            MIN_RED                 => x"00",
-            MAX_RED                 => x"00",
-            MIN_GREEN               => x"00",
-            MAX_GREEN               => x"00",
-            MIN_BLUE                => x"00",
-            MAX_BLUE                => x"00",
-            R_LOOKUP_TABLE          => (others  => x"FF"),
-            G_LOOKUP_TABLE          => (others  => x"FF"),
-            B_LOOKUP_TABLE          => (others  => x"FF")
+            HOR_LED_CNT         => x"10",
+            HOR_LED_WIDTH       => x"0000",
+            HOR_LED_HEIGHT      => x"0000",
+            HOR_LED_STEP        => x"0000",
+            HOR_LED_PAD         => x"0000",
+            HOR_LED_OFFS        => x"0000",
+            VER_LED_CNT         => x"09",
+            VER_LED_WIDTH       => x"0000",
+            VER_LED_HEIGHT      => x"0000",
+            VER_LED_STEP        => x"0000",
+            VER_LED_PAD         => x"0000",
+            VER_LED_OFFS        => x"0000",
+            START_LED_NUM       => x"00",
+            FRAME_DELAY         => x"00",
+            RGB_MODE            => x"00",
+            LED_CONTROL_MODE    => x"00",
+            GAMMA_CORRECTION    => x"0000",
+            MIN_RED             => x"00",
+            MAX_RED             => x"00",
+            MIN_GREEN           => x"00",
+            MAX_GREEN           => x"00",
+            MIN_BLUE            => x"00",
+            MAX_BLUE            => x"00",
+            R_LOOKUP_TABLE      => (others  => x"FF"),
+            G_LOOKUP_TABLE      => (others  => x"FF"),
+            B_LOOKUP_TABLE      => (others  => x"FF")
         );
         
         send_settings(settings1);
@@ -250,8 +250,8 @@ BEGIN
             wait until rising_edge(CLK);
         end loop;
         
-        FRAME_WIDTH     <= stdulv(1280, 11);
-        FRAME_HEIGHT    <= stdulv( 720, 11);
+        FRAME_WIDTH     <= stdulv(1280, FRAME_WIDTH'length);
+        FRAME_HEIGHT    <= stdulv( 720, FRAME_HEIGHT'length);
         CALCULATE       <= '1';
         wait until rising_edge(CLK);
         CALCULATE       <= '0';
@@ -260,8 +260,8 @@ BEGIN
         
         configure;
         
-        FRAME_WIDTH     <= stdulv(640, 11);
-        FRAME_HEIGHT    <= stdulv(480, 11);
+        FRAME_WIDTH     <= stdulv(640, FRAME_WIDTH'length);
+        FRAME_HEIGHT    <= stdulv(480, FRAME_HEIGHT'length);
         CALCULATE       <= '1';
         wait until rising_edge(CLK);
         CALCULATE       <= '0';
