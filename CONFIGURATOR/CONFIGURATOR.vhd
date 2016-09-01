@@ -63,28 +63,30 @@ end CONFIGURATOR;
 
 architecture rtl of CONFIGURATOR is
     
-    constant BUF_I_HOR_LED_CNT          : std_ulogic_vector(9 downto 0) := "0000000000";
-    constant BUF_I_HOR_LED_WIDTH_H      : std_ulogic_vector(9 downto 0) := "0000000001";
+    constant BUF_I_HOR_LED_CNT_H        : std_ulogic_vector(9 downto 0) := "0000000000";
+    constant BUF_I_HOR_LED_CNT_L        : std_ulogic_vector(9 downto 0) := "0000000001";
     constant BUF_I_HOR_LED_WIDTH_L      : std_ulogic_vector(9 downto 0) := "0000000010";
-    constant BUF_I_HOR_LED_HEIGHT_H     : std_ulogic_vector(9 downto 0) := "0000000011";
-    constant BUF_I_HOR_LED_HEIGHT_L     : std_ulogic_vector(9 downto 0) := "0000000100";
-    constant BUF_I_HOR_LED_STEP_H       : std_ulogic_vector(9 downto 0) := "0000000101";
-    constant BUF_I_HOR_LED_STEP_L       : std_ulogic_vector(9 downto 0) := "0000000110";
-    constant BUF_I_HOR_LED_PAD_H        : std_ulogic_vector(9 downto 0) := "0000000111";
-    constant BUF_I_HOR_LED_PAD_L        : std_ulogic_vector(9 downto 0) := "0000001000";
-    constant BUF_I_HOR_LED_OFFS_H       : std_ulogic_vector(9 downto 0) := "0000001001";
-    constant BUF_I_HOR_LED_OFFS_L       : std_ulogic_vector(9 downto 0) := "0000001010";
-    constant BUF_I_VER_LED_CNT          : std_ulogic_vector(9 downto 0) := "0000001011";
-    constant BUF_I_VER_LED_WIDTH_H      : std_ulogic_vector(9 downto 0) := "0000001100";
-    constant BUF_I_VER_LED_WIDTH_L      : std_ulogic_vector(9 downto 0) := "0000001101";
-    constant BUF_I_VER_LED_HEIGHT_H     : std_ulogic_vector(9 downto 0) := "0000001110";
-    constant BUF_I_VER_LED_HEIGHT_L     : std_ulogic_vector(9 downto 0) := "0000001111";
-    constant BUF_I_VER_LED_STEP_H       : std_ulogic_vector(9 downto 0) := "0000010000";
-    constant BUF_I_VER_LED_STEP_L       : std_ulogic_vector(9 downto 0) := "0000010001";
-    constant BUF_I_VER_LED_PAD_H        : std_ulogic_vector(9 downto 0) := "0000010010";
-    constant BUF_I_VER_LED_PAD_L        : std_ulogic_vector(9 downto 0) := "0000010011";
-    constant BUF_I_VER_LED_OFFS_H       : std_ulogic_vector(9 downto 0) := "0000010100";
-    constant BUF_I_VER_LED_OFFS_L       : std_ulogic_vector(9 downto 0) := "0000010101";
+    constant BUF_I_HOR_LED_WIDTH_H      : std_ulogic_vector(9 downto 0) := "0000000011";
+    constant BUF_I_HOR_LED_HEIGHT_H     : std_ulogic_vector(9 downto 0) := "0000000100";
+    constant BUF_I_HOR_LED_HEIGHT_L     : std_ulogic_vector(9 downto 0) := "0000000101";
+    constant BUF_I_HOR_LED_STEP_H       : std_ulogic_vector(9 downto 0) := "0000000110";
+    constant BUF_I_HOR_LED_STEP_L       : std_ulogic_vector(9 downto 0) := "0000000111";
+    constant BUF_I_HOR_LED_PAD_H        : std_ulogic_vector(9 downto 0) := "0000001000";
+    constant BUF_I_HOR_LED_PAD_L        : std_ulogic_vector(9 downto 0) := "0000001001";
+    constant BUF_I_HOR_LED_OFFS_H       : std_ulogic_vector(9 downto 0) := "0000001010";
+    constant BUF_I_HOR_LED_OFFS_L       : std_ulogic_vector(9 downto 0) := "0000001011";
+    constant BUF_I_VER_LED_CNT_H        : std_ulogic_vector(9 downto 0) := "0000001100";
+    constant BUF_I_VER_LED_CNT_L        : std_ulogic_vector(9 downto 0) := "0000001101";
+    constant BUF_I_VER_LED_WIDTH_H      : std_ulogic_vector(9 downto 0) := "0000001110";
+    constant BUF_I_VER_LED_WIDTH_L      : std_ulogic_vector(9 downto 0) := "0000001111";
+    constant BUF_I_VER_LED_HEIGHT_H     : std_ulogic_vector(9 downto 0) := "0000010000";
+    constant BUF_I_VER_LED_HEIGHT_L     : std_ulogic_vector(9 downto 0) := "0000010001";
+    constant BUF_I_VER_LED_STEP_H       : std_ulogic_vector(9 downto 0) := "0000010010";
+    constant BUF_I_VER_LED_STEP_L       : std_ulogic_vector(9 downto 0) := "0000010011";
+    constant BUF_I_VER_LED_PAD_H        : std_ulogic_vector(9 downto 0) := "0000010100";
+    constant BUF_I_VER_LED_PAD_L        : std_ulogic_vector(9 downto 0) := "0000010101";
+    constant BUF_I_VER_LED_OFFS_H       : std_ulogic_vector(9 downto 0) := "0000010110";
+    constant BUF_I_VER_LED_OFFS_L       : std_ulogic_vector(9 downto 0) := "0000010111";
     constant BUF_I_START_LED_NUM        : std_ulogic_vector(9 downto 0) := "0001000000";
     constant BUF_I_LED_LOOKUP_TABLES    : std_ulogic_vector(9 downto 0) := "0100000000";
     
@@ -98,8 +100,10 @@ architecture rtl of CONFIGURATOR is
         CALCULATING_ABSOLUTE_VER_VALUES_L,
         CALCULATING_WAIT_FOR_ABSOLUTE_VER_VALUE,
         CALCULATING_GETTING_ABSOLUTE_VER_VALUE_L,
-        ADDING_HOR_LED_COUNT,
-        ADDING_VER_LED_COUNT,
+        ADDING_HOR_LED_COUNT_H,
+        ADDING_HOR_LED_COUNT_L,
+        ADDING_VER_LED_COUNT_H,
+        ADDING_VER_LED_COUNT_L,
         CONFIGURING_LEDEX,
         CONFIGURING_LEDCOR
     );
@@ -114,7 +118,7 @@ architecture rtl of CONFIGURATOR is
         multiplier_start        : std_ulogic;
         multiplier_multiplicand : std_ulogic_vector(15 downto 0);
         multiplier_multiplier   : std_ulogic_vector(15 downto 0);
-        led_count               : std_ulogic_vector(7 downto 0);
+        led_count               : std_ulogic_vector(15 downto 0);
         buf_rd_p                : std_ulogic_vector(9 downto 0);
         buf_wr_p                : std_ulogic_vector(9 downto 0);
         buf_di                  : std_ulogic_vector(7 downto 0);
@@ -132,7 +136,7 @@ architecture rtl of CONFIGURATOR is
         multiplier_start        => '0',
         multiplier_multiplicand => x"0000",
         multiplier_multiplier   => x"0000",
-        led_count               => x"00",
+        led_count               => x"0000",
         buf_rd_p                => (others => '0'),
         buf_wr_p                => (others => '0'),
         buf_di                  => x"00",
@@ -263,11 +267,11 @@ begin
                     r.state     := CALCULATING_ABSOLUTE_HOR_VALUES_H;
                 end if;
                 if CONFIGURE_LEDEX='1' then
-                    r.buf_rd_p  := BUF_I_HOR_LED_CNT;
+                    r.buf_rd_p  := BUF_I_HOR_LED_CNT_H;
                     r.state     := CONFIGURING_LEDEX;
                 end if;
                 if CONFIGURE_LEDCOR='1' then
-                    r.buf_rd_p  := BUF_I_START_LED_NUM-1;
+                    r.buf_rd_p  := BUF_I_START_LED_NUM-2;
                     r.state     := CONFIGURING_LEDCOR;
                 end if;
             
@@ -338,20 +342,30 @@ begin
                 r.state := CALCULATING_ABSOLUTE_VER_VALUES_H;
                 if cr.buf_wr_p=BUF_I_HOR_LED_PAD_H then
                     r.buf_rd_p  := BUF_I_HOR_LED_CNT;
-                    r.state     := ADDING_HOR_LED_COUNT;
+                    r.state     := ADDING_HOR_LED_COUNT_H;
                 end if;
             
-            when ADDING_HOR_LED_COUNT =>
-                r.led_count := buf_do;
-                r.buf_rd_p  := BUF_I_VER_LED_CNT;
-                r.state     := ADDING_VER_LED_COUNT;
+            when ADDING_HOR_LED_COUNT_H =>
+                r.led_count(15 downto 8)    := buf_do;
+                r.buf_rd_p                  := cr.buf_rd_p+1;
+                r.state                     := ADDING_HOR_LED_COUNT_L;
             
-            when ADDING_VER_LED_COUNT =>
+            when ADDING_HOR_LED_COUNT_L =>
+                r.led_count(7 downto 0) := buf_do;
+                r.buf_rd_p              := BUF_I_VER_LED_CNT_H;
+                r.state                 := ADDING_VER_LED_COUNT_H;
+            
+            when ADDING_VER_LED_COUNT_H =>
+                r.led_count := cr.led_count+(buf_do & x"00");
+                r.buf_rd_p  := cr.buf_rd_p+1;
+                r.state     := ADDING_VER_LED_COUNT_L;
+            
+            when ADDING_VER_LED_COUNT_L =>
                 -- 2 * ver. count = left + right
                 -- 2 * hor. count = top + bottom
                 -- LED count = 2 * (hor. count + ver. count)
                 r.led_count := cr.led_count+buf_do;
-                r.led_count := r.led_count(6 downto 0) & "0"; -- * 2
+                r.led_count := r.led_count(14 downto 0) & "0"; -- * 2
                 r.state     := WAITING_FOR_START;
             
             when CONFIGURING_LEDEX =>
@@ -376,9 +390,10 @@ begin
                 r.cfg_data          := buf_do;
                 r.buf_rd_p          := cr.buf_rd_p+1;
                 case r.cfg_addr is
-                    when "0000000000"   =>  r.cfg_data  := cr.led_count;
-                    when "0000000011"   =>  r.buf_rd_p  := BUF_I_LED_LOOKUP_TABLES;
-                    when "0000000100"   =>  r.cfg_addr  := BUF_I_LED_LOOKUP_TABLES;
+                    when "0000000000"   =>  r.cfg_data  := cr.led_count(15 downto 8);
+                    when "0000000001"   =>  r.cfg_data  := cr.led_count(7 downto 0);
+                    when "0000000100"   =>  r.buf_rd_p  := BUF_I_LED_LOOKUP_TABLES;
+                    when "0000000101"   =>  r.cfg_addr  := BUF_I_LED_LOOKUP_TABLES;
                     when "1111111111"   =>  r.state     := WAITING_FOR_START;
                     when others         =>  null;
                 end case;
