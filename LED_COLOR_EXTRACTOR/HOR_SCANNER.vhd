@@ -14,8 +14,6 @@
 library IEEE;
 use IEEE.std_logic_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
 entity HOR_SCANNER is
@@ -28,7 +26,7 @@ entity HOR_SCANNER is
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
-        CFG_ADDR    : in std_ulogic_vector(3 downto 0);
+        CFG_ADDR    : in std_ulogic_vector(4 downto 0);
         CFG_WR_EN   : in std_ulogic;
         CFG_DATA    : in std_ulogic_vector(7 downto 0);
         
@@ -73,7 +71,7 @@ architecture rtl of HOR_SCANNER is
     
     type inner_coords_type is
         array(0 to 1) of
-        unsigned(7 downto 0);
+        unsigned(15 downto 0);
     
     type led_pos_type is
         array(0 to 1) of
@@ -116,29 +114,29 @@ architecture rtl of HOR_SCANNER is
         buf_ov_di       => (others => '0'),
         buf_wr_en       => '0',
         buf_ov_wr_en    => '0',
-        inner_coords    => (others => (others => '0')),
-        led_pos         => (others => (others => '0')),
+        inner_coords    => (others => x"0000"),
+        led_pos         => (others => x"0000"),
         led_rgb_valid   => '0',
         led_rgb         => (others => '0'),
-        led_num         => (others => '0')
+        led_num         => x"00"
     );
     
-    signal next_inner_x         : unsigned(7 downto 0) := x"00";
+    signal next_inner_x         : unsigned(15 downto 0) := x"0000";
     signal first_leds_pos       : leds_pos_type;
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal overlaps             : boolean := false;
-    signal abs_overlap          : unsigned(7 downto 0) := x"00";
+    signal abs_overlap          : unsigned(15 downto 0) := x"0000";
     signal led_buf              : led_buf_type;
     signal buf_do               : std_ulogic_vector(RGB_BITS-1 downto 0);
     signal buf_ov_do            : std_ulogic_vector(RGB_BITS-1 downto 0);
     
     -- configuration registers
     signal led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
-    signal led_width    : std_ulogic_vector(7 downto 0) := x"00";
-    signal led_height   : std_ulogic_vector(7 downto 0) := x"00";
-    signal led_step     : std_ulogic_vector(7 downto 0) := x"00";
-    signal led_pad      : std_ulogic_vector(7 downto 0) := x"00";
-    signal led_offs     : std_ulogic_vector(7 downto 0) := x"00";
+    signal led_width    : std_ulogic_vector(15 downto 0) := x"0000";
+    signal led_height   : std_ulogic_vector(15 downto 0) := x"0000";
+    signal led_step     : std_ulogic_vector(15 downto 0) := x"0000";
+    signal led_pad      : std_ulogic_vector(15 downto 0) := x"0000";
+    signal led_offs     : std_ulogic_vector(15 downto 0) := x"0000";
     
     signal frame_height : std_ulogic_vector(15 downto 0) := x"0000";
     
@@ -172,9 +170,9 @@ begin
     LED_SIDE        <= '0' when cur_reg.side=T else '1';
     
     -- the position of the first top/bottom LED
-    first_leds_pos(T)(X)    <= resize(uns(led_offs), 16);
-    first_leds_pos(T)(Y)    <= resize(uns(led_pad), 16);
-    first_leds_pos(B)(X)    <= resize(uns(led_offs), 16);
+    first_leds_pos(T)(X)    <= uns(led_offs);
+    first_leds_pos(T)(Y)    <= uns(led_pad);
+    first_leds_pos(B)(X)    <= uns(led_offs);
     first_leds_pos(B)(Y)    <= uns(frame_height-led_height-led_pad);
     
     -- in case of overlapping LEDs, the position of the next LED's pixel area is needed
@@ -196,14 +194,19 @@ begin
         if rising_edge(CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
-                    when "0000" => led_cnt                      <= CFG_DATA;
-                    when "0001" => led_width                    <= CFG_DATA;
-                    when "0010" => led_height                   <= CFG_DATA;
-                    when "0011" => led_step                     <= CFG_DATA;
-                    when "0100" => led_pad                      <= CFG_DATA;
-                    when "0101" => led_offs                     <= CFG_DATA;
-                    when "1110" => frame_height(15 downto 8)    <= CFG_DATA;
-                    when "1111" => frame_height(7 downto 0)     <= CFG_DATA;
+                    when "00000" => led_cnt                     <= CFG_DATA;
+                    when "00001" => led_width(15 downto 8)      <= CFG_DATA;
+                    when "00010" => led_width(7 downto 0)       <= CFG_DATA;
+                    when "00011" => led_height(15 downto 8)     <= CFG_DATA;
+                    when "00100" => led_height(7 downto 0)      <= CFG_DATA;
+                    when "00101" => led_step(15 downto 8)       <= CFG_DATA;
+                    when "00110" => led_step(7 downto 0)        <= CFG_DATA;
+                    when "00111" => led_pad(15 downto 8)        <= CFG_DATA;
+                    when "01000" => led_pad(7 downto 0)         <= CFG_DATA;
+                    when "01001" => led_offs(15 downto 8)       <= CFG_DATA;
+                    when "01010" => led_offs(7 downto 0)        <= CFG_DATA;
+                    when "01011" => frame_height(15 downto 8)   <= CFG_DATA;
+                    when "01100" => frame_height(7 downto 0)    <= CFG_DATA;
                     when others => null;
                 end case;
             end if;
@@ -271,7 +274,7 @@ begin
                 end if;
             
             when LEFT_BORDER_PIXEL =>
-                r.inner_coords(X)   := x"01";
+                r.inner_coords(X)   := x"0001";
                 r.buf_di            := FRAME_RGB;
                 r.buf_ov_wr_en      := '0';
                 if
@@ -300,7 +303,7 @@ begin
                 end if;
             
             when RIGHT_BORDER_PIXEL =>
-                r.inner_coords(X)   := (others => '0');
+                r.inner_coords(X)   := x"0000";
                 r.buf_di            := led_arith_mean(FRAME_RGB, buf_do);
                 if overlaps then
                     r.inner_coords(X)   := abs_overlap;
@@ -333,7 +336,7 @@ begin
                 r.state             := LEFT_BORDER_PIXEL;
             
             when LAST_PIXEL =>
-                r.inner_coords(X)   := (others => '0');
+                r.inner_coords(X)   := x"0000";
                 if overlaps then
                     r.inner_coords(X)   := abs_overlap;
                 end if;

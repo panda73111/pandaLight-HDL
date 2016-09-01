@@ -32,29 +32,38 @@
 --     LED_RGB      : LED RGB color
 --   
 --   These configuration registers can only be set while RST is high, using the CFG_* inputs:
+--     Except for the LED counts, all values are 16 Bit in size, separated in high an low byte
 --   
---    [0] = HOR_LED_CNT     : number of LEDs at each top and bottom side of the TV screen
---    [1] = HOR_LED_WIDTH   : width of one LED area of each of these horizontal LEDs
---    [2] = HOR_LED_HEIGHT  : height of one LED area of each of these horizontal LEDs
---    [3] = HOR_LED_STEP    : pixels between two horizontal LEDs, centre to centre
---    [4] = HOR_LED_PAD     : gap between the top border and the the horizontal LEDs
---    [5] = HOR_LED_OFFS    : gap between the left border and the the first horizontal LED
---    [6] = VER_LED_CNT     : number of LEDs at each left and right side of the TV screen
---    [7] = VER_LED_WIDTH   : width of one LED area of each of these vertical LEDs
---    [8] = VER_LED_HEIGHT  : height of one LED area of each of these vertical LEDs
---    [9] = VER_LED_STEP    : pixels between two vertical LEDs, centre to centre
---   [10] = VER_LED_PAD     : gap between the left border and the the vertical LEDs
---   [11] = VER_LED_OFFS    : gap between the top border and the the first vertical LED
---   [12] = FRAME_WIDTH_H   : high byte of the frame width in pixel
---   [13] = FRAME_WIDTH_L   : low byte of the frame width in pixel
---   [14] = FRAME_HEIGHT_H  : high byte of the frame height in pixel
---   [15] = FRAME_HEIGHT_L  : low byte of the frame height in pixel
+--    [0] = HOR_LED_CNT      : number of LEDs at each top and bottom side of the TV screen
+--    [1] = HOR_LED_WIDTH_H  : width of one LED area of each of these horizontal LEDs
+--    [2] = HOR_LED_WIDTH_L
+--    [3] = HOR_LED_HEIGHT_H : height of one LED area of each of these horizontal LEDs
+--    [4] = HOR_LED_HEIGHT_L
+--    [5] = HOR_LED_STEP_H   : pixels between two horizontal LEDs, centre to centre
+--    [6] = HOR_LED_STEP_L
+--    [7] = HOR_LED_PAD_H    : gap between the top border and the the horizontal LEDs
+--    [8] = HOR_LED_PAD_L
+--    [9] = HOR_LED_OFFS_H   : gap between the left border and the the first horizontal LED
+--   [10] = HOR_LED_OFFS_L
+--   [11] = VER_LED_CNT      : number of LEDs at each left and right side of the TV screen
+--   [12] = VER_LED_WIDTH_H  : width of one LED area of each of these vertical LEDs
+--   [13] = VER_LED_WIDTH_L
+--   [14] = VER_LED_HEIGHT_H : height of one LED area of each of these vertical LEDs
+--   [15] = VER_LED_HEIGHT_L
+--   [16] = VER_LED_STEP_H   : pixels between two vertical LEDs, centre to centre
+--   [17] = VER_LED_STEP_L
+--   [18] = VER_LED_PAD_H    : gap between the left border and the the vertical LEDs
+--   [19] = VER_LED_PAD_L
+--   [20] = VER_LED_OFFS_H   : gap between the top border and the the first vertical LED
+--   [21] = VER_LED_OFFS_L
+--   [22] = FRAME_WIDTH_H    : frame width in pixels
+--   [23] = FRAME_WIDTH_L
+--   [24] = FRAME_HEIGHT_H   : frame height in pixels
+--   [25] = FRAME_HEIGHT_L
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.std_logic_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
 entity LED_COLOR_EXTRACTOR is
@@ -67,7 +76,7 @@ entity LED_COLOR_EXTRACTOR is
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
-        CFG_ADDR    : in std_ulogic_vector(3 downto 0);
+        CFG_ADDR    : in std_ulogic_vector(4 downto 0);
         CFG_WR_EN   : in std_ulogic;
         CFG_DATA    : in std_ulogic_vector(7 downto 0);
         
@@ -110,10 +119,6 @@ architecture rtl of LED_COLOR_EXTRACTOR is
         array(0 to 1) of
         std_ulogic_vector(7 downto 0);
     
-    type side_flag_type is
-        array(0 to 1) of
-        boolean;
-    
     type leds_rgb_type is
         array(0 to 1) of
         std_ulogic_vector(RGB_BITS-1 downto 0);
@@ -128,7 +133,7 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     signal leds_rgb_valid   : std_ulogic_vector(0 to 1) := (others => '0');
     signal leds_side        : std_ulogic_vector(0 to 1) := (others => '0');
     signal leds_rgb         : leds_rgb_type := (others => (others => '0'));
-    signal ver_queued   : boolean := false;
+    signal ver_queued       : boolean := false;
     
     signal
         rev_hor_led_num,
@@ -160,10 +165,10 @@ begin
         if rising_edge(CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
-                    when "0000" => hor_led_cnt                  <= CFG_DATA;
-                    when "0110" => ver_led_cnt                  <= CFG_DATA;
-                    when "1100" => frame_width(15 downto 8)     <= CFG_DATA;
-                    when "1101" => frame_width(7 downto 0)      <= CFG_DATA;
+                    when "00000" => hor_led_cnt                 <= CFG_DATA;
+                    when "00110" => ver_led_cnt                 <= CFG_DATA;
+                    when "01100" => frame_width(15 downto 8)    <= CFG_DATA;
+                    when "01101" => frame_width(7 downto 0)     <= CFG_DATA;
                     when others => null;
                 end case;
             end if;

@@ -35,7 +35,7 @@ ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS
     signal CLK  : std_ulogic := '0';
     signal RST  : std_ulogic := '0';
     
-    signal CFG_ADDR     : std_ulogic_vector(3 downto 0) := "0000";
+    signal CFG_ADDR     : std_ulogic_vector(4 downto 0) := "00000";
     signal CFG_WR_EN    : std_ulogic := '0';
     signal CFG_DATA     : std_ulogic_vector(7 downto 0) := x"00";
     
@@ -155,24 +155,55 @@ BEGIN
     -- Stimulus process
     stim_proc: process
         
-        type cfg_type is
-            array(0 to 15) of
-            std_ulogic_vector(7 downto 0);
+        type cfg_type is record
+            HOR_LED_CNT                                                             : std_ulogic_vector(7 downto 0);
+            HOR_LED_WIDTH, HOR_LED_HEIGHT, HOR_LED_STEP, HOR_LED_PAD, HOR_LED_OFFS  : std_ulogic_vector(15 downto 0);
+            VER_LED_CNT                                                             : std_ulogic_vector(7 downto 0);
+            VER_LED_WIDTH, VER_LED_HEIGHT, VER_LED_STEP, VER_LED_PAD, VER_LED_OFFS  : std_ulogic_vector(15 downto 0);
+            FRAME_WIDTH, FRAME_HEIGHT                                               : std_ulogic_vector(15 downto 0);
+        end record;
         
         variable cfg    : cfg_type;
         
         procedure write_config (cfg : in cfg_type) is
         begin
-            rst         <= '1';
-            cfg_wr_en   <= '1';
-            for i in cfg_type'range loop
-                cfg_addr    <= stdulv(i, 4);
-                cfg_data    <= cfg(i);
+            CFG_WR_EN   <= '1';
+            RST         <= '1';
+            for settings_i in 0 to 255 loop
+                CFG_ADDR    <= stdulv(settings_i, 5);
+                case settings_i is
+                    when 0      =>  CFG_DATA    <= cfg.HOR_LED_CNT;
+                    when 1      =>  CFG_DATA    <= cfg.HOR_LED_WIDTH(15 downto 8);
+                    when 2      =>  CFG_DATA    <= cfg.HOR_LED_WIDTH(7 downto 0);
+                    when 3      =>  CFG_DATA    <= cfg.HOR_LED_HEIGHT(15 downto 8);
+                    when 4      =>  CFG_DATA    <= cfg.HOR_LED_HEIGHT(7 downto 0);
+                    when 5      =>  CFG_DATA    <= cfg.HOR_LED_STEP(15 downto 8);
+                    when 6      =>  CFG_DATA    <= cfg.HOR_LED_STEP(7 downto 0);
+                    when 7      =>  CFG_DATA    <= cfg.HOR_LED_PAD(15 downto 8);
+                    when 8      =>  CFG_DATA    <= cfg.HOR_LED_PAD(7 downto 0);
+                    when 9      =>  CFG_DATA    <= cfg.HOR_LED_OFFS(15 downto 8);
+                    when 10     =>  CFG_DATA    <= cfg.HOR_LED_OFFS(7 downto 0);
+                    when 11     =>  CFG_DATA    <= cfg.VER_LED_CNT;
+                    when 12     =>  CFG_DATA    <= cfg.VER_LED_WIDTH(15 downto 8);
+                    when 13     =>  CFG_DATA    <= cfg.VER_LED_WIDTH(7 downto 0);
+                    when 14     =>  CFG_DATA    <= cfg.VER_LED_HEIGHT(15 downto 8);
+                    when 15     =>  CFG_DATA    <= cfg.VER_LED_HEIGHT(7 downto 0);
+                    when 16     =>  CFG_DATA    <= cfg.VER_LED_STEP(15 downto 8);
+                    when 17     =>  CFG_DATA    <= cfg.VER_LED_STEP(7 downto 0);
+                    when 18     =>  CFG_DATA    <= cfg.VER_LED_PAD(15 downto 8);
+                    when 19     =>  CFG_DATA    <= cfg.VER_LED_PAD(7 downto 0);
+                    when 20     =>  CFG_DATA    <= cfg.VER_LED_OFFS(15 downto 8);
+                    when 21     =>  CFG_DATA    <= cfg.VER_LED_OFFS(7 downto 0);
+                    when 22     =>  CFG_DATA    <= cfg.FRAME_WIDTH(15 downto 8);
+                    when 23     =>  CFG_DATA    <= cfg.FRAME_WIDTH(7 downto 0);
+                    when 24     =>  CFG_DATA    <= cfg.FRAME_HEIGHT(15 downto 8);
+                    when 25     =>  CFG_DATA    <= cfg.FRAME_HEIGHT(7 downto 0);
+                    when others =>  CFG_DATA    <= x"00";
+                end case;
                 wait until rising_edge(CLK);
             end loop;
-            rst         <= '0';
-            cfg_wr_en   <= '0';
-            wait until rising_edge(CLK);
+            CFG_WR_EN   <= '0';
+            RST         <= '0';
         end procedure;
         
     begin
@@ -191,23 +222,21 @@ BEGIN
         -- Test 1: Standard 50 LED configuration, no overlap, no edges
         
         cfg := (
-            stdulv(16,   8), -- hor_led_cnt
-            stdulv(60,   8), -- hor_led_width
-            stdulv(80,   8), -- hor_led_height
-            stdulv(80,   8), -- hor_led_step
-            stdulv(5,    8), -- hor_led_pad
-            stdulv(10,   8), -- hor_led_offs
-            stdulv(9,    8), -- ver_led_cnt
-            stdulv(80,   8), -- ver_led_width
-            stdulv(60,   8), -- ver_led_height
-            stdulv(80,   8), -- ver_led_step
-            stdulv(5,    8), -- ver_led_pad
-            stdulv(10,   8), -- ver_led_offs
-            frame_width (15 downto 8),
-            frame_width ( 7 downto 0),
-            frame_height(15 downto 8),
-            frame_height( 7 downto 0)
-            );
+            HOR_LED_CNT         => stdulv( 16,  8),
+            HOR_LED_WIDTH       => stdulv( 60, 16),
+            HOR_LED_HEIGHT      => stdulv( 80, 16),
+            HOR_LED_STEP        => stdulv( 80, 16),
+            HOR_LED_PAD         => stdulv(  5, 16),
+            HOR_LED_OFFS        => stdulv( 10, 16),
+            VER_LED_CNT         => stdulv(  9,  8),
+            VER_LED_WIDTH       => stdulv( 80, 16),
+            VER_LED_HEIGHT      => stdulv( 60, 16),
+            VER_LED_STEP        => stdulv( 80, 16),
+            VER_LED_PAD         => stdulv(  5, 16),
+            VER_LED_OFFS        => stdulv( 10, 16),
+            FRAME_WIDTH         => frame_width,
+            FRAME_HEIGHT        => frame_height
+        );
         write_config(cfg);
         
         for i in 1 to 5 loop
@@ -218,23 +247,21 @@ BEGIN
         -- Test 2: Standard 50 LED configuration, overlaps, edges
         
         cfg := (
-            stdulv(16,   8), -- hor_led_cnt
-            stdulv(145,  8), -- hor_led_width
-            stdulv(80,   8), -- hor_led_height
-            stdulv(65,   8), -- hor_led_step
-            stdulv(5,    8), -- hor_led_pad
-            stdulv(80,   8), -- hor_led_offs
-            stdulv(9,    8), -- ver_led_cnt
-            stdulv(80,   8), -- ver_led_width
-            stdulv(140,  8), -- ver_led_height
-            stdulv(70,   8), -- ver_led_step
-            stdulv(5,    8), -- ver_led_pad
-            stdulv(10,   8), -- ver_led_offs
-            frame_width (15 downto 8),
-            frame_width ( 7 downto 0),
-            frame_height(15 downto 8),
-            frame_height( 7 downto 0)
-            );
+            HOR_LED_CNT         => stdulv( 16,  8),
+            HOR_LED_WIDTH       => stdulv(145, 16),
+            HOR_LED_HEIGHT      => stdulv( 80, 16),
+            HOR_LED_STEP        => stdulv( 65, 16),
+            HOR_LED_PAD         => stdulv(  5, 16),
+            HOR_LED_OFFS        => stdulv( 80, 16),
+            VER_LED_CNT         => stdulv(  9,  8),
+            VER_LED_WIDTH       => stdulv( 80, 16),
+            VER_LED_HEIGHT      => stdulv(140, 16),
+            VER_LED_STEP        => stdulv( 70, 16),
+            VER_LED_PAD         => stdulv(  5, 16),
+            VER_LED_OFFS        => stdulv( 10, 16),
+            FRAME_WIDTH         => frame_width,
+            FRAME_HEIGHT        => frame_height
+        );
         write_config(cfg);
         
         wait;

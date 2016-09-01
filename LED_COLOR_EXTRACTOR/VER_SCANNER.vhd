@@ -13,8 +13,6 @@
 library IEEE;
 use IEEE.std_logic_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
 entity VER_SCANNER is
@@ -27,7 +25,7 @@ entity VER_SCANNER is
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
-        CFG_ADDR    : in std_ulogic_vector(3 downto 0);
+        CFG_ADDR    : in std_ulogic_vector(4 downto 0);
         CFG_WR_EN   : in std_ulogic;
         CFG_DATA    : in std_ulogic_vector(7 downto 0);
         
@@ -72,7 +70,7 @@ architecture rtl of VER_SCANNER is
     
     type inner_coords_type is
         array(0 to 1) of
-        unsigned(7 downto 0);
+        unsigned(15 downto 0);
     
     type led_pos_type is
         array(0 to 1) of
@@ -113,28 +111,28 @@ architecture rtl of VER_SCANNER is
         buf_di          => (others => '0'),
         ov_buf_di       => (others => '0'),
         buf_wr_en       => '0',
-        inner_coords    => (others => (others => '0')),
-        led_pos         => (others => (others => '0')),
+        inner_coords    => (others => x"0000"),
+        led_pos         => (others => x"0000"),
         led_rgb_valid   => '0',
         led_rgb         => (others => '0'),
-        led_num         => (others => '0')
+        led_num         => x"00"
     );
     
-    signal next_inner_y         : unsigned(7 downto 0) := (others => '0');
+    signal next_inner_y         : unsigned(7 downto 0) := x"00";
     signal first_leds_pos       : leds_pos_type;
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal overlaps             : boolean := false;
-    signal abs_overlap          : unsigned(7 downto 0) := (others => '0');
+    signal abs_overlap          : unsigned(7 downto 0) := x"00";
     signal led_buf              : led_buf_type;
     signal buf_do               : std_ulogic_vector(RGB_BITS-1 downto 0);
     signal ov_buf_do            : std_ulogic_vector(RGB_BITS-1 downto 0);
     
     -- configuration registers
-    signal led_width    : std_ulogic_vector(7 downto 0) := x"00";
-    signal led_height   : std_ulogic_vector(7 downto 0) := x"00";
-    signal led_step     : std_ulogic_vector(7 downto 0) := x"00";
-    signal led_pad      : std_ulogic_vector(7 downto 0) := x"00";
-    signal led_offs     : std_ulogic_vector(7 downto 0) := x"00";
+    signal led_width    : std_ulogic_vector(15 downto 0) := x"0000";
+    signal led_height   : std_ulogic_vector(15 downto 0) := x"0000";
+    signal led_step     : std_ulogic_vector(15 downto 0) := x"0000";
+    signal led_pad      : std_ulogic_vector(15 downto 0) := x"0000";
+    signal led_offs     : std_ulogic_vector(15 downto 0) := x"0000";
     
     signal frame_width  : std_ulogic_vector(15 downto 0) := x"0000";
     
@@ -168,10 +166,10 @@ begin
     LED_SIDE        <= '0' when cur_reg.side=L else '1';
     
     -- the position of the first left/right LED
-    first_leds_pos(L)(X)    <= resize(uns(led_pad), 16);
-    first_leds_pos(L)(Y)    <= resize(uns(led_offs), 16);
+    first_leds_pos(L)(X)    <= uns(led_pad);
+    first_leds_pos(L)(Y)    <= uns(led_offs);
     first_leds_pos(R)(X)    <= uns(frame_width-led_width-led_pad);
-    first_leds_pos(R)(Y)    <= resize(uns(led_offs), 16);
+    first_leds_pos(R)(Y)    <= uns(led_offs);
     
     -- in case of overlapping LEDs, the position of the next LED's pixel area is needed
     next_inner_y    <= cur_reg.inner_coords(Y)-uns(led_step);
@@ -192,13 +190,18 @@ begin
         if rising_edge(CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
-                    when "0111" => led_width                <= CFG_DATA;
-                    when "1000" => led_height               <= CFG_DATA;
-                    when "1001" => led_step                 <= CFG_DATA;
-                    when "1010" => led_pad                  <= CFG_DATA;
-                    when "1011" => led_offs                 <= CFG_DATA;
-                    when "1100" => frame_width(15 downto 8) <= CFG_DATA;
-                    when "1101" => frame_width(7 downto 0)  <= CFG_DATA;
+                    when "01100" => led_width(15 downto 8)      <= CFG_DATA;
+                    when "01101" => led_width(7 downto 0)       <= CFG_DATA;
+                    when "01110" => led_height(15 downto 8)     <= CFG_DATA;
+                    when "01111" => led_height(7 downto 0)      <= CFG_DATA;
+                    when "10000" => led_step(15 downto 8)       <= CFG_DATA;
+                    when "10001" => led_step(7 downto 0)        <= CFG_DATA;
+                    when "10010" => led_pad(15 downto 8)        <= CFG_DATA;
+                    when "10011" => led_pad(7 downto 0)         <= CFG_DATA;
+                    when "10100" => led_offs(15 downto 8)       <= CFG_DATA;
+                    when "10101" => led_offs(7 downto 0)        <= CFG_DATA;
+                    when "10110" => frame_width(15 downto 8)    <= CFG_DATA;
+                    when "10111" => frame_width(7 downto 0)     <= CFG_DATA;
                     when others => null;
                 end case;
             end if;
@@ -335,7 +338,7 @@ begin
                 if FRAME_RGB_WR_EN='1' then
                     -- give out the LED color
                     tr.led_rgb_valid    := '1';
-                    tr.led_rgb      := led_arith_mean(FRAME_RGB, buf_do);
+                    tr.led_rgb          := led_arith_mean(FRAME_RGB, buf_do);
                     
                     tr.state    := SIDE_SWITCH;
                     if cr.side=R then
