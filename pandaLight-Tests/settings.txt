@@ -27,20 +27,17 @@
                |      | LOOKUP RECREATION |                               |           not used for calculations, only saved for re-generation of RGB lookup
  --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
     68 (0x044) |    2 |  gamma correction |    4 Bit + 12 Bit fixed point |
-    70 (0x046) |    1 |     minimum   red |                           *** |
-    71 (0x047) |    1 |     maximum   red |                           *** |
-    72 (0x048) |    1 |     minimum green |                           *** |
-    73 (0x049) |    1 |     maximum green |                           *** |
-    74 (0x050) |    1 |     minimum  blue |                           *** |
-    75 (0x051) |    1 |     maximum  blue |                           *** |
+    70 (0x046) |    1 |     minimum   red |  color channel value  [0-255] |
+    71 (0x047) |    1 |     maximum   red |  color channel value  [0-255] |
+    72 (0x048) |    1 |     minimum green |  color channel value  [0-255] |
+    73 (0x049) |    1 |     maximum green |  color channel value  [0-255] |
+    74 (0x050) |    1 |     minimum  blue |  color channel value  [0-255] |
+    75 (0x051) |    1 |     maximum  blue |  color channel value  [0-255] |
  --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
-   256 (0x100) |  768 |        RGB lookup |                               |             0x100 to 0x1FF : red, 0x200 to 0x2FF : green, 0x300 to 0x3FF : blue
+   256 (0x100) |  768 |        RGB lookup | color channel values  [0-255] |             0x100 to 0x1FF : red, 0x200 to 0x2FF : green, 0x300 to 0x3FF : blue
 
 
    (All byte values are in big-endian order)
 
-    *   number of pixels divided by (2 * floor(frame  width / 16) + 1) / 256  [0-255]
-          This equals to up to roughly one eighth (12.5%) of the frame width
-    **  number of pixels divided by (2 * floor(frame height / 16) + 1) / 256  [0-255]
-         This equals to up to roughly one eighth (12.5%) of the frame height
-    ***                                                  color channel value  [0-255]
+    *   number of pixels divided by frame  width, 0 Bit + 16 Bit fixed point  [0.0-1.0]
+    **  number of pixels divided by frame height, 0 Bit + 16 Bit fixed point  [0.0-1.0]
