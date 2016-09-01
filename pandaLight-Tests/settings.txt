@@ -36,6 +36,9 @@
  --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
    256 (0x100) |  768 |        RGB lookup |                               |             0x100 to 0x1FF : red, 0x200 to 0x2FF : green, 0x300 to 0x3FF : blue
 
+
+   (All byte values are in big-endian order)
+
     *   number of pixels divided by (2 * floor(frame  width / 16) + 1) / 256  [0-255]
           This equals to up to roughly one eighth (12.5%) of the frame width
     **  number of pixels divided by (2 * floor(frame height / 16) + 1) / 256  [0-255]
