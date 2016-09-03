@@ -74,6 +74,24 @@ begin
         TX_DET              => TX_DET,
         TX_EN               => TX_EN,
         
+        -- USB UART
+        USB_RXD     => '0',
+        USB_TXD     => open,
+        USB_CTSN    => '1',
+        USB_RTSN    => open,
+        USB_DSRN    => '1',
+        USB_DTRN    => open,
+        USB_DCDN    => open,
+        USB_RIN     => open,
+        
+        -- BT UART
+        BT_CTSN => '1',
+        BT_RTSN => open,
+        BT_RXD  => '0',
+        BT_TXD  => open,
+        BT_WAKE => open,
+        BT_RSTN => open,
+        
         FLASH_MISO  => FLASH_MISO,
         FLASH_MOSI  => FLASH_MOSI,
         FLASH_SCK   => FLASH_SCK,

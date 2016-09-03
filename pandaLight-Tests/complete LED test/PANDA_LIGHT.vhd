@@ -28,11 +28,10 @@ entity PANDA_LIGHT is
         G_CLK_DIV           : positive range 1 to 256 := 2;
         FCTRL_CLK_MULT      : positive :=  2; -- Flash clock: 20 MHz
         FCTRL_CLK_DIV       : positive :=  5;
-        RX_SEL              : natural range 0 to 1 := 1;
+        RX_SEL              : natural range 0 to 1 := 0;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
-        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000";
-        ENABLE_IPROG_RECONF : boolean := true
+        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000"
     );
     port (
         CLK20   : in std_ulogic;
@@ -117,6 +116,16 @@ architecture rtl of PANDA_LIGHT is
     signal usb_dsrn_deb_q       : std_ulogic := '0';
     signal usb_connected        : boolean := false;
     
+    signal reboot   : std_ulogic := '0';
+    
+    type rx_bitfile_addrs_type is array(0 to 1)
+        of std_ulogic_vector(23 downto 0);
+    
+    constant rx_bitfile_addrs   : rx_bitfile_addrs_type := (
+        RX0_BITFILE_ADDR,
+        RX1_BITFILE_ADDR
+    );
+    
     
     ----------------------------
     --- HDMI related signals ---
@@ -189,8 +198,8 @@ architecture rtl of PANDA_LIGHT is
     -- Outputs
     signal analyzer_positive_vsync  : std_ulogic := '0';
     signal analyzer_positive_hsync  : std_ulogic := '0';
-    signal analyzer_width           : std_ulogic_vector(10 downto 0) := (others => '0');
-    signal analyzer_height          : std_ulogic_vector(10 downto 0) := (others => '0');
+    signal analyzer_width           : std_ulogic_vector(15 downto 0) := x"0000";
+    signal analyzer_height          : std_ulogic_vector(15 downto 0) := x"0000";
     signal analyzer_interlaced      : std_ulogic := '0';
     signal analyzer_valid           : std_ulogic := '0';
     
@@ -203,7 +212,7 @@ architecture rtl of PANDA_LIGHT is
     signal ledex_clk    : std_ulogic := '0';
     signal ledex_rst    : std_ulogic := '0';
     
-    signal ledex_cfg_addr   : std_ulogic_vector(3 downto 0) := "0000";
+    signal ledex_cfg_addr   : std_ulogic_vector(4 downto 0) := "00000";
     signal ledex_cfg_wr_en  : std_ulogic := '0';
     signal ledex_cfg_data   : std_ulogic_vector(7 downto 0) := x"00";
     
@@ -275,7 +284,7 @@ architecture rtl of PANDA_LIGHT is
     --- UART Bluetooth control ---
     ------------------------------
     
-    -- inputs
+    -- Inputs
     signal btctrl_clk   : std_ulogic := '0';
     signal btctrl_rst   : std_ulogic := '0';
     
@@ -286,7 +295,7 @@ architecture rtl of PANDA_LIGHT is
     signal btctrl_din_wr_en     : std_ulogic := '0';
     signal btctrl_send_packet   : std_ulogic := '0';
     
-    -- outputs
+    -- Outputs
     signal btctrl_bt_rts    : std_ulogic := '0';
     signal btctrl_bt_txd    : std_ulogic := '0';
     signal btctrl_bt_wake   : std_ulogic := '0';
@@ -363,8 +372,8 @@ architecture rtl of PANDA_LIGHT is
     signal conf_configure_ledex     : std_ulogic := '0';
     signal conf_configure_ledcor    : std_ulogic := '0';
     
-    signal conf_frame_width     : std_ulogic_vector(10 downto 0) := (others => '0');
-    signal conf_frame_height    : std_ulogic_vector(10 downto 0) := (others => '0');
+    signal conf_frame_width     : std_ulogic_vector(15 downto 0) := x"0000";
+    signal conf_frame_height    : std_ulogic_vector(15 downto 0) := x"0000";
     
     signal conf_settings_addr   : std_ulogic_vector(9 downto 0) := (others => '0');
     signal conf_settings_wr_en  : std_ulogic := '0';
@@ -397,7 +406,7 @@ architecture rtl of PANDA_LIGHT is
     signal fctrl_end_wr : std_ulogic := '0';
     signal fctrl_miso   : std_ulogic := '0';
     
-    -- outputs
+    -- Outputs
     signal fctrl_dout   : std_ulogic_vector(7 downto 0) := x"00";
     signal fctrl_valid  : std_ulogic := '0';
     signal fctrl_wr_ack : std_ulogic := '0';
@@ -407,6 +416,15 @@ architecture rtl of PANDA_LIGHT is
     signal fctrl_mosi   : std_ulogic := '0';
     signal fctrl_c      : std_ulogic := '0';
     signal fctrl_sn     : std_ulogic := '1';
+    
+    
+    -----------------------------
+    --- IPROG reconfiguration ---
+    -----------------------------
+    
+    -- Inputs
+    signal iprog_clk    : std_ulogic := '0';
+    signal iprog_en     : std_ulogic := '0';
     
 begin
     
@@ -1003,6 +1021,8 @@ begin
                             case tl_dout is
                                 when x"00" => -- send system information via UART
                                     start_sysinfo_to_uart           <= true;
+                                when x"01" => -- reboot
+                                    reboot                          <= '1';
                                 when x"20" => -- load settings from flash
                                     start_settings_read_from_flash  <= true;
                                 when x"21" => -- save settings to flash
@@ -1452,45 +1472,27 @@ begin
     --- IPROG reconfiguration ---
     -----------------------------
     
-    IPROG_RECONF_gen : if ENABLE_IPROG_RECONF generate
+    iprog_clk   <= g_clk;
     
-        type rx_bitfile_addrs_type is array(0 to 1)
-            of std_ulogic_vector(23 downto 0);
-        
-        constant rx_bitfile_addrs   : rx_bitfile_addrs_type := (
-            RX0_BITFILE_ADDR,
-            RX1_BITFILE_ADDR
-        );
-        
-        -- Inputs
-        signal iprog_clk    : std_ulogic := '0';
-        signal iprog_en     : std_ulogic := '0';
-        
+    iprog_enable_proc : process(g_clk)
     begin
-        
-        iprog_clk   <= g_clk;
-        
-        iprog_enable_proc : process(g_clk)
-        begin
-            if rising_edge(g_clk) then
-                -- switch the bitfile if only the inactive RX port is connected
-                iprog_en    <= not both_rx_det_stable and rx_det_stable(1-RX_SEL);
-            end if;
-        end process;
-        
-        
-        IPROG_RECONF_inst : entity work.iprog_reconf
-            generic map (
-                START_ADDR      => rx_bitfile_addrs(1-RX_SEL),
-                FALLBACK_ADDR   => rx_bitfile_addrs(RX_SEL)
-            )
-            port map (
-                CLK => iprog_clk,
-                
-                EN  => iprog_en
-            );
+        if rising_edge(g_clk) then
+            -- switch the bitfile if only the inactive RX port is connected, or a reboot is needed
+            iprog_en    <= (not both_rx_det_stable and rx_det_stable(1-RX_SEL)) or reboot;
+        end if;
+    end process;
     
-    end generate;
+    
+    IPROG_RECONF_inst : entity work.iprog_reconf
+        generic map (
+            START_ADDR      => rx_bitfile_addrs(1-RX_SEL),
+            FALLBACK_ADDR   => rx_bitfile_addrs(RX_SEL)
+        )
+        port map (
+            CLK => iprog_clk,
+            
+            EN  => iprog_en
+        );
     
 end rtl;
 
