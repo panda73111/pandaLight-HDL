@@ -96,6 +96,8 @@ architecture rtl of PANDA_LIGHT is
     
     signal spi_flash_control_stim_busy  : std_ulogic := '0';
     
+    signal reboot   : std_ulogic := '0';
+    
     
     ------------------------
     --- UART USB control ---
@@ -148,7 +150,7 @@ architecture rtl of PANDA_LIGHT is
     --- configurator ---
     --------------------
     
-    -- inputs
+    -- Inputs
     signal conf_clk : std_ulogic := '0';
     signal conf_rst : std_ulogic := '0';
     
@@ -156,15 +158,15 @@ architecture rtl of PANDA_LIGHT is
     signal conf_configure_ledcor    : std_ulogic := '0';
     signal conf_configure_ledex     : std_ulogic := '0';
     
-    signal conf_frame_width     : std_ulogic_vector(10 downto 0) := (others => '0');
-    signal conf_frame_height    : std_ulogic_vector(10 downto 0) := (others => '0');
+    signal conf_frame_width     : std_ulogic_vector(15 downto 0) := x"0000";
+    signal conf_frame_height    : std_ulogic_vector(15 downto 0) := x"0000";
     
     signal conf_settings_addr   : std_ulogic_vector(9 downto 0) := (others => '0');
     signal conf_settings_wr_en  : std_ulogic := '0';
     signal conf_settings_din    : std_ulogic_vector(7 downto 0) := x"00";
     signal conf_settings_dout   : std_ulogic_vector(7 downto 0) := x"00";
     
-    -- outputs
+    -- Outputs
     signal conf_cfg_sel_ledcor  : std_ulogic := '0';
     signal conf_cfg_sel_ledex   : std_ulogic := '0';
     
@@ -179,7 +181,7 @@ architecture rtl of PANDA_LIGHT is
     --- SPI flash control ---
     -------------------------
     
-    -- inputs
+    -- Inputs
     signal fctrl_clk    : std_ulogic := '0';
     signal fctrl_rst    : std_ulogic := '0';
     
@@ -190,7 +192,7 @@ architecture rtl of PANDA_LIGHT is
     signal fctrl_end_wr : std_ulogic := '0';
     signal fctrl_miso   : std_ulogic := '0';
     
-    -- outputs
+    -- Outputs
     signal fctrl_dout   : std_ulogic_vector(7 downto 0) := x"00";
     signal fctrl_valid  : std_ulogic := '0';
     signal fctrl_wr_ack : std_ulogic := '0';
@@ -200,6 +202,15 @@ architecture rtl of PANDA_LIGHT is
     signal fctrl_mosi   : std_ulogic := '0';
     signal fctrl_c      : std_ulogic := '0';
     signal fctrl_sn     : std_ulogic := '1';
+    
+    
+    -----------------------------
+    --- IPROG reconfiguration ---
+    -----------------------------
+    
+    -- Inputs
+    signal iprog_clk    : std_ulogic := '0';
+    signal iprog_en     : std_ulogic := '0';
     
 begin
     
@@ -407,6 +418,8 @@ begin
                             case tl_dout is
                                 when x"00" => -- send system information via UART
                                     start_sysinfo_to_uart           <= true;
+                                when x"01" => -- reboot
+                                    reboot                          <= '1';
                                 when x"20" => -- load settings from flash
                                     start_settings_read_from_flash  <= true;
                                 when x"21" => -- save settings to flash
@@ -585,8 +598,8 @@ begin
         
         counter_expired <= counter(counter'high)='1';
         
-        conf_frame_width    <= stdulv(640, 11);
-        conf_frame_height   <= stdulv(480, 11);
+        conf_frame_width    <= stdulv(1280, conf_frame_width'length);
+        conf_frame_height   <= stdulv(720, conf_frame_height'length);
         
         configurator_stim_proc : process(g_clk, g_rst)
         begin
@@ -852,6 +865,25 @@ begin
         end process;
         
     end generate;
+    
+    
+    -----------------------------
+    --- IPROG reconfiguration ---
+    -----------------------------
+    
+    iprog_clk   <= g_clk;
+    iprog_en    <= reboot;
+    
+    IPROG_RECONF_inst : entity work.iprog_reconf
+        generic map (
+            START_ADDR      => x"000000",
+            FALLBACK_ADDR   => x"000000"
+        )
+        port map (
+            CLK => iprog_clk,
+            
+            EN  => iprog_en
+        );
     
 end rtl;
 
