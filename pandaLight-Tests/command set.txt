@@ -4,20 +4,20 @@
     bit 7..5 - category
     bit 4..0 - specific command
 
-    000xxxxx - system commands                            | implemented | notes
-                                                          |             |
-    00000000 | 0x00 - send system information via UART    | x           |
-    00000001 | 0x01 - reboot                              |             |
-                                                          |             |
-    001xxxxx - settings related commands                  |             |
-                                                          |             |
-    00100000 | 0x20 - load settings from flash            | x           |
-    00100001 | 0x21 - save settings to flash              | x           |
-    00100010 | 0x22 - receive settings from UART          | x           |
-    00100011 | 0x23 - send settings to UART               | x           |
-                                                          |             |
-    010xxxxx - bitfile related commands                   |             |
-                                                          |             |
-    01000000 | 0x40 - receive bitfile from UART           |             | Next bytes: 0: bitfile index (0|1), 1..3: bitfile size
-                                                          |             |
-    011xxxxx - status indications/handshakes from device  |             |
+                    |                         DESCRIPTION | IMPLEMENTED |                                                  NOTES
+   -----------------+-------------------------------------+-------------+--------------------------------------------------------
+    000xxxxx        |                     SYSTEM COMMANDS |             |
+   -----------------+-------------------------------------+-------------+--------------------------------------------------------
+    00000000 (0x00) |    send system information via UART |      X      |
+    00000001 (0x01) |                              reboot |             |
+   -----------------+-------------------------------------+-------------+--------------------------------------------------------
+    001xxxxx        |           SETTINGS RELATED COMMANDS |             |
+   -----------------+-------------------------------------+-------------+--------------------------------------------------------
+    00100000 (0x20) |            load settings from flash |      X      |
+    00100001 (0x21) |              save settings to flash |      X      |
+    00100010 (0x22) |          receive settings from UART |      X      |
+    00100011 (0x23) |               send settings to UART |      X      |
+   -----------------+-------------------------------------+-------------+--------------------------------------------------------
+    010xxxxx        |            BITFILE RELATED COMMANDS |             |
+   -----------------+-------------------------------------+-------------+--------------------------------------------------------
+    01000000 (0x40) |           receive bitfile from UART |      X      | Next bytes: 0: bitfile index (0|1), 1..3: bitfile size
