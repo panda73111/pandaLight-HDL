@@ -261,7 +261,7 @@ begin
                 r.buf_p             := 0;
                 r.buf_ov_wr_en      := '0';
                 r.led_pos           := first_leds_pos(cr.side);
-                r.inner_coords(X)   := x"01";
+                r.inner_coords(X)   := x"0001";
                 r.inner_coords(Y)   := (others => '0');
                 r.buf_di            := FRAME_RGB;
                 if

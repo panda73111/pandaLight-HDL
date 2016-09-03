@@ -118,11 +118,11 @@ architecture rtl of VER_SCANNER is
         led_num         => x"00"
     );
     
-    signal next_inner_y         : unsigned(7 downto 0) := x"00";
+    signal next_inner_y         : unsigned(15 downto 0) := x"0000";
     signal first_leds_pos       : leds_pos_type;
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal overlaps             : boolean := false;
-    signal abs_overlap          : unsigned(7 downto 0) := x"00";
+    signal abs_overlap          : unsigned(15 downto 0) := x"0000";
     signal led_buf              : led_buf_type;
     signal buf_do               : std_ulogic_vector(RGB_BITS-1 downto 0);
     signal ov_buf_do            : std_ulogic_vector(RGB_BITS-1 downto 0);
@@ -249,7 +249,7 @@ begin
             
             when FIRST_LED_FIRST_PIXEL =>
                 tr.led_pos          := first_leds_pos(cr.side);
-                tr.inner_coords(X)  := x"01";
+                tr.inner_coords(X)  := x"0001";
                 tr.inner_coords(Y)  := (others => '0');
                 tr.buf_di           := FRAME_RGB;
                 if
@@ -262,7 +262,7 @@ begin
                 end if;
             
             when LEFT_BORDER_PIXEL =>
-                tr.inner_coords(X)  := x"01";
+                tr.inner_coords(X)  := x"0001";
                 tr.buf_di           := FRAME_RGB;
                 if
                     overlaps and
