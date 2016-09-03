@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
 HOR_LED_COUNT         =  16
-HOR_LED_SCALED_WIDTH  =  96 # 720p: 60 pixel
-HOR_LED_SCALED_HEIGHT = 226 # 720p: 80 pixel
-HOR_LED_SCALED_STEP   = 128 # 720p: 80 pixel
-HOR_LED_SCALED_PAD    =  15 # 720p:  5 pixel
-HOR_LED_SCALED_OFFS   =  16 # 720p: 10 pixel
+HOR_LED_SCALED_WIDTH  =  60 / 1280
+HOR_LED_SCALED_HEIGHT =  80 / 720
+HOR_LED_SCALED_STEP   =  80 / 1280
+HOR_LED_SCALED_PAD    =   5 / 720
+HOR_LED_SCALED_OFFS   =  10 / 1280
 VER_LED_COUNT         =   9
-VER_LED_SCALED_WIDTH  = 128 # 720p: 80 pixel
-VER_LED_SCALED_HEIGHT = 169 # 720p: 60 pixel
-VER_LED_SCALED_STEP   = 226 # 720p: 80 pixel
-VER_LED_SCALED_PAD    =   8 # 720p:  5 pixel
-VER_LED_SCALED_OFFS   =  29 # 720p: 10 pixel
+VER_LED_SCALED_WIDTH  =  80 / 1280
+VER_LED_SCALED_HEIGHT =  60 / 720
+VER_LED_SCALED_STEP   =  80 / 720
+VER_LED_SCALED_PAD    =   5 / 1280
+VER_LED_SCALED_OFFS   =  10 / 720
 START_LED_NUM         =   0
 FRAME_DELAY           =   0
 RGB_MODE              =   0 # standard RGB
@@ -35,21 +35,25 @@ def calcCorrectionTable(corr, minVal, maxVal):
 
 # save the gamma correction value as 4 Bit + 12 Bit fixed point value
 gamma_cor_int   = int(GAMMA_CORRECTION)
-gamma_cor_frac  = int((GAMMA_CORRECTION % 1) * pow(2, 12)); # 12 Bit fraction
+gamma_cor_frac  = int((GAMMA_CORRECTION % 1) * 2 ** 12); # 12 Bit fraction
+
+def fractionToShort(fraction):
+    i = int(fraction * (2 ** 16 - 1))
+    return [i >> 8 & 0xFF, i & 0xFF]
 
 values = [
     HOR_LED_COUNT,
-    HOR_LED_SCALED_WIDTH,
-    HOR_LED_SCALED_HEIGHT,
-    HOR_LED_SCALED_STEP,
-    HOR_LED_SCALED_PAD,
-    HOR_LED_SCALED_OFFS,
+    *fractionToShort(HOR_LED_SCALED_WIDTH),
+    *fractionToShort(HOR_LED_SCALED_HEIGHT),
+    *fractionToShort(HOR_LED_SCALED_STEP),
+    *fractionToShort(HOR_LED_SCALED_PAD),
+    *fractionToShort(HOR_LED_SCALED_OFFS),
     VER_LED_COUNT,
-    VER_LED_SCALED_WIDTH,
-    VER_LED_SCALED_HEIGHT,
-    VER_LED_SCALED_STEP,
-    VER_LED_SCALED_PAD,
-    VER_LED_SCALED_OFFS,
+    *fractionToShort(VER_LED_SCALED_WIDTH),
+    *fractionToShort(VER_LED_SCALED_HEIGHT),
+    *fractionToShort(VER_LED_SCALED_STEP),
+    *fractionToShort(VER_LED_SCALED_PAD),
+    *fractionToShort(VER_LED_SCALED_OFFS),
     START_LED_NUM,
     FRAME_DELAY,
     RGB_MODE,
