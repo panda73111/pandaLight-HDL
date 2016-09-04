@@ -21,7 +21,7 @@ use work.txt_util.all;
 
 entity PANDA_LIGHT is
     generic (
-        RX_SEL              : natural range 0 to 1;
+        RX_SEL              : natural range 0 to 1 := 1;
         PANDALIGHT_MAGIC    : string := "PANDALIGHT";
         VERSION_MAJOR       : natural range 0 to 255 := 0;
         VERSION_MINOR       : natural range 0 to 255 := 1;
