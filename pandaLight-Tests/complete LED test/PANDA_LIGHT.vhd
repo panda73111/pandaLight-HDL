@@ -21,6 +21,7 @@ use work.txt_util.all;
 
 entity PANDA_LIGHT is
     generic (
+        RX_SEL              : natural range 0 to 1;
         PANDALIGHT_MAGIC    : string := "PANDALIGHT";
         VERSION_MAJOR       : natural range 0 to 255 := 0;
         VERSION_MINOR       : natural range 0 to 255 := 1;
@@ -28,7 +29,6 @@ entity PANDA_LIGHT is
         G_CLK_DIV           : positive range 1 to 256 := 2;
         FCTRL_CLK_MULT      : positive :=  2; -- Flash clock: 20 MHz
         FCTRL_CLK_DIV       : positive :=  5;
-        RX_SEL              : natural range 0 to 1 := 0;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
         SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000"
