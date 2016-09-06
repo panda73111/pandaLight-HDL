@@ -84,7 +84,7 @@ architecture rtl of TMDS_DECODER is
     end record;
     
     constant reg_type_def   : reg_type := (
-        state       => WAIT_FOR_SYNC,
+        state       => RESET_CHANNEL_DECODERS,
         resync      => '1',
         hsync       => '0',
         vsync       => '0',
