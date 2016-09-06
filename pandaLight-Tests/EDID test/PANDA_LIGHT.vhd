@@ -13,6 +13,8 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
+library UNISIM;
+use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
 entity PANDA_LIGHT is
@@ -50,10 +52,36 @@ entity PANDA_LIGHT is
         USB_DTRN    : out std_ulogic := '0';
         USB_DCDN    : out std_ulogic := '0';
         USB_RIN     : out std_ulogic := '0';
+        
+        -- BT UART
+        BT_CTSN : in std_ulogic;
+        BT_RTSN : out std_ulogic := '0';
+        BT_RXD  : in std_ulogic;
+        BT_TXD  : out std_ulogic := '1';
+        BT_WAKE : out std_ulogic := '0';
+        BT_RSTN : out std_ulogic := '0';
+        
+        -- SPI Flash
+        FLASH_MISO  : in std_ulogic;
+        FLASH_MOSI  : out std_ulogic := '0';
+        FLASH_CS    : out std_ulogic := '1';
+        FLASH_SCK   : out std_ulogic := '0';
+        
+        -- LEDs
+        LEDS_CLK    : out std_ulogic_vector(1 downto 0) := "00";
+        LEDS_DATA   : out std_ulogic_vector(1 downto 0) := "00";
+        
+        -- PMOD
+        PMOD0   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
+        PMOD1   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
+        PMOD2   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
+        PMOD3   : inout std_ulogic_vector(3 downto 0) := "ZZZZ"
     );
 end PANDA_LIGHT;
 
 architecture rtl of PANDA_LIGHT is
+    
+    attribute keep  : boolean;
     
     constant G_CLK_PERIOD   : real := 50.0 * real(G_CLK_DIV) / real(G_CLK_MULT);
     
@@ -61,6 +89,11 @@ architecture rtl of PANDA_LIGHT is
     signal g_rst    : std_ulogic := '0';
     
     signal g_clk_locked : std_ulogic := '0';
+    
+    signal pmod0_deb    : std_ulogic_vector(3 downto 0) := x"0";
+    signal pmod1_deb    : std_ulogic_vector(3 downto 0) := x"0";
+    signal pmod2_deb    : std_ulogic_vector(3 downto 0) := x"0";
+    signal pmod3_deb    : std_ulogic_vector(3 downto 0) := x"0";
     
     
     ----------------------------
@@ -198,10 +231,58 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    g_rst   <= not g_clk_locked;
+    g_rst   <= not g_clk_locked or pmod2_deb(0);
     
     USB_TXD     <= uart_txd;
-    USB_RTSN    <= not uart_rts;
+    
+    PMOD0   <= tx_det_stable & eddcm_rst & eddcm_busy & eddcm_transm_error;
+    PMOD1   <= "ZZZZ";
+    PMOD2   <= "ZZZZ";
+    PMOD3   <= "ZZZZ";
+    
+    pmod_DEBOUNCE_gen : for i in 0 to 3 generate
+        
+        pmod0_DEBOUNCE_inst : entity work.DEBOUNCE
+            generic map (
+                CYCLE_COUNT => 100
+            )
+            port map (
+                CLK => g_clk,
+                I   => PMOD0(i),
+                O   => pmod0_deb(i)
+            );
+        
+        pmod1_DEBOUNCE_inst : entity work.DEBOUNCE
+            generic map (
+                CYCLE_COUNT => 100
+            )
+            port map (
+                CLK => g_clk,
+                I   => PMOD1(i),
+                O   => pmod1_deb(i)
+            );
+        
+        pmod2_DEBOUNCE_inst : entity work.DEBOUNCE
+            generic map (
+                CYCLE_COUNT => 100
+            )
+            port map (
+                CLK => g_clk,
+                I   => PMOD2(i),
+                O   => pmod2_deb(i)
+            );
+        
+        pmod3_DEBOUNCE_inst : entity work.DEBOUNCE
+            generic map (
+                CYCLE_COUNT => 100
+            )
+            port map (
+                CLK => g_clk,
+                I   => PMOD3(i),
+                O   => pmod3_deb(i)
+            );
+        
+    end generate;
     
     
     ------------------------------------
@@ -209,9 +290,12 @@ begin
     ------------------------------------
     
     -- only enabled chips make 'DET' signals possible!
-    RX_EN(RX_SEL)   <= tx_det_stable;
-    RX_EN(1-RX_SEL) <= tx_det_stable;
+    RX_EN(RX_SEL)   <= '0';
+    RX_EN(1-RX_SEL) <= '0';
     TX_EN           <= '1';
+    
+    TX_SDA  <= eddcm_sda_out;
+    TX_SCL  <= eddcm_scl_out;
     
     tx_channels_out <= rxpt_tx_channels_out;
     
@@ -367,12 +451,10 @@ begin
     --------------------
     
     eddcm_clk   <= g_clk;
-    eddcm_rst   <= rx_rst;
+    eddcm_rst   <= g_rst or not tx_det_stable;
     
-    eddcm_sda_in    <= RX_SDA(RX_SEL);
-    eddcm_sda_out   <= RX_SDA(RX_SEL);
-    eddcm_scl_in    <= RX_SCL(RX_SEL);
-    eddcm_scl_out   <= RX_SCL(RX_SEL);
+    eddcm_sda_in    <= TX_SDA;
+    eddcm_scl_in    <= TX_SCL;
     
     E_DDC_MASTER_inst : entity work.E_DDC_MASTER
         generic map (
@@ -398,7 +480,7 @@ begin
         );
     
     eddcm_stim_gen : if true generate
-        type state_type (
+        type state_type is (
             WAITING_FOR_CONNECT,
             STARTING,
             READING_BLOCK,
@@ -421,7 +503,7 @@ begin
                 case state is
                     
                     when WAITING_FOR_CONNECT =>
-                        if rx_det_stable(RX_SEL)='1' then
+                        if tx_det_stable='1' then
                             state   <= STARTING;
                         end if;
                     
@@ -442,7 +524,7 @@ begin
                         state               <= STARTING;
                     
                     when WAITING_FOR_DISCONNECT =>
-                        if rx_det_stable(RX_SEL)='0' then
+                        if tx_det_stable='0' then
                             state   <= WAITING_FOR_CONNECT;
                         end if;
                     
@@ -462,20 +544,20 @@ begin
     
     uart_cts    <= not USB_CTSN;
     
-    uart_din        <= eddcm_data_out;
-    uart_din_wr_en  <= eddcm_data_out_valid;
+    uart_din    <= eddcm_data_out;
+    uart_wr_en  <= eddcm_data_out_valid;
     
-    UART_CONTROL_inst : entity work.UART_SENDER
+    UART_SENDER_inst : entity work.UART_SENDER
         generic map (
             CLK_IN_PERIOD   => G_CLK_PERIOD,
-            BUFFER_SIZE     => 2048
+            BUFFER_SIZE     => 512
         )
         port map (
             CLK => uart_clk,
             RST => uart_rst,
             
             DIN     => uart_din,
-            WR_EN   => uart_din_wr_en,
+            WR_EN   => uart_wr_en,
             CTS     => uart_cts,
             
             TXD     => uart_txd,
