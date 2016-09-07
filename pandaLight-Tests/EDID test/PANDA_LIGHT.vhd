@@ -206,6 +206,33 @@ architecture rtl of PANDA_LIGHT is
     signal eddcm_data_out_valid : std_ulogic := '0';
     signal eddcm_byte_index     : std_ulogic_vector(6 downto 0) := "0000000";
     
+    
+    -------------------
+    --- E-DDC slave ---
+    -------------------
+    
+    -- Inputs
+    signal eddcs_clk    : std_ulogic := '0';
+    signal eddcs_rst    : std_ulogic := '0';
+    
+    signal eddcs_data_in_addr   : std_ulogic_vector(6 downto 0);
+    signal eddcs_data_in_wr_en  : std_ulogic := '0';
+    signal eddcs_data_in        : std_ulogic_vector(7 downto 0);
+    signal eddcs_block_valid    : std_ulogic := '0';
+    signal eddcs_block_invalid  : std_ulogic := '0';
+    
+    signal eddcs_sda_in : std_ulogic := '1';
+    signal eddcs_scl_in : std_ulogic := '1';
+    
+    -- outputs
+    signal eddcs_sda_out    : std_ulogic := '1';
+    signal eddcs_scl_out    : std_ulogic := '1';
+    
+    signal eddcs_block_check    : std_ulogic := '0';
+    signal eddcs_block_request  : std_ulogic := '0';
+    signal eddcs_block_number   : std_ulogic_vector(7 downto 0) := x"00";
+    signal eddcs_busy           : std_ulogic := '0'
+    
 begin
     
     ------------------------------
@@ -290,9 +317,12 @@ begin
     ------------------------------------
     
     -- only enabled chips make 'DET' signals possible!
-    RX_EN(RX_SEL)   <= '0';
+    RX_EN(RX_SEL)   <= '1';
     RX_EN(1-RX_SEL) <= '0';
     TX_EN           <= '1';
+    
+    RX_SDA(RX_SEL)  <= eddcs_sda_out;
+    RX_SCL(RX_SEL)  <= eddcs_scl_out;
     
     TX_SDA  <= eddcm_sda_out;
     TX_SCL  <= eddcm_scl_out;
@@ -534,6 +564,108 @@ begin
         
     end generate;
     
+    
+    -------------------
+    --- E-DDC slave ---
+    -------------------
+    
+    eddcs_clk   <= g_clk;
+    eddcs_rst   <= rx_rst;
+    
+    eddcs_sda_in    <= RX_SDA(RX_SEL);
+    eddcs_scl_in    <= RX_SCL(RX_SEL);
+    
+    E_DDC_SLAVE_inst : entity work.E_DDC_SLAVE
+        port map (
+            CLK => eddcs_clk,
+            RST => eddcs_rst,
+            
+            DATA_IN_ADDR    => eddcs_data_in_addr,
+            DATA_IN_WR_EN   => eddcs_data_in_wr_en,
+            DATA_IN         => eddcs_data_in,
+            BLOCK_VALID     => block_valid,
+            BLOCK_INVALID   => block_invalid,
+            
+            SDA_IN  => eddcs_sda_in,
+            SDA_OUT => eddcs_sda_out,
+            SCL_IN  => eddcs_scl_in,
+            SCL_OUT => eddcs_scl_out,
+            
+            BLOCK_CHECK     => eddcs_block_check,
+            BLOCK_REQUEST   => eddcs_block_request,
+            BLOCK_NUMBER    => eddcs_block_number,
+            BUSY            => eddcs_busy
+        );
+    
+    eddcs_stim_gen : if true generate
+        type state_type is (
+            WAITING,
+            CHECKING_BLOCK_NUMBER,
+        );
+        
+        type edid_block_type is array(0 to 127) of std_ulogic_vector(7 downto 0);
+        constant edid_block0    : edid_block_type := (
+            x"00", x"FF", x"FF", x"FF", x"FF", x"FF", x"FF", x"00", x"5A", x"63", x"1D", x"E5", x"01", x"01", x"01", x"01",
+            x"20", x"10", x"01", x"03", x"80", x"2B", x"1B", x"78", x"2E", x"CF", x"E5", x"A3", x"5A", x"49", x"A0", x"24",
+            x"13", x"50", x"54", x"BF", x"EF", x"80", x"B3", x"0F", x"81", x"80", x"81", x"40", x"71", x"4F", x"31", x"0A",
+            x"01", x"01", x"01", x"01", x"01", x"01", x"21", x"39", x"90", x"30", x"62", x"1A", x"27", x"40", x"68", x"B0",
+            x"36", x"00", x"B1", x"0F", x"11", x"00", x"00", x"1C", x"00", x"00", x"00", x"FF", x"00", x"51", x"36", x"59",
+            x"30", x"36", x"30", x"30", x"30", x"30", x"30", x"30", x"30", x"0A", x"00", x"00", x"00", x"FD", x"00", x"32",
+            x"4B", x"1E", x"52", x"11", x"00", x"0A", x"20", x"20", x"20", x"20", x"20", x"20", x"00", x"00", x"00", x"FC",
+            x"00", x"56", x"58", x"32", x"30", x"32", x"35", x"77", x"6D", x"0A", x"20", x"20", x"20", x"20", x"00", x"FE"
+        );
+        
+        signal state        : state_type := WAITING;
+        signal rd_p         : natural range 0 to 127 := 0;
+        signal byte_counter : unsigned(7 downto 0) := x"7E";
+    begin
+        
+        eddcs_stim_proc : process(eddcs_rst, eddcs_clk)
+        begin
+            if eddcs_rst='1' then
+                state               <= WAITING;
+                eddcs_block_valid   <= '0';
+                eddcs_data_in_addr  <= "1111111";
+                eddcs_data_in_wr_en <= '0';
+                rd_p                <= 0;
+                byte_counter        <= x"FE";
+            elsif rising_edge(eddcs_clk) then
+                eddcs_block_valid   <= '0';
+                eddcs_data_in_addr  <= "1111111";
+                eddcs_data_in_wr_en <= '0';
+                rd_p                <= 0;
+                byte_counter        <= x"7E";
+                case state is
+                    
+                    when WAITING =>
+                        if eddcs_block_check='1' then
+                            state   <= CHECKING_BLOCK_NUMBER;
+                        end if;
+                        if eddcs_block_request='1' then
+                            state   <= WRITING_BLOCK;
+                        end if;
+                    
+                    when CHECKING_BLOCK_NUMBER =>
+                        state   <= WAITING;
+                        if eddcs_block_number=x"00" then
+                            eddcs_block_valid   <= '1';
+                        end if;
+                    
+                    when WRITING_BLOCK =>
+                        eddcs_data_in_addr  <= eddcs_data_in_addr+1;
+                        eddcs_data_in_wr_en <= '1';
+                        eddcs_data_in       <= edid_block0(rd_p);
+                        rd_p                <= rd_p+1;
+                        byte_counter        <= byte_counter-1;
+                        if byte_counter(7)='1' then
+                            state   <= WAITING;
+                        end if;
+                    
+                end case;
+            end if;
+        end process;
+        
+    end generate;
     
     ----------------
     --- USB UART ---
