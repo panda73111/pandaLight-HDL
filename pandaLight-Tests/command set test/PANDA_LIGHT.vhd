@@ -33,6 +33,23 @@ entity PANDA_LIGHT is
     port (
         CLK20   : in std_ulogic;
         
+        -- HDMI
+        RX_CHANNELS_IN_P    : in std_ulogic_vector(7 downto 0);
+        RX_CHANNELS_IN_N    : in std_ulogic_vector(7 downto 0);
+        RX_SDA              : inout std_ulogic_vector(1 downto 0) := "ZZ";
+        RX_SCL              : inout std_ulogic_vector(1 downto 0) := "ZZ";
+        RX_CEC              : inout std_ulogic_vector(1 downto 0) := "ZZ";
+        RX_DET              : in std_ulogic_vector(1 downto 0);
+        RX_EN               : out std_ulogic_vector(1 downto 0) := "00";
+        
+        TX_CHANNELS_OUT_P   : out std_ulogic_vector(3 downto 0) := "1111";
+        TX_CHANNELS_OUT_N   : out std_ulogic_vector(3 downto 0) := "1111";
+        TX_SDA              : inout std_ulogic := 'Z';
+        TX_SCL              : inout std_ulogic := 'Z';
+        TX_CEC              : inout std_ulogic := 'Z';
+        TX_DET              : in std_ulogic := '0';
+        TX_EN               : out std_ulogic := '0';
+        
         -- USB UART
         USB_RXD     : in std_ulogic;
         USB_TXD     : out std_ulogic := '1';
@@ -57,8 +74,12 @@ entity PANDA_LIGHT is
         FLASH_CS    : out std_ulogic := '1';
         FLASH_SCK   : out std_ulogic := '0';
         
+        -- LEDs
+        LEDS_CLK    : out std_ulogic_vector(1 downto 0) := "00";
+        LEDS_DATA   : out std_ulogic_vector(1 downto 0) := "00";
+        
         -- PMOD
-        PMOD0   : in std_ulogic_vector(3 downto 0) := "ZZZZ";
+        PMOD0   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
         PMOD1   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
         PMOD2   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
         PMOD3   : inout std_ulogic_vector(3 downto 0) := "ZZZZ"
@@ -86,9 +107,12 @@ architecture rtl of PANDA_LIGHT is
     signal start_settings_read_from_uart    : boolean := false;
     signal start_settings_write_to_uart     : boolean := false;
     signal start_bitfile_read_from_uart     : boolean := false;
+    signal start_led_read_from_uart         : boolean := false;
     
     signal bitfile_index    : unsigned(0 downto 0) := "0";
     signal bitfile_size     : unsigned(23 downto 0) := x"000000";
+    
+    signal uart_led_count   : unsigned(7 downto 0) := x"00";
     
     signal usb_dsrn_deb         : std_ulogic := '0';
     signal usb_dsrn_deb_q       : std_ulogic := '0';
@@ -97,6 +121,23 @@ architecture rtl of PANDA_LIGHT is
     signal spi_flash_control_stim_busy  : std_ulogic := '0';
     
     signal reboot   : std_ulogic := '0';
+    
+    
+    -------------------
+    --- LED control ---
+    -------------------
+    
+    signal lctrl_clk    : std_ulogic := '0';
+    signal lctrl_rst    : std_ulogic := '0';
+    
+    signal lctrl_mode   : std_ulogic_vector(1 downto 0) := "00";
+    
+    signal lctrl_led_vsync      : std_ulogic := '0';
+    signal lctrl_led_rgb        : std_ulogic_vector(23 downto 0) := x"000000";
+    signal lctrl_led_rgb_wr_en  : std_ulogic := '0';
+    
+    signal lctrl_leds_clk   : std_ulogic := '0';
+    signal lctrl_leds_data  : std_ulogic := '0';
     
     
     ------------------------
@@ -237,7 +278,7 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    g_rst   <= '1' when g_clk_locked='0' or pmod0_deb(3)='1' else '0';
+    g_rst   <= not g_clk_locked='0' or pmod0_deb(3);
     
     usb_connected   <= usb_dsrn_deb='0';
     
@@ -245,13 +286,16 @@ begin
     FLASH_CS    <= fctrl_sn;
     FLASH_SCK   <= fctrl_c;
     
+    LEDS_CLK    <= lctrl_leds_clk & lctrl_leds_clk;
+    LEDS_DATA   <= lctrl_leds_data & lctrl_leds_data;
+    
+    USB_TXD     <= usbctrl_txd;
+    USB_RTSN    <= not (usbctrl_rts and not fctrl_afull);
+    
     PMOD1(0)    <= blinker;
     PMOD1(1)    <= fctrl_afull;
     PMOD1(2)    <= spi_flash_control_stim_busy;
     PMOD1(3)    <= not tl_rst and tl_busy;
-    
-    USB_TXD     <= usbctrl_txd;
-    USB_RTSN    <= not (usbctrl_rts and not fctrl_afull);
     
     pmod0_DEBOUNCE_gen : for i in 0 to 3 generate
         
@@ -274,6 +318,97 @@ begin
             blinker         <= blink_counter(blink_counter'high);
         end if;
     end process;
+    
+    
+    ------------------
+    -- LED control ---
+    ------------------
+    
+    lctrl_clk   <= g_clk;
+    lctrl_rst   <= g_rst;
+    
+    lctrl_mode  <= "00";
+    
+    LED_CONTROL_inst : entity work.LED_CONTROL
+        generic map (
+            CLK_IN_PERIOD           => G_CLK_PERIOD,
+            WS2801_LEDS_CLK_PERIOD  => 1000.0 -- 1 MHz
+        )
+        port map (
+            CLK => lctrl_clk,
+            RST => lctrl_rst,
+            
+            MODE    => lctrl_mode,
+            
+            LED_VSYNC       => lctrl_led_vsync,
+            LED_RGB         => lctrl_led_rgb,
+            LED_RGB_WR_EN   => lctrl_led_rgb_wr_en,
+            
+            LEDS_CLK    => lctrl_leds_clk,
+            LEDS_DATA   => lctrl_leds_data
+        );
+    
+    led_control_stim_gen : if true generate
+        type state_type is (
+            WAITING_FOR_START,
+            READING_LED_RED,
+            READING_LED_GREEN,
+            READING_LED_BLUE
+        );
+        
+        signal state            : state_type := WAITING_FOR_START;
+        signal counter          : unsigned(8 downto 0);
+        signal counter_expired  : boolean := false;
+    begin
+        
+        counter_expired <= counter(8)='1';
+        
+        led_control_stim_proc : process(lctrl_clk, lctrl_rst)
+        begin
+            if lctrl_rst='1' then
+                state               <= WAITING_FOR_START;
+                lctrl_led_rgb_wr_en <= '0';
+                lctrl_led_vsync     <= '1';
+            elsif rising_edge(lctrl_clk) then
+                lctrl_led_rgb_wr_en <= '0';
+                case state is
+                
+                    when WAITING_FOR_START =>
+                        lctrl_led_vsync <= '1';
+                        counter         <= uart_led_count-1;
+                        if start_led_read_from_uart then
+                            state           <= READING_LEDS;
+                            lctrl_led_vsync <= '0';
+                        end if;
+                    
+                    when READING_LED_RED =>
+                        lctrl_led_rgb(23 downto 16) <= tl_dout;
+                        if tl_dout_valid='1' then
+                            counter <= counter-1;
+                            state   <= READING_LED_GREEN;
+                        end if;
+                    
+                    when READING_LED_GREEN =>
+                        lctrl_led_rgb(15 downto 8)  <= tl_dout;
+                        if tl_dout_valid='1' then
+                            state   <= READING_LED_BLUE;
+                        end if;
+                    
+                    when READING_LED_BLUE =>
+                        lctrl_led_rgb(7 downto 0)   <= tl_dout;
+                        if tl_dout_valid='1' then
+                            lctrl_led_rgb_wr_en <= '1';
+                            state               <= READING_LED_RED;
+                            if counter_expired then
+                                state   <= WAITING_FOR_START;
+                            end if;
+                        end if;
+                    
+                end case;
+            end if;
+        end process;
+        
+    end generate;
     
     
     ------------------------
@@ -367,7 +502,8 @@ begin
             WAITING_FOR_COMMAND,
             RECEIVING_DATA_FROM_UART,
             RECEIVING_BITFILE_INDEX_FROM_UART,
-            RECEIVING_BITFILE_SIZE_FROM_UART
+            RECEIVING_BITFILE_SIZE_FROM_UART,
+            RECEIVING_LED_COUNT_FROM_UART
         );
         
         signal cmd_eval_state   : cmd_eval_state_type := WAITING_FOR_COMMAND;
@@ -404,6 +540,7 @@ begin
                 start_settings_read_from_uart   <= false;
                 start_settings_write_to_uart    <= false;
                 start_bitfile_read_from_uart    <= false;
+                start_led_read_from_uart        <= false;
             elsif rising_edge(tl_clk) then
                 start_sysinfo_to_uart           <= false;
                 start_settings_read_from_flash  <= false;
@@ -411,6 +548,7 @@ begin
                 start_settings_read_from_uart   <= false;
                 start_settings_write_to_uart    <= false;
                 start_bitfile_read_from_uart    <= false;
+                start_led_read_from_uart        <= false;
                 case cmd_eval_state is
                     
                     when WAITING_FOR_COMMAND =>
@@ -432,6 +570,8 @@ begin
                                     start_settings_write_to_uart    <= true;
                                 when x"40" => -- receive bitfile from UART
                                     cmd_eval_state      <= RECEIVING_BITFILE_INDEX_FROM_UART;
+                                when x"60" => -- receive LED colors from UART
+                                    cmd_eval_state      <= RECEIVING_LED_COUNT_FROM_UART;
                                 when others =>
                                     null;
                             end case;
@@ -463,6 +603,14 @@ begin
                                 start_bitfile_read_from_uart    <= true;
                                 cmd_eval_state                  <= RECEIVING_DATA_FROM_UART;
                             end if;
+                        end if;
+                    
+                    when RECEIVING_LED_COUNT_FROM_UART =>
+                        cmd_eval_counter    <= uns((tl_dout(6 downto 0) & '0') + tl_dout)-2; -- tl_dout * 3 - 2
+                        if tl_dout_valid='1' then
+                            uart_led_count              <= uns(tl_dout);
+                            start_led_read_from_uart    <= true;
+                            cmd_eval_state              <= RECEIVING_DATA_FROM_UART;
                         end if;
                     
                 end case;
