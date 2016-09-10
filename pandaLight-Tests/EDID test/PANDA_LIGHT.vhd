@@ -231,7 +231,7 @@ architecture rtl of PANDA_LIGHT is
     signal eddcs_block_check    : std_ulogic := '0';
     signal eddcs_block_request  : std_ulogic := '0';
     signal eddcs_block_number   : std_ulogic_vector(7 downto 0) := x"00";
-    signal eddcs_busy           : std_ulogic := '0'
+    signal eddcs_busy           : std_ulogic := '0';
     
 begin
     
@@ -263,7 +263,7 @@ begin
     USB_TXD     <= uart_txd;
     
     PMOD0   <= tx_det_stable & eddcm_rst & eddcm_busy & eddcm_transm_error;
-    PMOD1   <= "ZZZZ";
+    PMOD1   <= eddcm_sda_in & eddcm_scl_in & eddcm_sda_out & eddcm_scl_out;
     PMOD2   <= "ZZZZ";
     PMOD3   <= "ZZZZ";
     
@@ -335,7 +335,7 @@ begin
             port map (
                 CLK => g_clk,
                 
-                DIN     => rx_det(i),
+                DIN     => RX_DET(i),
                 DOUT    => rx_det_sync(i)
             );
         
@@ -356,7 +356,7 @@ begin
         port map (
             CLK => g_clk,
             
-            DIN     => tx_det,
+            DIN     => TX_DET,
             DOUT    => tx_det_sync
         );
         
@@ -488,7 +488,7 @@ begin
     
     E_DDC_MASTER_inst : entity work.E_DDC_MASTER
         generic map (
-            CLK_IN_PERIOD   => G_CLK_PERIOD
+            CLK_IN_PERIOD   => G_CLK_PERIOD/10.0
         )
         port map (
             CLK => eddcm_clk,
@@ -533,7 +533,7 @@ begin
                 case state is
                     
                     when WAITING_FOR_CONNECT =>
-                        if tx_det_stable='1' then
+                        if pmod2_deb(1)='1' then
                             state   <= STARTING;
                         end if;
                     
@@ -554,7 +554,7 @@ begin
                         state               <= STARTING;
                     
                     when WAITING_FOR_DISCONNECT =>
-                        if tx_det_stable='0' then
+                        if pmod2_deb(1)='0' then
                             state   <= WAITING_FOR_CONNECT;
                         end if;
                     
@@ -583,8 +583,8 @@ begin
             DATA_IN_ADDR    => eddcs_data_in_addr,
             DATA_IN_WR_EN   => eddcs_data_in_wr_en,
             DATA_IN         => eddcs_data_in,
-            BLOCK_VALID     => block_valid,
-            BLOCK_INVALID   => block_invalid,
+            BLOCK_VALID     => eddcs_block_valid,
+            BLOCK_INVALID   => eddcs_block_invalid,
             
             SDA_IN  => eddcs_sda_in,
             SDA_OUT => eddcs_sda_out,
@@ -601,6 +601,7 @@ begin
         type state_type is (
             WAITING,
             CHECKING_BLOCK_NUMBER,
+            WRITING_BLOCK
         );
         
         type edid_block_type is array(0 to 127) of std_ulogic_vector(7 downto 0);
