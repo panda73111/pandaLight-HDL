@@ -253,14 +253,7 @@ begin
                 elsif scl_rise then
                     r.scl_out   := '1';
                 elsif scl_high then
-                    if SDA_IN='1' and BLOCK_NUMBER /= x"00" then
-                        -- If the receiver is not E-EDID compliant, this NACK can be
-                        -- ignored if the requested block number is 0, since the first
-                        -- block will always be available. If the BLOCK_NUMBER is greater
-                        -- than 0 however, that block should have been available but
-                        -- is not, and this NACK is an error.
-                        r.error := '1';
-                    end if;
+                    -- don't care (legacy DDC displays send NACK)
                 elsif scl_fall then
                     r.scl_out   := '0';
                     if cr.error='1' then
@@ -314,8 +307,12 @@ begin
                 elsif scl_rise then
                     r.scl_out   := '1';
                 elsif scl_high then
-                    if SDA_IN='1' then
-                        -- not acknowledged
+                    if SDA_IN='1' and BLOCK_NUMBER /= x"00" then
+                        -- If the receiver is not E-EDID compliant, this NACK can be
+                        -- ignored if the requested block number is 0, since the first
+                        -- block will always be available. If the BLOCK_NUMBER is greater
+                        -- than 0 however, that block should have been available but
+                        -- is not, and this NACK is an error.
                         r.error := '1';
                     end if;
                 elsif scl_fall then
