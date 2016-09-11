@@ -149,8 +149,8 @@ architecture rtl of E_DDC_MASTER is
     
 begin
     
-    SDA_OUT <= cur_reg.sda_out;
-    SCL_OUT <= cur_reg.scl_out;
+    SDA_OUT <= '0' when cur_reg.sda_out='0' else 'Z';
+    SCL_OUT <= '0' when cur_reg.scl_out='0' else 'Z';
     
     BUSY            <= '0' when cur_reg.state=WAIT_FOR_START else '1';
     TRANSM_ERROR    <= cur_reg.error;
