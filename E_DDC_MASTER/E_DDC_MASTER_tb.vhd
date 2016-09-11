@@ -108,14 +108,13 @@ BEGIN
     -- clock generation
     clk <= not clk after clk_period / 2;
     
-    slave1_inst : entity work.DDC_EDID_MASTER_tb_slave1
+    slave1_inst : entity work.test_edid_slave
         generic map (
             VERBOSE     => false,
             CLK_PERIOD  => receiver_clk_period
         )
         port map (
             CLK => clk,
-            RST => rst,
             
             SDA_IN  => slave1_sda_in,
             SDA_OUT => slave1_sda_out,

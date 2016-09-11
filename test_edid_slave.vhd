@@ -27,38 +27,38 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 use work.help_funcs.all;
 use work.txt_util.all;
-use work.DDC_EDID_tb_funcs.all;
+use work.ddc_edid_tb_funcs.all;
 
-entity DDC_EDID_MASTER_tb_slave1 is
+entity test_edid_slave is
     generic (
-        VERBOSE             : boolean;
+        CLK_PERIOD          : time;
+        VERBOSE             : boolean := false;
         CORE_NAME           : string := "Receiver 1";
         WR_ADDR             : std_ulogic_vector(7 downto 0) := x"A0";
         RD_ADDR             : std_ulogic_vector(7 downto 0) := x"A1";
-        STRETCH_DURATION    : time := 10 us;
-        CLK_PERIOD          : time
+        STRETCH_DURATION    : time := 10 us
     );
     port (
         CLK     : in std_ulogic;
-        RST     : in std_ulogic;
         
         SDA_IN  : in std_ulogic;
         SDA_OUT : out std_ulogic := '1';
         SCL_IN  : in std_ulogic;
         SCL_OUT : out std_ulogic := '1';
         
-        ACTIVATE            : in std_ulogic;
-        CLOCK_STRETCHING    : in std_ulogic;
-        BYTE_READ_VALID     : in std_ulogic;
-        BYTE_READ           : in std_ulogic_vector(7 downto 0);
-        BYTE_READ_INDEX     : in std_ulogic_vector(6 downto 0);
+        ACTIVATE            : in std_ulogic := '1';
+        CLOCK_STRETCHING    : in std_ulogic := '0';
+        BYTE_READ_VALID     : in std_ulogic := '0';
+        BYTE_READ           : in std_ulogic_vector(7 downto 0) := x"00";
+        BYTE_READ_INDEX     : in std_ulogic_vector(6 downto 0) := "0000000";
+        
         BUSY                : out std_ulogic := '0';
         TRANSM_ERROR        : out std_ulogic := '0';
         READ_ERROR          : out std_ulogic := '0'
     );
-end DDC_EDID_MASTER_tb_slave1;
+end test_edid_slave;
 
-architecture rtl of DDC_EDID_MASTER_tb_slave1 is
+architecture rtl of test_edid_slave is
     
     type edid_block_type is array(0 to 127) of std_ulogic_vector(7 downto 0);
     constant test1_edid_block0  : edid_block_type := (
