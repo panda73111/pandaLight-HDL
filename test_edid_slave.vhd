@@ -85,7 +85,7 @@ begin
         active  <= false;
         BUSY    <= '0';
         
-        wait until ACTIVATE = '1';
+        if ACTIVATE='0' then wait until ACTIVATE = '1'; end if;
         assert not VERBOSE
             report CORE_NAME & ": Activated"
             severity NOTE;
