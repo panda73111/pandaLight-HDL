@@ -19,7 +19,7 @@ use work.help_funcs.all;
 
 entity PANDA_LIGHT is
     generic (
-        RX_SEL      : natural range 0 to 1 := 0;
+        RX_SEL      : natural range 0 to 1 := 1;
         G_CLK_MULT  : positive range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
         G_CLK_DIV   : positive range 1 to 256 := 2
     );
@@ -29,16 +29,16 @@ entity PANDA_LIGHT is
         -- HDMI
         RX_CHANNELS_IN_P    : in std_ulogic_vector(7 downto 0);
         RX_CHANNELS_IN_N    : in std_ulogic_vector(7 downto 0);
-        RX_SDA              : inout std_ulogic_vector(1 downto 0) := "ZZ";
-        RX_SCL              : inout std_ulogic_vector(1 downto 0) := "ZZ";
+        RX_SDA              : inout std_logic_vector(1 downto 0) := "ZZ";
+        RX_SCL              : inout std_logic_vector(1 downto 0) := "ZZ";
         RX_CEC              : inout std_ulogic_vector(1 downto 0) := "ZZ";
         RX_DET              : in std_ulogic_vector(1 downto 0);
         RX_EN               : out std_ulogic_vector(1 downto 0) := "00";
         
         TX_CHANNELS_OUT_P   : out std_ulogic_vector(3 downto 0) := "1111";
         TX_CHANNELS_OUT_N   : out std_ulogic_vector(3 downto 0) := "1111";
-        TX_SDA              : inout std_ulogic := 'Z';
-        TX_SCL              : inout std_ulogic := 'Z';
+        TX_SDA              : inout std_logic := 'Z';
+        TX_SCL              : inout std_logic := 'Z';
         TX_CEC              : inout std_ulogic := 'Z';
         TX_DET              : in std_ulogic := '0';
         TX_EN               : out std_ulogic := '0';
@@ -72,10 +72,10 @@ entity PANDA_LIGHT is
         LEDS_DATA   : out std_ulogic_vector(1 downto 0) := "00";
         
         -- PMOD
-        PMOD0   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
-        PMOD1   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
-        PMOD2   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
-        PMOD3   : inout std_ulogic_vector(3 downto 0) := "ZZZZ"
+        PMOD0   : inout std_logic_vector(3 downto 0) := "ZZZZ";
+        PMOD1   : inout std_logic_vector(3 downto 0) := "ZZZZ";
+        PMOD2   : inout std_logic_vector(3 downto 0) := "ZZZZ";
+        PMOD3   : inout std_logic_vector(3 downto 0) := "ZZZZ"
     );
 end PANDA_LIGHT;
 
@@ -90,10 +90,7 @@ architecture rtl of PANDA_LIGHT is
     
     signal g_clk_locked : std_ulogic := '0';
     
-    signal pmod0_deb    : std_ulogic_vector(3 downto 0) := x"0";
-    signal pmod1_deb    : std_ulogic_vector(3 downto 0) := x"0";
-    signal pmod2_deb    : std_ulogic_vector(3 downto 0) := x"0";
-    signal pmod3_deb    : std_ulogic_vector(3 downto 0) := x"0";
+    signal pmod2_deb        : std_ulogic_vector(3 downto 0) := x"0";
     
     
     ----------------------------
@@ -215,9 +212,9 @@ architecture rtl of PANDA_LIGHT is
     signal eddcs_clk    : std_ulogic := '0';
     signal eddcs_rst    : std_ulogic := '0';
     
-    signal eddcs_data_in_addr   : std_ulogic_vector(6 downto 0);
+    signal eddcs_data_in_addr   : std_ulogic_vector(6 downto 0) := "0000000";
     signal eddcs_data_in_wr_en  : std_ulogic := '0';
-    signal eddcs_data_in        : std_ulogic_vector(7 downto 0);
+    signal eddcs_data_in        : std_ulogic_vector(7 downto 0) := x"00";
     signal eddcs_block_valid    : std_ulogic := '0';
     signal eddcs_block_invalid  : std_ulogic := '0';
     
@@ -262,32 +259,7 @@ begin
     
     USB_TXD     <= uart_txd;
     
-    PMOD0   <= tx_det_stable & eddcm_rst & eddcm_busy & eddcm_transm_error;
-    PMOD1   <= eddcm_sda_in & eddcm_scl_in & eddcm_sda_out & eddcm_scl_out;
-    PMOD2   <= "ZZZZ";
-    PMOD3   <= "ZZZZ";
-    
-    pmod_DEBOUNCE_gen : for i in 0 to 3 generate
-        
-        pmod0_DEBOUNCE_inst : entity work.DEBOUNCE
-            generic map (
-                CYCLE_COUNT => 100
-            )
-            port map (
-                CLK => g_clk,
-                I   => PMOD0(i),
-                O   => pmod0_deb(i)
-            );
-        
-        pmod1_DEBOUNCE_inst : entity work.DEBOUNCE
-            generic map (
-                CYCLE_COUNT => 100
-            )
-            port map (
-                CLK => g_clk,
-                I   => PMOD1(i),
-                O   => pmod1_deb(i)
-            );
+    pmod0_DEBOUNCE_gen : for i in 0 to 3 generate
         
         pmod2_DEBOUNCE_inst : entity work.DEBOUNCE
             generic map (
@@ -299,16 +271,6 @@ begin
                 O   => pmod2_deb(i)
             );
         
-        pmod3_DEBOUNCE_inst : entity work.DEBOUNCE
-            generic map (
-                CYCLE_COUNT => 100
-            )
-            port map (
-                CLK => g_clk,
-                I   => PMOD3(i),
-                O   => pmod3_deb(i)
-            );
-        
     end generate;
     
     
@@ -317,9 +279,9 @@ begin
     ------------------------------------
     
     -- only enabled chips make 'DET' signals possible!
-    RX_EN(RX_SEL)   <= '1';
+    RX_EN(RX_SEL)   <= not g_rst;
     RX_EN(1-RX_SEL) <= '0';
-    TX_EN           <= '1';
+    TX_EN           <= not g_rst;
     
     RX_SDA(RX_SEL)  <= eddcs_sda_out;
     RX_SCL(RX_SEL)  <= eddcs_scl_out;
@@ -483,12 +445,12 @@ begin
     eddcm_clk   <= g_clk;
     eddcm_rst   <= g_rst or not tx_det_stable;
     
-    eddcm_sda_in    <= TX_SDA;
-    eddcm_scl_in    <= TX_SCL;
+    eddcm_sda_in    <= '0' when TX_SDA='0' else '1';
+    eddcm_scl_in    <= '0' when TX_SCL='0' else '1';
     
     E_DDC_MASTER_inst : entity work.E_DDC_MASTER
         generic map (
-            CLK_IN_PERIOD   => G_CLK_PERIOD/10.0
+            CLK_IN_PERIOD   => G_CLK_PERIOD
         )
         port map (
             CLK => eddcm_clk,
@@ -513,6 +475,7 @@ begin
         type state_type is (
             WAITING_FOR_CONNECT,
             STARTING,
+            WAITING_FOR_START,
             READING_BLOCK,
             INCREMENTING_BLOCK_NUMBER,
             WAITING_FOR_DISCONNECT
@@ -533,13 +496,19 @@ begin
                 case state is
                     
                     when WAITING_FOR_CONNECT =>
-                        if pmod2_deb(1)='1' then
+                        eddcm_block_number  <= x"00";
+                        if tx_det_stable='1' then
                             state   <= STARTING;
                         end if;
                     
                     when STARTING =>
                         eddcm_start <= '1';
-                        state       <= READING_BLOCK;
+                        state       <= WAITING_FOR_START;
+                    
+                    when WAITING_FOR_START =>
+                        if eddcm_busy='1' then
+                            state   <= READING_BLOCK;
+                        end if;
                     
                     when READING_BLOCK =>
                         if eddcm_busy='0' then
@@ -554,7 +523,7 @@ begin
                         state               <= STARTING;
                     
                     when WAITING_FOR_DISCONNECT =>
-                        if pmod2_deb(1)='0' then
+                        if tx_det_stable='0' then
                             state   <= WAITING_FOR_CONNECT;
                         end if;
                     
@@ -572,8 +541,8 @@ begin
     eddcs_clk   <= g_clk;
     eddcs_rst   <= rx_rst;
     
-    eddcs_sda_in    <= RX_SDA(RX_SEL);
-    eddcs_scl_in    <= RX_SCL(RX_SEL);
+    eddcs_sda_in    <= '0' when RX_SDA(RX_SEL)='0' else '1';
+    eddcs_scl_in    <= '0' when RX_SCL(RX_SEL)='0' else '1';
     
     E_DDC_SLAVE_inst : entity work.E_DDC_SLAVE
         port map (
@@ -626,12 +595,14 @@ begin
             if eddcs_rst='1' then
                 state               <= WAITING;
                 eddcs_block_valid   <= '0';
+                eddcs_block_invalid <= '0';
                 eddcs_data_in_addr  <= "1111111";
                 eddcs_data_in_wr_en <= '0';
                 rd_p                <= 0;
-                byte_counter        <= x"FE";
+                byte_counter        <= x"7E";
             elsif rising_edge(eddcs_clk) then
                 eddcs_block_valid   <= '0';
+                eddcs_block_invalid <= '0';
                 eddcs_data_in_addr  <= "1111111";
                 eddcs_data_in_wr_en <= '0';
                 rd_p                <= 0;
@@ -650,6 +621,8 @@ begin
                         state   <= WAITING;
                         if eddcs_block_number=x"00" then
                             eddcs_block_valid   <= '1';
+                        else
+                            eddcs_block_invalid <= '1';
                         end if;
                     
                     when WRITING_BLOCK =>
