@@ -85,7 +85,7 @@ begin
         active  <= false;
         BUSY    <= '0';
         
-        if ACTIVATE='0' then wait until ACTIVATE = '1'; end if;
+        if ACTIVATE='0' then wait until ACTIVATE='1'; end if;
         assert not VERBOSE
             report CORE_NAME & ": Activated"
             severity NOTE;
@@ -104,7 +104,7 @@ begin
         
         -- send ACK
         send_ack(VERBOSE, CORE_NAME, SCL_IN, SDA_OUT, CLK_PERIOD);
-        if CLOCK_STRETCHING = '1' then
+        if CLOCK_STRETCHING='1' then
             stretch_clock(VERBOSE, CORE_NAME, SCL_OUT, STRETCH_DURATION);
         end if;
         
@@ -113,7 +113,7 @@ begin
         
         -- send ACK
         send_ack(VERBOSE, CORE_NAME, SCL_IN, SDA_OUT, CLK_PERIOD);
-        if CLOCK_STRETCHING = '1' then
+        if CLOCK_STRETCHING='1' then
             stretch_clock(VERBOSE, CORE_NAME, SCL_OUT, STRETCH_DURATION);
         end if;
         
@@ -127,7 +127,7 @@ begin
         
         -- send ACK
         send_ack(VERBOSE, CORE_NAME, SCL_IN, SDA_OUT, CLK_PERIOD);
-        if CLOCK_STRETCHING = '1' then
+        if CLOCK_STRETCHING='1' then
             stretch_clock(VERBOSE, CORE_NAME, SCL_OUT, STRETCH_DURATION);
         end if;
         
@@ -148,7 +148,7 @@ begin
                 end if;
                 wait_for_stop(VERBOSE, CORE_NAME, SCL_IN, SDA_IN);
                 exit;
-            elsif CLOCK_STRETCHING = '1' then
+            elsif CLOCK_STRETCHING='1' then
                 stretch_clock(VERBOSE, CORE_NAME, SCL_OUT, STRETCH_DURATION);
             end if;
         end loop;
@@ -162,10 +162,10 @@ begin
         READ_ERROR  <= '0';
         while active loop
             wait until rising_edge(CLK);
-            if BYTE_READ_VALID = '1' then
+            if BYTE_READ_VALID='1' then
                 index       := int(BYTE_READ_INDEX);
                 edid_byte   := test1_edid_block0(index);
-                if BYTE_READ /= edid_byte then
+                if BYTE_READ/=edid_byte then
                     report CORE_NAME & ": Byte " & integer'image(index) &
                         " read by master does not match byte of EDID block: sent 0x" &
                         hstr(edid_byte) & ", read 0x" & hstr(BYTE_READ)
