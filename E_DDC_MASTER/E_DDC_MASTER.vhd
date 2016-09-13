@@ -142,10 +142,11 @@ architecture rtl of E_DDC_MASTER is
         byte_count      => "0000000"
     );
     
-    signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal scl_rise, scl_fall   : boolean := false;
-    signal scl_high, scl_low    : boolean := false;
-    signal segment_pointer      : std_ulogic_vector(7 downto 0) := x"00";
+    signal cur_reg, next_reg        : reg_type := reg_type_def;
+    signal sda_in_sync, scl_in_sync : std_ulogic := '0';
+    signal scl_rise, scl_fall       : boolean := false;
+    signal scl_high, scl_low        : boolean := false;
+    signal segment_pointer          : std_ulogic_vector(7 downto 0) := x"00";
     
 begin
     
@@ -167,7 +168,27 @@ begin
     -- divide by two, every segment contains two blocks
     segment_pointer <= '0' & BLOCK_NUMBER(7 downto 1);
     
-    stm_proc : process(RST, cur_reg, START, SDA_IN, SCL_IN,
+    SCL_IN_SIGNAL_SYNC_inst : entity work.SIGNAL_SYNC
+        generic map (
+            DEFAULT_VALUE   => '1'
+        )
+        port map (
+            CLK     => CLK,
+            DIN     => SCL_IN,
+            DOUT    => scl_in_sync
+        );
+    
+    SDA_IN_SIGNAL_SYNC_inst : entity work.SIGNAL_SYNC
+        generic map (
+            DEFAULT_VALUE   => '1'
+        )
+        port map (
+            CLK     => CLK,
+            DIN     => SDA_IN,
+            DOUT    => sda_in_sync
+        );
+    
+    stm_proc : process(RST, cur_reg, START, sda_in_sync, scl_in_sync,
         BLOCK_NUMBER, scl_rise, scl_high, scl_fall, scl_low, segment_pointer)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
@@ -197,7 +218,7 @@ begin
                 end if;
             
             when WAIT_FOR_RECEIVER =>
-                if SCL_IN='1' then
+                if scl_in_sync/='0' then
                     r.state := WRITE_ACCESS_SEND_SEG_P_START;
                 end if;
             
@@ -253,7 +274,7 @@ begin
                 elsif scl_rise then
                     r.scl_out   := '1';
                 elsif scl_high then
-                    if SDA_IN='1' and BLOCK_NUMBER /= x"00" then
+                    if sda_in_sync/='0' and BLOCK_NUMBER /= x"00" then
                         -- If the receiver is not E-EDID compliant, this NACK can be
                         -- ignored if the requested block number is 0, since the first
                         -- block will always be available. If the BLOCK_NUMBER is greater
@@ -274,7 +295,7 @@ begin
                 if scl_rise then
                     r.scl_out   := '1';
                 elsif scl_high then
-                    if SCL_IN='0' then
+                    if scl_in_sync='0' then
                         -- scl is being held low by receiver, wait,
                         -- THEN send the start condition
                         r.clk_stretch   := true;
@@ -288,7 +309,7 @@ begin
                 end if;
             
             when WRITE_ACCESS_SEG_P_CLK_STRETCH =>
-                if SCL_IN='1' then
+                if scl_in_sync/='0' then
                     -- scl was released
                     r.clk_stretch   := false;
                     r.state         := WRITE_ACCESS_SEND_ADDR_START;
@@ -314,7 +335,7 @@ begin
                 elsif scl_rise then
                     r.scl_out   := '1';
                 elsif scl_high then
-                    if SDA_IN='1' then
+                    if sda_in_sync/='0' then
                         -- not acknowledged
                         r.error := '1';
                     end if;
@@ -338,7 +359,7 @@ begin
                 elsif scl_rise then
                     r.scl_out   := '1';
                 elsif scl_high then
-                    if cr.bit_index=7 and SCL_IN='0' then
+                    if cr.bit_index=7 and scl_in_sync='0' then
                         -- scl is being held low by receiver, wait
                         r.clk_stretch   := true;
                         r.state         := WRITE_ACCESS_ADDR_CLK_STRETCH;
@@ -353,7 +374,7 @@ begin
                 end if;
             
             when WRITE_ACCESS_ADDR_CLK_STRETCH =>
-                if SCL_IN='1' then
+                if scl_in_sync/='0' then
                     -- scl was released
                     r.clk_stretch   := false;
                     r.state         := WRITE_ACCESS_SEND_WORD_OFFS;
@@ -365,7 +386,7 @@ begin
                 elsif scl_rise then
                     r.scl_out   := '1';
                 elsif scl_high then
-                    if SDA_IN='1' then
+                    if sda_in_sync/='0' then
                         -- not acknowledged
                         r.error := '1';
                     end if;
@@ -382,7 +403,7 @@ begin
                 if scl_rise then
                     r.scl_out   := '1';
                 elsif scl_high then
-                    if SCL_IN='0' then
+                    if scl_in_sync='0' then
                         -- scl is being held low by receiver, wait,
                         -- THEN send the start condition
                         r.clk_stretch   := true;
@@ -396,7 +417,7 @@ begin
                 end if;
             
             when READ_ACCESS_WORD_OFFS_CLK_STRETCH =>
-                if SCL_IN='1' then
+                if scl_in_sync/='0' then
                     -- scl was released
                     r.clk_stretch   := false; -- continue counting ticks
                 end if;
@@ -425,7 +446,7 @@ begin
                 elsif scl_rise then
                     r.scl_out   := '1';
                 elsif scl_high then
-                    if SDA_IN='1' then
+                    if sda_in_sync/='0' then
                         -- not acknowledged
                         r.error := '1';
                     end if;
@@ -444,13 +465,17 @@ begin
                 elsif scl_rise then
                     r.scl_out   := '1';
                 elsif scl_high then
-                    if cr.bit_index=7 and SCL_IN='0' then
+                    if cr.bit_index=7 and scl_in_sync='0' then
                         -- scl is being held low by receiver, wait,
                         -- THEN take over the transmitted bit
                         r.clk_stretch   := true;
                         r.state         := READ_ACCESS_DATA_CLK_STRETCH;
                     else
-                        r.data_out(int(cr.bit_index))   := SDA_IN;
+                        if sda_in_sync='0' then
+                            r.data_out(int(cr.bit_index))   := '0';
+                        else
+                            r.data_out(int(cr.bit_index))   := '1';
+                        end if;
                     end if;
                 elsif scl_fall then
                     r.scl_out   := '0';
@@ -469,13 +494,17 @@ begin
                 end if;
             
             when READ_ACCESS_DATA_CLK_STRETCH =>
-                if SCL_IN='1' then
+                if scl_in_sync/='0' then
                     -- scl was released
                     r.clk_stretch   := false; -- continue counting ticks
                 end if;
                 if scl_high then
-                    r.data_out(int(cr.bit_index))   := SDA_IN;
-                    r.state                         := READ_ACCESS_GET_DATA;
+                    if sda_in_sync='0' then
+                        r.data_out(int(cr.bit_index))   := '0';
+                    else
+                        r.data_out(int(cr.bit_index))   := '1';
+                    end if;
+                    r.state := READ_ACCESS_GET_DATA;
                 end if;
             
             when READ_ACCESS_SEND_ACK =>

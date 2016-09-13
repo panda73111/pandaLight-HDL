@@ -42,8 +42,8 @@ ARCHITECTURE behavior OF DDC_EDID_MASTER_tb IS
     signal ddc_edid_block_number    : std_ulogic_vector(7 downto 0) := (others => '0');
     
     -- Clock period definitions
---    constant clk_period             : time := 10 ns; -- 100 MHz
-    constant clk_period             : time := 2.5 us; -- 400 kHz, for very fast simulation
+    constant clk_period             : time := 10 ns; -- 100 MHz
+--    constant clk_period             : time := 2.5 us; -- 400 kHz, for very fast simulation
     constant receiver_clk_period    : time := 10 us; -- 100 kHz
     
     constant clk_period_real    : real := real(clk_period / 1 ps) / real(1 ns / 1 ps);
@@ -71,8 +71,8 @@ BEGIN
     ddc_edid_rst    <= rst;
     
     -- low dominant I2C bus
-    global_sda      <= ddc_edid_sda_out and slave1_sda_out;
-    global_scl      <= ddc_edid_scl_out and slave1_scl_out;
+    global_sda      <= '0' when ddc_edid_sda_out='0' or slave1_sda_out='0' else 'Z';
+    global_scl      <= '0' when ddc_edid_scl_out='0' or slave1_scl_out='0' else 'Z';
     ddc_edid_sda_in <= global_sda;
     ddc_edid_scl_in <= global_scl;
     slave1_sda_in   <= global_sda;
@@ -110,7 +110,7 @@ BEGIN
     
     slave1_inst : entity work.test_edid_slave
         generic map (
-            VERBOSE     => false,
+            VERBOSE     => true,
             CLK_PERIOD  => receiver_clk_period
         )
         port map (
