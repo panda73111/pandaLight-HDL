@@ -99,7 +99,7 @@ package body DDC_EDID_tb_funcs is
         assert not verbose
             report core_name & ": Waiting for start condition"
             severity NOTE;
-        wait until falling_edge(sda_in) and scl_in = '1';
+        wait until sda_in'event and sda_in='0' and scl_in/='0';
         -- stop condition
         assert not verbose
             report core_name & ": Got start condition"
@@ -119,7 +119,7 @@ package body DDC_EDID_tb_funcs is
         assert not verbose
             report core_name & ": Waiting for stop condition"
             severity NOTE;
-        wait until rising_edge(sda_in) and scl_in = '1';
+        wait until sda_in'event and sda_in/='0' and scl_in/='0';
         -- stop condition
         assert not verbose
             report core_name & ": Got stop condition"
@@ -143,16 +143,19 @@ package body DDC_EDID_tb_funcs is
         assert not verbose
             report core_name & ": Waiting for address: 0x" & hstr(match_addr)
             severity NOTE;
+        address := x"FF";
         for bit_index in 7 downto 0 loop
-            wait until rising_edge(scl_in);
+            wait until scl_in'event and scl_in/='0';
             wait for clk_period / 4;
-            address(bit_index)  := sda_in;
+            if sda_in='0' then
+                address(bit_index)  := '0';
+            end if;
         end loop;
         assert not verbose
             report core_name & ": Got address: 0x" & hstr(address)
             severity NOTE;
         
-        if address = match_addr then
+        if address=match_addr then
             assert not verbose
                 report core_name & ": Addresses match"
                 severity NOTE;
@@ -163,7 +166,7 @@ package body DDC_EDID_tb_funcs is
                 severity NOTE;
             addr_match  := false;
         end if;
-        wait until falling_edge(scl_in);
+        wait until scl_in'event and scl_in='0';
         wait for clk_period / 4;
     end procedure;
     
@@ -181,16 +184,19 @@ package body DDC_EDID_tb_funcs is
     ) is
         variable offs   : unsigned(7 downto 0) := x"00";
     begin
+        offs    := x"FF";
         for bit_index in 7 downto 0 loop
-            wait until rising_edge(scl_in);
+            wait until scl_in'event and scl_in/='0';
             wait for clk_period / 4;
-            offs(bit_index) := sda_in;
+            if sda_in='0' then
+                offs(bit_index) := '0';
+            end if;
         end loop;
         assert not verbose
             report core_name & ": Got word offset: 0x" & hstr(stdulv(offs))
             severity NOTE;
         word_offset := offs;
-        wait until falling_edge(scl_in);
+        wait until scl_in'event and scl_in='0';
         wait for clk_period / 4;
     end procedure;
     
@@ -212,7 +218,7 @@ package body DDC_EDID_tb_funcs is
             severity NOTE;
         for bit_index in 7 downto 0 loop
             sda_out <= byte(bit_index);
-            wait until falling_edge(scl_in);
+            wait until scl_in'event and scl_in='0';
             wait for clk_period / 4;
         end loop;
         sda_out <= '1'; -- release sda
@@ -233,7 +239,7 @@ package body DDC_EDID_tb_funcs is
             report core_name & ": Sending ACK"
             severity NOTE;
         sda_out <= '0';
-        wait until falling_edge(scl_in);
+        wait until scl_in'event and scl_in='0';
         wait for clk_period / 4;
         assert not verbose
             report core_name & ": Sent ACK"
@@ -256,9 +262,9 @@ package body DDC_EDID_tb_funcs is
         assert not verbose
             report core_name & ": Waiting for ACK"
             severity NOTE;
-        wait until rising_edge(scl_in);
+        wait until scl_in'event and scl_in/='0';
         wait for clk_period / 4;
-        if sda_in = '0' then
+        if sda_in='0' then
             assert not verbose
                 report core_name & ": Got ACK"
                 severity NOTE;
@@ -269,7 +275,7 @@ package body DDC_EDID_tb_funcs is
                 severity NOTE;
             ack := false;
         end if;
-        wait until falling_edge(scl_in);
+        wait until scl_in'event and scl_in='0';
         wait for clk_period / 4;
     end procedure;
     
