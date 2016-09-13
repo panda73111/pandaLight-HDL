@@ -539,7 +539,7 @@ begin
     -------------------
     
     eddcs_clk   <= g_clk;
-    eddcs_rst   <= rx_rst;
+    eddcs_rst   <= g_rst or not rx_det_stable(RX_SEL);
     
     eddcs_sda_in    <= '0' when RX_SDA(RX_SEL)='0' else '1';
     eddcs_scl_in    <= '0' when RX_SCL(RX_SEL)='0' else '1';
@@ -570,7 +570,9 @@ begin
         type state_type is (
             WAITING,
             CHECKING_BLOCK_NUMBER,
-            WRITING_BLOCK
+            WRITING_BLOCK,
+            IDLE1,
+            IDLE2
         );
         
         type edid_block_type is array(0 to 127) of std_ulogic_vector(7 downto 0);
@@ -618,7 +620,7 @@ begin
                         end if;
                     
                     when CHECKING_BLOCK_NUMBER =>
-                        state   <= WAITING;
+                        state   <= IDLE1;
                         if eddcs_block_number=x"00" then
                             eddcs_block_valid   <= '1';
                         else
@@ -632,8 +634,14 @@ begin
                         rd_p                <= rd_p+1;
                         byte_counter        <= byte_counter-1;
                         if byte_counter(7)='1' then
-                            state   <= WAITING;
+                            state   <= CHECKING_BLOCK_NUMBER;
                         end if;
+                    
+                    when IDLE1 =>
+                        state   <= IDLE2;
+                    
+                    when IDLE2 =>
+                        state   <= WAITING;
                     
                 end case;
             end if;

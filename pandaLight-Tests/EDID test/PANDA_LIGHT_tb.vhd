@@ -61,7 +61,8 @@ architecture behavior of testbench is
     signal PMOD2    : std_logic_vector(3 downto 0) := "ZZZZ";
     signal PMOD3    : std_logic_vector(3 downto 0) := "ZZZZ";
     
-    constant G_CLK20_PERIOD : time := 50 ns;
+    constant g_clk20_period         : time := 50 ns;
+    constant g_clk20_period_real    : real := real(g_clk20_period / 1 ps) / real(1 ns / 1 ps);
     
     signal slave_sda_in         : std_ulogic := '1';
     signal slave_sda_out        : std_ulogic := '1';
@@ -70,12 +71,27 @@ architecture behavior of testbench is
     signal slave_transm_error   : std_ulogic := '0';
     signal slave_read_error     : std_ulogic := '0';
     
+    signal master_start             : std_ulogic := '0';
+    signal master_block_number      :std_ulogic_vector(7 downto 0) := x"00";
+    signal master_sda_in            : std_ulogic := '0';
+    signal master_sda_out           : std_ulogic;
+    signal master_scl_in            : std_ulogic := '0';
+    signal master_scl_out           : std_ulogic;
+    signal master_busy              : std_ulogic;
+    signal master_transm_error      : std_ulogic;
+    signal master_data_out          : std_ulogic_vector(7 downto 0);
+    signal master_data_out_valid    : std_ulogic;
+    signal master_byte_index        : std_ulogic_vector(6 downto 0);
+    
 begin
     
-    CLK20   <= not CLK20 after G_CLK20_PERIOD/2;
+    CLK20   <= not CLK20 after g_clk20_period/2;
     
     TX_SDA  <= '0' when slave_sda_out='0' else 'Z';
     TX_SCL  <= '0' when slave_scl_out='0' else 'Z';
+    
+    RX_SDA(1)   <= '0' when master_sda_out='0' else 'Z';
+    RX_SCL(1)   <= '0' when master_scl_out='0' else 'Z';
     
     USB_RXD     <= '1';
     USB_DSRN    <= '0';
@@ -88,6 +104,9 @@ begin
     
     slave_sda_in    <= '0' when TX_SDA='0' else '1';
     slave_scl_in    <= '0' when TX_SCL='0' else '1';
+    
+    master_sda_in   <= '0' when RX_SDA(1)='0' else '1';
+    master_scl_in   <= '0' when RX_SCL(1)='0' else '1';
     
     PANDA_LIGHT_inst : entity work.panda_light
     port map (
@@ -145,7 +164,7 @@ begin
         PMOD3   => PMOD3
     );
     
-    slave_inst : entity work.test_edid_slave
+    test_edid_slave_inst : entity work.test_edid_slave
         generic map (
             VERBOSE     => false,
             CLK_PERIOD  => 10 us -- 100 kHz
@@ -162,12 +181,36 @@ begin
             READ_ERROR          => slave_read_error
         );
     
+    E_DDC_MASTER_inst : entity work.E_DDC_MASTER
+        generic map (
+            CLK_IN_PERIOD   => g_clk20_period_real
+        )
+        port map (
+            CLK => CLK20,
+            RST => '0',
+            
+            START           => master_start,
+            BLOCK_NUMBER    => master_block_number,
+            SDA_IN          => master_sda_in,
+            SDA_OUT         => master_sda_out,
+            
+            SCL_IN          => master_scl_in,
+            SCL_OUT         => master_scl_out,
+            BUSY            => master_busy,
+            TRANSM_ERROR    => master_transm_error,
+            DATA_OUT        => master_data_out,
+            DATA_OUT_VALID  => master_data_out_valid,
+            BYTE_INDEX      => master_byte_index
+        );
+    
     process
     begin
         wait for 100 us;
         TX_DET      <= '1';
         wait for 1 ms;
         RX_DET(1)   <= '1';
+        wait for 100 us;
+        master_start    <= '1';
         wait;
     end process;
     
