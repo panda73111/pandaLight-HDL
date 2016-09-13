@@ -95,8 +95,8 @@ BEGIN
     master_sda_in   <= global_sda;
     master_scl_in   <= global_scl;
     
-    global_sda  <= slave_sda_out and master_sda_out;
-    global_scl  <= slave_scl_out and master_scl_out;
+    global_sda  <= '0' when slave_sda_out='0' or master_sda_out='0' else 'Z';
+    global_scl  <= '0' when slave_scl_out='0' or master_scl_out='0' else 'Z';
     
     E_DDC_SLAVE_inst : entity work.E_DDC_SLAVE
         port map (

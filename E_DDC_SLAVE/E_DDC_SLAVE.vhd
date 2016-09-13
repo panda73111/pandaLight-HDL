@@ -113,9 +113,11 @@ architecture rtl of E_DDC_SLAVE is
     
     signal ram_dout     : std_ulogic_vector(7 downto 0) := x"00";
     
-    signal sda_in_q : std_ulogic := '1';
-    signal scl_in_q : std_ulogic := '1';
-    signal stop     : std_ulogic := '0';
+    signal sda_in_sync  : std_ulogic := '1';
+    signal scl_in_sync  : std_ulogic := '1';
+    signal sda_in_q     : std_ulogic := '1';
+    signal scl_in_q     : std_ulogic := '1';
+    signal stop         : std_ulogic := '0';
     
 begin
     
@@ -127,6 +129,26 @@ begin
     BLOCK_CHECK     <= cur_reg.block_check;
     BLOCK_REQUEST   <= cur_reg.block_request;
     BLOCK_NUMBER    <= cur_reg.block_number;
+    
+    SCL_IN_SIGNAL_SYNC_inst : entity work.SIGNAL_SYNC
+        generic map (
+            DEFAULT_VALUE   => '1'
+        )
+        port map (
+            CLK     => CLK,
+            DIN     => SCL_IN,
+            DOUT    => scl_in_sync
+        );
+    
+    SDA_IN_SIGNAL_SYNC_inst : entity work.SIGNAL_SYNC
+        generic map (
+            DEFAULT_VALUE   => '1'
+        )
+        port map (
+            CLK     => CLK,
+            DIN     => SDA_IN,
+            DOUT    => sda_in_sync
+        );
     
     DUAL_PORT_RAM_inst : entity work.DUAL_PORT_RAM
         generic map (
@@ -147,17 +169,17 @@ begin
     stop_detect_proc : process(CLK)
     begin
         if rising_edge(CLK) then
-            sda_in_q    <= SDA_IN;
-            scl_in_q    <= SCL_IN;
+            sda_in_q    <= sda_in_sync;
+            scl_in_q    <= scl_in_sync;
             -- stop condition: SDA from low to high while SCL remains high
             stop        <=
-                (scl_in_q and SCL_IN) and
-                (not sda_in_q and SDA_IN);
+                (scl_in_q and scl_in_sync) and
+                (not sda_in_q and sda_in_sync);
         end if;
     end process;
     
     stm_proc : process(RST, cur_reg, BLOCK_VALID,
-        BLOCK_INVALID, SDA_IN, SCL_IN, stop, ram_dout)
+        BLOCK_INVALID, sda_in_sync, scl_in_sync, stop, ram_dout)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
@@ -176,23 +198,23 @@ begin
                 r.state         := WAIT_FOR_SENDER;
             
             when WAIT_FOR_SENDER =>
-                if (SCL_IN and SDA_IN)='1' then
+                if (scl_in_sync and sda_in_sync)='1' then
                     r.state := WAIT_FOR_START;
                 end if;
             
             when WAIT_FOR_START =>
-                if SDA_IN='0' then
+                if sda_in_sync='0' then
                     r.state := GET_ADDR_WAIT_FOR_SCL_LOW;
                 end if;
             
             when GET_ADDR_WAIT_FOR_SCL_LOW =>
-                if SCL_IN='0' then
+                if scl_in_sync='0' then
                     r.state := GET_ADDR_WAIT_FOR_SCL_HIGH;
                 end if;
             
             when GET_ADDR_WAIT_FOR_SCL_HIGH =>
-                r.byte(int(cr.bit_index))   := SDA_IN;
-                if SCL_IN='1' then
+                r.byte(int(cr.bit_index))   := sda_in_sync;
+                if scl_in_sync='1' then
                     r.bit_index := cr.bit_index-1;
                     r.state     := GET_ADDR_WAIT_FOR_SCL_LOW;
                     if cr.bit_index=0 then
@@ -201,7 +223,7 @@ begin
                 end if;
             
             when CHECK_ADDR_WAIT_FOR_SCL_LOW =>
-                if SCL_IN='0' then
+                if scl_in_sync='0' then
                     r.state := CHECK_ADDR;
                 end if;
             
@@ -214,22 +236,22 @@ begin
             
             when SEG_P_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH =>
                 r.sda_out   := '0';
-                if SCL_IN='1' then
+                if scl_in_sync='1' then
                     r.state := SEG_P_ADDR_SEND_ACK_WAIT_FOR_SCL_LOW;
                 end if;
             
             when SEG_P_ADDR_SEND_ACK_WAIT_FOR_SCL_LOW =>
                 r.sda_out   := '0';
-                if SCL_IN='0' then
+                if scl_in_sync='0' then
                     r.state := GET_SEG_P_WAIT_FOR_SCL_HIGH;
                 end if;
             
             when GET_SEG_P_WAIT_FOR_SCL_HIGH =>
-                r.byte(int(cr.bit_index))   := SDA_IN;
+                r.byte(int(cr.bit_index))   := sda_in_sync;
                 -- check for first block of that segment
                 r.block_number              := cr.byte(6 downto 0) & "0";
                 r.segment_pointer           := cr.byte(6 downto 0);
-                if SCL_IN='1' then
+                if scl_in_sync='1' then
                     r.bit_index := cr.bit_index-1;
                     r.state     := GET_SEG_P_WAIT_FOR_SCL_LOW;
                     if cr.bit_index=0 then
@@ -238,12 +260,12 @@ begin
                 end if;
             
             when GET_SEG_P_WAIT_FOR_SCL_LOW =>
-                if SCL_IN='0' then
+                if scl_in_sync='0' then
                     r.state := GET_SEG_P_WAIT_FOR_SCL_HIGH;
                 end if;
             
             when CHECK_FOR_BLOCK_WAIT_FOR_SCL_LOW =>
-                if SCL_IN='0' then
+                if scl_in_sync='0' then
                     r.state := CHECK_FOR_BLOCK;
                 end if;
             
@@ -260,33 +282,33 @@ begin
             
             when BLOCK_NUM_SEND_ACK_WAIT_FOR_SCL_HIGH =>
                 r.sda_out   := '0';
-                if SCL_IN='1' then
+                if scl_in_sync='1' then
                     r.state := BLOCK_NUM_SEND_ACK_WAIT_FOR_SCL_LOW;
                 end if;
             
             when BLOCK_NUM_SEND_ACK_WAIT_FOR_SCL_LOW =>
                 r.sda_out   := '0';
-                if SCL_IN='0' then
+                if scl_in_sync='0' then
                     r.state := INIT;
                 end if;
             
             when WRITE_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH =>
                 r.sda_out   := '0';
-                if SCL_IN='1' then
+                if scl_in_sync='1' then
                     r.state := WRITE_ADDR_SEND_ACK_WAIT_FOR_SCL_LOW;
                 end if;
             
             when WRITE_ADDR_SEND_ACK_WAIT_FOR_SCL_LOW =>
                 r.sda_out   := '0';
-                if SCL_IN='0' then
+                if scl_in_sync='0' then
                     r.state := GET_WORD_OFFS_WAIT_FOR_SCL_HIGH;
                 end if;
             
             when GET_WORD_OFFS_WAIT_FOR_SCL_HIGH =>
-                r.byte(int(cr.bit_index))   := SDA_IN;
+                r.byte(int(cr.bit_index))   := sda_in_sync;
                 -- the highest bit of the word offset determines the block in that segment
                 r.block_number              := cr.segment_pointer & cr.byte(7);
-                if SCL_IN='1' then
+                if scl_in_sync='1' then
                     r.bit_index := cr.bit_index-1;
                     r.state     := GET_WORD_OFFS_WAIT_FOR_SCL_LOW;
                     if cr.bit_index=0 then
@@ -295,7 +317,7 @@ begin
                 end if;
             
             when GET_WORD_OFFS_WAIT_FOR_SCL_LOW =>
-                if SCL_IN='0' then
+                if scl_in_sync='0' then
                     r.state := GET_WORD_OFFS_WAIT_FOR_SCL_HIGH;
                 end if;
             
@@ -312,25 +334,25 @@ begin
             
             when READ_ADDR_SEND_ACK_WAIT_FOR_SCL_HIGH =>
                 r.sda_out   := '0';
-                if SCL_IN='1' then
+                if scl_in_sync='1' then
                     r.state := READ_ADDR_SEND_ACK_WAIT_FOR_SCL_LOW;
                 end if;
             
             when READ_ADDR_SEND_ACK_WAIT_FOR_SCL_LOW =>
                 r.sda_out   := '0';
-                if SCL_IN='0' then
+                if scl_in_sync='0' then
                     r.state := SEND_BYTE_WAIT_FOR_SCL_HIGH;
                 end if;
             
             when SEND_BYTE_WAIT_FOR_SCL_HIGH =>
                 r.sda_out   := ram_dout(int(cr.bit_index));
-                if SCL_IN='1' then
+                if scl_in_sync='1' then
                     r.state := SEND_BYTE_WAIT_FOR_SCL_LOW;
                 end if;
             
             when SEND_BYTE_WAIT_FOR_SCL_LOW =>
                 r.sda_out   := ram_dout(int(cr.bit_index));
-                if SCL_IN='0' then
+                if scl_in_sync='0' then
                     r.bit_index := cr.bit_index-1;
                     r.state     := SEND_BYTE_WAIT_FOR_SCL_HIGH;
                     if cr.bit_index=0 then
@@ -347,27 +369,27 @@ begin
                 end if;
             
             when SEND_BYTE_GET_ACK_WAIT_FOR_SCL_HIGH =>
-                if SCL_IN='1' then
+                if scl_in_sync='1' then
                     r.state := SEND_BYTE_GET_ACK_WAIT_FOR_SCL_LOW;
-                    if SDA_IN='1' then
+                    if sda_in_sync='1' then
                         -- NACK from master, end of transmission
                         r.state := INIT;
                     end if;
                 end if;
             
             when SEND_BYTE_GET_ACK_WAIT_FOR_SCL_LOW =>
-                if SCL_IN='0' then
+                if scl_in_sync='0' then
                     r.ram_rd_addr   := cr.ram_rd_addr+1;
                     r.state         := SEND_BYTE_WAIT_FOR_SCL_HIGH;
                 end if;
             
             when SEND_NACK_WAIT_FOR_SCL_HIGH =>
-                if SCL_IN='1' then
+                if scl_in_sync='1' then
                     r.state := SEND_NACK_WAIT_FOR_SCL_LOW;
                 end if;
             
             when SEND_NACK_WAIT_FOR_SCL_LOW =>
-                if SCL_IN='0' then
+                if scl_in_sync='0' then
                     r.state := INIT;
                 end if;
             
