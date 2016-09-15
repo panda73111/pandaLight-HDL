@@ -43,7 +43,6 @@ ARCHITECTURE behavior OF DDC_EDID_MASTER_tb IS
     
     -- Clock period definitions
     constant clk_period             : time := 10 ns; -- 100 MHz
---    constant clk_period             : time := 2.5 us; -- 400 kHz, for very fast simulation
     constant receiver_clk_period    : time := 10 us; -- 100 kHz
     
     constant clk_period_real    : real := real(clk_period / 1 ps) / real(1 ns / 1 ps);

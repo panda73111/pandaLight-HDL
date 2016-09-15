@@ -68,7 +68,7 @@ architecture rtl of E_DDC_MASTER is
     --      /~~~~~~~~~~~~~~~~~~~~~~\                        /~~~~  SCL_OUT
     -- ____/                        \______________________/     
     --      |          |           |            |                
-    --   scl_rise   scl_high    scl_fall     scl_low             
+    --   SCL_RISE   SCL_HIGH    SCL_FALL     SCL_LOW
     --                                                           
     --     |-----------------------------------------------|       scl cycle
     --                                                           
@@ -78,16 +78,21 @@ architecture rtl of E_DDC_MASTER is
     
     -- rise scl at tick counter=0 and fall at tick counter=half_cycle_ticks
     constant cycle_ticks            : positive := integer(10000.0 / CLK_IN_PERIOD);
-    constant half_cycle_ticks       : positive := cycle_ticks / 2;
     -- probe sda when scl=high, in tick counter=(0..half_cycle_tick),
     -- sda change is allowed when scl=low, so in tick counter=(half_cycle_ticks..cycle_ticks-1),
     -- and we do probing exactly at 1/4 and changing at 3/4 of cycle_ticks
-    constant one_qu_cycle_ticks     : positive := half_cycle_ticks / 2;
-    constant three_qu_cycle_ticks   : positive := half_cycle_ticks+one_qu_cycle_ticks;
+    constant one_qu_cycle_ticks     : positive := cycle_ticks / 4;
     -- (for simplicity, instability of the sda line is not taken into account!)
     
     constant FIRST_BLOCK_WORD_OFFS  : std_ulogic_vector(7 downto 0) := x"00";
     constant SECOND_BLOCK_WORD_OFFS : std_ulogic_vector(7 downto 0) := x"80";
+    
+    type scl_state_type is (
+        SCL_RISE,
+        SCL_HIGH,
+        SCL_FALL,
+        SCL_LOW
+    );
     
     type state_type is (
         INIT,
@@ -116,7 +121,7 @@ architecture rtl of E_DDC_MASTER is
         state           : state_type;
         sda_out         : std_ulogic;
         scl_out         : std_ulogic;
-        tick_cnt        : natural range 0 to cycle_ticks-1; -- counts CLK cycles
+        out_enable      : boolean;
         error           : std_ulogic;
         data_out        : std_ulogic_vector(7 downto 0);
         data_out_valid  : std_ulogic;
@@ -129,7 +134,7 @@ architecture rtl of E_DDC_MASTER is
         state           => INIT,
         sda_out         => '1',
         scl_out         => '1',
-        tick_cnt        => 0,
+        out_enable      => false,
         error           => '0',
         data_out        => x"00",
         data_out_valid  => '0',
@@ -138,16 +143,18 @@ architecture rtl of E_DDC_MASTER is
         byte_count      => "0000000"
     );
     
+    signal scl_event_counter    : unsigned(log2(one_qu_cycle_ticks) downto 0) := (others => '0');
+    signal scl_event            : boolean := false;
+    signal scl_state            : scl_state_type := SCL_RISE;
+    
     signal cur_reg, next_reg        : reg_type := reg_type_def;
     signal sda_in_sync, scl_in_sync : std_ulogic := '0';
-    signal scl_rise, scl_fall       : boolean := false;
-    signal scl_high, scl_low        : boolean := false;
     signal segment_pointer          : std_ulogic_vector(7 downto 0) := x"00";
     
 begin
     
-    SDA_OUT <= '0' when cur_reg.sda_out='0' else 'Z';
-    SCL_OUT <= '0' when cur_reg.scl_out='0' else 'Z';
+    SDA_OUT <= '0' when cur_reg.sda_out='0' and cur_reg.out_enable else 'Z';
+    SCL_OUT <= '0' when cur_reg.scl_out='0' and cur_reg.out_enable else 'Z';
     
     BUSY            <= '0' when cur_reg.state=WAIT_FOR_START else '1';
     TRANSM_ERROR    <= cur_reg.error;
@@ -155,11 +162,6 @@ begin
     DATA_OUT        <= cur_reg.data_out;
     DATA_OUT_VALID  <= cur_reg.data_out_valid;
     BYTE_INDEX      <= stdulv(cur_reg.byte_count-1);
-    
-    scl_rise    <= cur_reg.tick_cnt=0;
-    scl_high    <= cur_reg.tick_cnt=one_qu_cycle_ticks;
-    scl_fall    <= cur_reg.tick_cnt=half_cycle_ticks;
-    scl_low     <= cur_reg.tick_cnt=three_qu_cycle_ticks;
     
     -- divide by two, every segment contains two blocks
     segment_pointer <= '0' & BLOCK_NUMBER(7 downto 1);
@@ -184,25 +186,50 @@ begin
             DOUT    => sda_in_sync
         );
     
-    stm_proc : process(RST, cur_reg, START, sda_in_sync, scl_in_sync,
-        BLOCK_NUMBER, scl_rise, scl_high, scl_fall, scl_low, segment_pointer)
+    scl_event_proc : process(cur_reg.out_enable, CLK)
+    begin
+        if not cur_reg.out_enable then
+            scl_event_counter   <= (others => '0');
+            scl_event           <= false;
+        elsif rising_edge(CLK) then
+            scl_event_counter   <= scl_event_counter-1;
+            scl_event           <= false;
+            
+            if scl_event_counter(scl_event_counter'high)='1' then
+                
+                scl_event_counter   <= uns(one_qu_cycle_ticks-1, scl_event_counter'length);
+                scl_event           <= true;
+                
+                if scl_state=SCL_RISE and scl_in_sync='0' then
+                    -- clock stretch
+                    scl_event   <= false;
+                end if;
+                
+            end if;
+        end if;
+    end process;
+    
+    stm_proc : process(RST, cur_reg, START, sda_in_sync, scl_in_sync, scl_state, scl_event, BLOCK_NUMBER, segment_pointer)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
-        r   := cr;
-        
+        r                   := cr;
         r.data_out_valid    := '0';
         
-        -- pause while the receiver is holding scl low, else go on
-        if cr.state=WAIT_FOR_RECEIVER or cr.tick_cnt=cycle_ticks-1 then
-            r.tick_cnt  := 0;
-        elsif not cr.clk_stretch then
-            r.tick_cnt  := cr.tick_cnt+1;
+        if scl_event then
+            if scl_state=SCL_RISE then
+                r.scl_out   := '1';
+                
+            elsif scl_state=SCL_FALL then
+                r.scl_out   := '0';
+                
+            end if;
         end if;
         
         case cr.state is
             
             when INIT =>
+                r.out_enable    := false;
                 r.bit_index     := uns(7, 3);
                 r.byte_count    := "0000000";
                 r.state         := WAIT_FOR_START;
@@ -219,57 +246,56 @@ begin
                 end if;
             
             when WRITE_ACCESS_SEND_SEG_P_START =>
-                if scl_high then
+                r.out_enable    := true;
+                
+                if scl_state=SCL_HIGH then
                     r.sda_out   := '0';
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
                     r.state     := WRITE_ACCESS_SEND_SEG_P_ADDR;
+                    
                 end if;
               
             when WRITE_ACCESS_SEND_SEG_P_ADDR =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := SEG_P_ADDR(int(cr.bit_index));
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
                     r.bit_index := cr.bit_index-1;
                     if cr.bit_index=0 then
                         -- sent 8 bits and clock pulses
                         r.state := WRITE_ACCESS_IGNORE_SEG_P_ADDR_ACK;
                     end if;
+                    
                 end if;
             
             when WRITE_ACCESS_IGNORE_SEG_P_ADDR_ACK =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := '1'; -- release sda
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
                     r.state := WRITE_ACCESS_SEND_SEG_P;
+                    
                 end if;
             
             when WRITE_ACCESS_SEND_SEG_P =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := segment_pointer(int(cr.bit_index));
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
                     r.bit_index := cr.bit_index-1;
                     if cr.bit_index=0 then
                         -- sent 8 bits and clock pulses
                         r.state := WRITE_ACCESS_GET_SEG_P_ACK;
                     end if;
+                    
                 end if;
             
             when WRITE_ACCESS_GET_SEG_P_ACK =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := '1'; -- release sda
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_high then
+                    
+                elsif scl_state=SCL_HIGH then
                     if sda_in_sync/='0' and BLOCK_NUMBER /= x"00" then
                         -- If the receiver is not E-EDID compliant, this NACK can be
                         -- ignored if the requested block number is 0, since the first
@@ -278,205 +304,196 @@ begin
                         -- is not, and this NACK is an error.
                         r.error := '1';
                     end if;
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
+                    r.state := WRITE_ACCESS_SEND_ADDR_START;
                     if cr.error='1' then
                         r.state := SEND_STOP;
-                    else
-                        r.state := WRITE_ACCESS_SEND_ADDR_START;
                     end if;
+                    
                 end if;
             
             when WRITE_ACCESS_SEND_ADDR_START =>
-                if scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_high then
+                if scl_state=SCL_HIGH then
                     r.sda_out   := '0';
-                elsif scl_fall then
+                    
+                elsif scl_state=SCL_FALL then
                     r.scl_out   := '0';
                     r.state     := WRITE_ACCESS_SEND_ADDR;
+                    
                 end if;
             
             when WRITE_ACCESS_SEND_ADDR =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := WRITE_ADDR(int(cr.bit_index));
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
                     r.bit_index := cr.bit_index-1;
                     if cr.bit_index=0 then
                         -- sent 8 bits and clock pulses
                         r.state := WRITE_ACCESS_GET_ADDR_ACK;
                     end if;
+                    
                 end if;
             
             when WRITE_ACCESS_GET_ADDR_ACK =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := '1'; -- release sda
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_high then
+                    
+                elsif scl_state=SCL_HIGH then
                     if sda_in_sync/='0' then
                         -- not acknowledged
                         r.error := '1';
                     end if;
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
+                    r.state := WRITE_ACCESS_SEND_WORD_OFFS;
                     if cr.error='1' then
                         r.state := SEND_STOP;
-                    else
-                        r.state := WRITE_ACCESS_SEND_WORD_OFFS;
                     end if;
+                    
                 end if;
             
             when WRITE_ACCESS_SEND_WORD_OFFS =>
-                if scl_low then
+                if scl_state=SCL_LOW then
+                    r.sda_out   := FIRST_BLOCK_WORD_OFFS(int(cr.bit_index));
                     if BLOCK_NUMBER(0)='1' then
                         -- second block of segment BLOCK_NUMBER/2
                         r.sda_out   := SECOND_BLOCK_WORD_OFFS(int(cr.bit_index));
-                    else
-                        r.sda_out   := FIRST_BLOCK_WORD_OFFS(int(cr.bit_index));
                     end if;
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
                     r.bit_index := cr.bit_index-1;
                     if cr.bit_index=0 then
                         -- sent 8 bits and clock pulses
                         r.state := WRITE_ACCESS_GET_WORD_OFFS_ACK;
                     end if;
+                    
                 end if;
             
             when WRITE_ACCESS_GET_WORD_OFFS_ACK =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := '1'; -- release sda
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_high then
+                    
+                elsif scl_state=SCL_HIGH then
                     if sda_in_sync/='0' then
                         -- not acknowledged
                         r.error := '1';
                     end if;
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
+                    r.state := READ_ACCESS_SEND_START;
                     if cr.error='1' then
                         r.state := SEND_STOP;
-                    else
-                        r.state := READ_ACCESS_SEND_START;
                     end if;
+                    
                 end if;
             
             when READ_ACCESS_SEND_START =>
-                if scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_high then
+                if scl_state=SCL_HIGH then
                     r.sda_out   := '0';
-                elsif scl_fall then
-                    r.scl_out   := '0';
-                    r.state     := READ_ACCESS_SEND_ADDR;
+                    
+                elsif scl_state=SCL_FALL then
+                    r.state := READ_ACCESS_SEND_ADDR;
+                    
                 end if;
             
             when READ_ACCESS_SEND_ADDR  =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := READ_ADDR(int(cr.bit_index));
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
                     r.bit_index := cr.bit_index-1;
                     if cr.bit_index=0 then
                         -- sent 8 bits and clock pulses
                         r.state := READ_ACCESS_GET_ADDR_ACK;
                     end if;
+                    
                 end if;
             
             when READ_ACCESS_GET_ADDR_ACK =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := '1'; -- release sda
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_high then
+                    
+                elsif scl_state=SCL_HIGH then
                     if sda_in_sync/='0' then
                         -- not acknowledged
                         r.error := '1';
                     end if;
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
+                    r.state := READ_ACCESS_GET_DATA;
                     if cr.error='1' then
                         r.state := SEND_STOP;
-                    else
-                        r.state := READ_ACCESS_GET_DATA;
                     end if;
+                    
                 end if;
             
             when READ_ACCESS_GET_DATA =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := '1'; -- release sda
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_high then
+                    
+                elsif scl_state=SCL_HIGH then
+                    r.data_out(int(cr.bit_index))   := '1';
                     if sda_in_sync='0' then
                         r.data_out(int(cr.bit_index))   := '0';
-                    else
-                        r.data_out(int(cr.bit_index))   := '1';
                     end if;
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
                     r.bit_index := cr.bit_index-1;
                     if cr.bit_index=0 then
                         -- read 8 bits
                         r.byte_count        := cr.byte_count+1;
                         r.data_out_valid    := '1';
+                        r.state             := READ_ACCESS_SEND_ACK;
                         if cr.byte_count=127 then
                             -- completed one EDID block
                             r.state := READ_ACCESS_SEND_NACK;
-                        else
-                            r.state := READ_ACCESS_SEND_ACK;
                         end if;
                     end if;
+                    
                 end if;
             
             when READ_ACCESS_SEND_ACK =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := '0';
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_fall then
-                    r.scl_out   := '0';
+                    
+                elsif scl_state=SCL_FALL then
                     -- receive the next byte
-                    r.state     := READ_ACCESS_GET_DATA;
+                    r.state := READ_ACCESS_GET_DATA;
+                    
                 end if;
             
             when READ_ACCESS_SEND_NACK =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := '1'; -- release sda
-                elsif scl_rise then
-                    r.scl_out   := '1';
-                elsif scl_fall then
-                    r.scl_out   := '0';
-                    r.state     := SEND_STOP;
+                    
+                elsif scl_state=SCL_FALL then
+                    r.state := SEND_STOP;
+                    
                 end if;
             
             when SEND_STOP =>
-                if scl_low then
+                if scl_state=SCL_LOW then
                     r.sda_out   := '0';
-                elsif scl_rise then
-                    r.scl_out   := '1'; -- release scl
-                elsif scl_high then
+                    
+                elsif scl_state=SCL_HIGH then
                     r.sda_out   := '1'; -- stop condition
-                elsif scl_fall then
+                    
+                elsif scl_state=SCL_FALL then
                     r.state := INIT;
+                    
                 end if;
             
         end case;
         
-        if RST='1' then
-            r   := reg_type_def;
+        if not cr.out_enable or scl_event then
+            next_reg    <= r;
         end if;
         
-        next_reg    <= r;
+        if RST='1' then
+            next_reg    <= reg_type_def;
+        end if;
     end process;
 
     sync_stm_proc : process(RST, CLK)
