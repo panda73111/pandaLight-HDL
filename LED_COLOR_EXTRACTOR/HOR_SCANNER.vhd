@@ -205,8 +205,8 @@ begin
                     when "01000" => led_pad(7 downto 0)         <= CFG_DATA;
                     when "01001" => led_offs(15 downto 8)       <= CFG_DATA;
                     when "01010" => led_offs(7 downto 0)        <= CFG_DATA;
-                    when "01011" => frame_height(15 downto 8)   <= CFG_DATA;
-                    when "01100" => frame_height(7 downto 0)    <= CFG_DATA;
+                    when "11000" => frame_height(15 downto 8)   <= CFG_DATA;
+                    when "11001" => frame_height(7 downto 0)    <= CFG_DATA;
                     when others => null;
                 end case;
             end if;

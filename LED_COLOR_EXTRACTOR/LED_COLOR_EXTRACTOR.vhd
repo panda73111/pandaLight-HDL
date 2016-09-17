@@ -166,9 +166,9 @@ begin
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
                     when "00000" => hor_led_cnt                 <= CFG_DATA;
-                    when "00110" => ver_led_cnt                 <= CFG_DATA;
-                    when "01100" => frame_width(15 downto 8)    <= CFG_DATA;
-                    when "01101" => frame_width(7 downto 0)     <= CFG_DATA;
+                    when "01011" => ver_led_cnt                 <= CFG_DATA;
+                    when "10110" => frame_width(15 downto 8)    <= CFG_DATA;
+                    when "10111" => frame_width(7 downto 0)     <= CFG_DATA;
                     when others => null;
                 end case;
             end if;
