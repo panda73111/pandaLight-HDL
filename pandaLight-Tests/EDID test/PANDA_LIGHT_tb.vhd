@@ -211,7 +211,13 @@ begin
         RX_DET(1)   <= '1';
         wait for 100 us;
         master_start    <= '1';
-        wait;
+        wait until rising_edge(CLK20) and master_busy='1';
+        master_start    <= '0';
+        wait until rising_edge(CLK20) and master_busy='0';
+        wait for 100 us;
+        
+        report "NONE. All tests completed."
+            severity FAILURE;
     end process;
     
 end;
