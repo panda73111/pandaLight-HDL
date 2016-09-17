@@ -122,13 +122,13 @@ architecture rtl of HOR_SCANNER is
     );
     
     signal next_inner_x         : unsigned(15 downto 0) := x"0000";
-    signal first_leds_pos       : leds_pos_type;
+    signal first_leds_pos       : leds_pos_type := (others => (others => x"0000"));
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal overlaps             : boolean := false;
     signal abs_overlap          : unsigned(15 downto 0) := x"0000";
-    signal led_buf              : led_buf_type;
-    signal buf_do               : std_ulogic_vector(RGB_BITS-1 downto 0);
-    signal buf_ov_do            : std_ulogic_vector(RGB_BITS-1 downto 0);
+    signal led_buf              : led_buf_type := (others => (others => '0'));
+    signal buf_do               : std_ulogic_vector(RGB_BITS-1 downto 0) := (others => '0');
+    signal buf_ov_do            : std_ulogic_vector(RGB_BITS-1 downto 0) := (others => '0');
     
     -- configuration registers
     signal led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
