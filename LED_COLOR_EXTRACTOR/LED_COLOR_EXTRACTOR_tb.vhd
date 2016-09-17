@@ -23,9 +23,10 @@ use work.video_profiles.all;
 
 ENTITY LED_COLOR_EXTRACTOR_tb IS
     generic (
-        R_BITS  : natural range 1 to 12 := 8;
-        G_BITS  : natural range 1 to 12 := 8;
-        B_BITS  : natural range 1 to 12 := 8
+        MAX_LED_COUNT   : natural := 64;
+        R_BITS          : natural range 1 to 12 := 8;
+        G_BITS          : natural range 1 to 12 := 8;
+        B_BITS          : natural range 1 to 12 := 8
     );
 END LED_COLOR_EXTRACTOR_tb;
 
@@ -126,6 +127,7 @@ BEGIN
     
     LED_COLOR_EXTRACTOR_inst : entity work.LED_COLOR_EXTRACTOR
     generic map (
+        MAX_LED_COUNT   => MAX_LED_COUNT,
         R_BITS          => R_BITS,
         G_BITS          => G_BITS,
         B_BITS          => B_BITS

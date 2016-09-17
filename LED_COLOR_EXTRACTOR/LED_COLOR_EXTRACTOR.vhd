@@ -68,6 +68,7 @@ use work.help_funcs.all;
 
 entity LED_COLOR_EXTRACTOR is
     generic (
+        MAX_LED_COUNT   : natural;
         R_BITS          : natural range 1 to 12 := 8;
         G_BITS          : natural range 1 to 12 := 8;
         B_BITS          : natural range 1 to 12 := 8
@@ -197,9 +198,10 @@ begin
     
     HOR_SCANNER_inst : entity work.hor_scanner
         generic map (
-            R_BITS  => R_BITS,
-            G_BITS  => G_BITS,
-            B_BITS  => B_BITS
+            MAX_LED_COUNT   => MAX_LED_COUNT,
+            R_BITS          => R_BITS,
+            G_BITS          => G_BITS,
+            B_BITS          => B_BITS
         )
         port map (
             CLK => clk,
