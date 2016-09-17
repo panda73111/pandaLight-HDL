@@ -122,7 +122,7 @@
       <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="93"/>
       <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="93"/>
     </file>
-    <file xil_pn:name="chipscope.cdc" xil_pn:type="FILE_CDC">
+    <file xil_pn:name="chipscope_iserdes.cdc" xil_pn:type="FILE_CDC">
       <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
     </file>
   </files>
