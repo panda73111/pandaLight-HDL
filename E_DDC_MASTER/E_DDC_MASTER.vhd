@@ -197,12 +197,18 @@ begin
             
             if scl_event_counter(scl_event_counter'high)='1' then
                 
-                scl_event_counter   <= uns(one_qu_cycle_ticks-1, scl_event_counter'length);
+                scl_state   <= scl_state_type'succ(scl_state);
+                if scl_state=SCL_LOW then
+                    scl_state   <= SCL_RISE;
+                end if;
+                
+                scl_event_counter   <= uns(one_qu_cycle_ticks-2, scl_event_counter'length);
                 scl_event           <= true;
                 
                 if scl_state=SCL_RISE and scl_in_sync='0' then
                     -- clock stretch
                     scl_event   <= false;
+                    scl_state   <= scl_state;
                 end if;
                 
             end if;
