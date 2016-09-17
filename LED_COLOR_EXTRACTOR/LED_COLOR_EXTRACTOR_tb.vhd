@@ -69,7 +69,7 @@ BEGIN
     CLK         <= pix_clk;
     rst_extr    <= RST or not pix_clk_locked;
     
-    vp  <= VIDEO_PROFILES(nat(profile));
+    vp  <= VIDEO_PROFILES(int(profile));
     
     frame_width     <= stdulv( vp.width, 16);
     frame_height    <= stdulv(vp.height, 16);
@@ -169,7 +169,7 @@ BEGIN
         begin
             CFG_WR_EN   <= '1';
             RST         <= '1';
-            for settings_i in 0 to 255 loop
+            for settings_i in 0 to 25 loop
                 CFG_ADDR    <= stdulv(settings_i, 5);
                 case settings_i is
                     when 0      =>  CFG_DATA    <= cfg.HOR_LED_CNT;
@@ -198,7 +198,6 @@ BEGIN
                     when 23     =>  CFG_DATA    <= cfg.FRAME_WIDTH(7 downto 0);
                     when 24     =>  CFG_DATA    <= cfg.FRAME_HEIGHT(15 downto 8);
                     when 25     =>  CFG_DATA    <= cfg.FRAME_HEIGHT(7 downto 0);
-                    when others =>  CFG_DATA    <= x"00";
                 end case;
                 wait until rising_edge(CLK);
             end loop;
@@ -242,6 +241,9 @@ BEGIN
         for i in 1 to 5 loop
             wait until rising_edge(FRAME_VSYNC);
         end loop;
+        
+        wait for 10 us;
+        wait until rising_edge(CLK);
         
         -- Test 1 finished
         -- Test 2: Standard 50 LED configuration, overlaps, edges
