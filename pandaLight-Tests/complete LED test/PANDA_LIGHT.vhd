@@ -102,12 +102,7 @@ architecture rtl of PANDA_LIGHT is
     
     signal g_clk_locked : std_ulogic := '0';
     
-    signal pmod0_deb        : std_ulogic_vector(3 downto 0) := x"0";
-    signal pmod1_deb        : std_ulogic_vector(3 downto 0) := x"0";
     signal pmod2_deb        : std_ulogic_vector(3 downto 0) := x"0";
-    signal pmod3_deb        : std_ulogic_vector(3 downto 0) := x"0";
-    signal blinker          : std_ulogic := '0';
-    signal blink_counter    : unsigned(24 downto 0) := (others => '0');
     
     signal start_sysinfo_to_uart            : boolean := false;
     signal start_settings_read_from_flash   : boolean := false;
@@ -476,32 +471,7 @@ begin
     BT_RSTN <= btctrl_bt_rstn;
     BT_WAKE <= btctrl_bt_wake;
     
---    PMOD0   <= blinker & rx_det_stable(RX_SEL) & tx_det_stable & g_rst;
---    PMOD1   <= TX_SDA & TX_SCL & RX_SDA(RX_SEL) & RX_SCL(RX_SEL);
---    PMOD2   <= "0";
---    PMOD3   <= x"0";
-    
     pmod0_DEBOUNCE_gen : for i in 0 to 3 generate
-        
---        pmod0_DEBOUNCE_inst : entity work.DEBOUNCE
---            generic map (
---                CYCLE_COUNT => 100
---            )
---            port map (
---                CLK => g_clk,
---                I   => PMOD0(i),
---                O   => pmod0_deb(i)
---            );
-        
---        pmod1_DEBOUNCE_inst : entity work.DEBOUNCE
---            generic map (
---                CYCLE_COUNT => 100
---            )
---            port map (
---                CLK => g_clk,
---                I   => PMOD1(i),
---                O   => pmod1_deb(i)
---            );
         
         pmod2_DEBOUNCE_inst : entity work.DEBOUNCE
             generic map (
@@ -513,25 +483,7 @@ begin
                 O   => pmod2_deb(i)
             );
         
---        pmod3_DEBOUNCE_inst : entity work.DEBOUNCE
---            generic map (
---                CYCLE_COUNT => 100
---            )
---            port map (
---                CLK => g_clk,
---                I   => PMOD3(i),
---                O   => pmod3_deb(i)
---            );
-        
     end generate;
-    
-    blink_proc : process(g_clk)
-    begin
-        if rising_edge(g_clk) then
-            blink_counter   <= blink_counter+1;
-            blinker         <= blink_counter(blink_counter'high);
-        end if;
-    end process;
     
     
     ------------------------------------
