@@ -151,7 +151,7 @@ architecture rtl of UART_BLUETOOTH_CONTROL is
     signal data_len_counter_to_send             : unsigned(11 downto 0) := uns(0, 12);
     signal hex_data_len_counter                 : unsigned(11 downto 0) := uns(0, 12);
     signal hex_data_len_counter_ascii           : std_ulogic_vector(23 downto 0) := x"000000";
-    signal hex_data_len_counter_ascii_to_send   : std_ulogic_vector(23 downto 0) := x"000000";
+    signal hex_data_len_counter_ascii_to_send   : std_ulogic_vector(23 downto 0) := x"303030";
     
 begin
     
