@@ -21,7 +21,7 @@ use work.txt_util.all;
 
 entity PANDA_LIGHT is
     generic (
-        RX_SEL              : natural range 0 to 1 := 1;
+        RX_SEL              : natural range 0 to 1 := 0;
         MAX_LED_COUNT       : positive := 64;
         MAX_FRAME_COUNT     : natural := 128;
         PANDALIGHT_MAGIC    : string := "PANDALIGHT";
@@ -140,8 +140,6 @@ architecture rtl of PANDA_LIGHT is
     
     signal rx_det_sync          : std_ulogic_vector(1 downto 0) := "00";
     signal rx_det_stable        : std_ulogic_vector(1 downto 0) := "00";
-    signal both_rx_det_sync     : std_ulogic := '0';
-    signal both_rx_det_stable   : std_ulogic := '0';
     
     signal tx_det_sync      : std_ulogic := '0';
     signal tx_det_stable    : std_ulogic := '0';
@@ -545,8 +543,6 @@ begin
     RX_EN(1-RX_SEL) <= tx_det_stable;
     TX_EN           <= not g_rst;
     
-    both_rx_det_sync    <= rx_det_sync(0) and rx_det_sync(1);
-    
     tx_channels_out <= rxpt_tx_channels_out;
     
     rx_SIGNAL_SYNC_and_DEBOUNCE_gen : for i in 0 to 1 generate
@@ -571,17 +567,6 @@ begin
             );
     
     end generate;
-    
-    both_rx_det_DEBOUNCE_inst : entity work.DEBOUNCE
-        generic map (
-            CYCLE_COUNT => 1000
-        )
-        port map (
-            CLK => g_clk,
-            
-            I   => both_rx_det_sync,
-            O   => both_rx_det_stable
-        );
     
     tx_det_SIGNAL_SYNC_inst : entity work.SIGNAL_SYNC
         port map (
@@ -1526,7 +1511,7 @@ begin
     begin
         if rising_edge(g_clk) then
             -- switch the bitfile if only the inactive RX port is connected, or a reboot is needed
-            iprog_en    <= (not both_rx_det_stable and rx_det_stable(1-RX_SEL)) or reboot;
+            iprog_en    <= (not rx_det_stable(RX_SEL) and rx_det_stable(1-RX_SEL)) or reboot;
         end if;
     end process;
     
