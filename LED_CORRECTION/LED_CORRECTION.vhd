@@ -31,7 +31,7 @@ use work.help_funcs.all;
 
 entity LED_CORRECTION is
     generic (
-        MAX_LED_COUNT   : natural;
+        MAX_LED_COUNT   : positive;
         MAX_FRAME_COUNT : natural
     );
     port (

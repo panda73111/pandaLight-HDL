@@ -18,7 +18,7 @@ use work.help_funcs.all;
 
 entity HOR_SCANNER is
     generic (
-        MAX_LED_COUNT   : natural;
+        MAX_LED_COUNT   : positive;
         R_BITS          : natural range 1 to 12 := 8;
         G_BITS          : natural range 1 to 12 := 8;
         B_BITS          : natural range 1 to 12 := 8

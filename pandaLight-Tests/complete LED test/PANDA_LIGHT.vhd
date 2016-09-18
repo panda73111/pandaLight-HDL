@@ -22,6 +22,8 @@ use work.txt_util.all;
 entity PANDA_LIGHT is
     generic (
         RX_SEL              : natural range 0 to 1 := 1;
+        MAX_LED_COUNT       : positive := 64;
+        MAX_FRAME_COUNT     : natural := 128;
         PANDALIGHT_MAGIC    : string := "PANDALIGHT";
         VERSION_MAJOR       : natural range 0 to 255 := 0;
         VERSION_MINOR       : natural range 0 to 255 := 1;
@@ -761,6 +763,9 @@ begin
     ledex_frame_rgb         <= rx_rgb;
     
     LED_COLOR_EXTRACTOR_inst : entity work.LED_COLOR_EXTRACTOR
+        generic map (
+            MAX_LED_COUNT   => MAX_LED_COUNT
+        )
         port map (
             CLK => ledex_clk,
             RST => ledex_rst,
@@ -798,8 +803,8 @@ begin
     
     LED_CORRECTION_inst : entity work.LED_CORRECTION
         generic map (
-            MAX_LED_COUNT   => 64,
-            MAX_FRAME_COUNT => 128
+            MAX_LED_COUNT   => MAX_LED_COUNT,
+            MAX_FRAME_COUNT => MAX_FRAME_COUNT
         )
         port map (
             CLK => lcor_clk,
