@@ -95,7 +95,8 @@ architecture rtl of HOR_SCANNER is
     type reg_type is record
         state           : state_type;
         side            : natural range T to B;
-        buf_p           : natural range 0 to 255;
+        buf_rd_p        : natural range 0 to MAX_LED_COUNT;
+        buf_wr_p        : natural range 0 to MAX_LED_COUNT;
         buf_di          : std_ulogic_vector(RGB_BITS-1 downto 0);
         buf_ov_di       : std_ulogic_vector(RGB_BITS-1 downto 0);
         buf_wr_en       : std_ulogic;
@@ -110,7 +111,8 @@ architecture rtl of HOR_SCANNER is
     constant reg_type_def   : reg_type := (
         state           => FIRST_LED_FIRST_PIXEL,
         side            => T,
-        buf_p           => 0,
+        buf_rd_p        => 0,
+        buf_wr_p        => 0,
         buf_di          => (others => '0'),
         buf_ov_di       => (others => '0'),
         buf_wr_en       => '0',
@@ -216,30 +218,33 @@ begin
     
     -- ensure block RAM usage
     led_buf_proc : process(CLK)
-        alias p         is next_reg.buf_p;
+        alias rd_p      is next_reg.buf_rd_p;
+        alias wr_p      is next_reg.buf_wr_p;
         alias di        is next_reg.buf_di;
         alias ov_di     is next_reg.buf_ov_di;
         alias do        is buf_do;
         alias ov_do     is buf_ov_do;
         alias wr_en     is next_reg.buf_wr_en;
         alias ov_wr_en  is next_reg.buf_ov_wr_en;
-        variable ov_p   : natural range 0 to 255;
+        variable ov_rd_p    : natural range 0 to MAX_LED_COUNT;
+        variable ov_wr_p    : natural range 0 to MAX_LED_COUNT;
     begin
         if rising_edge(CLK) then
             -- write first mode
             if wr_en='1' then
-                led_buf(p)  <= di;
-                do          <= di;
+                led_buf(wr_p)   <= di;
+                do              <= di;
             else
-                do  <= led_buf(p);
+                do  <= led_buf(rd_p);
             end if;
             
-            ov_p    := p+1 mod 256;
+            ov_rd_p := rd_p+1 mod MAX_LED_COUNT;
+            ov_wr_p := wr_p+1 mod MAX_LED_COUNT;
             if ov_wr_en='1' then
-                led_buf(ov_p)   <= ov_di;
-                ov_do           <= ov_di;
+                led_buf(ov_wr_p)    <= ov_di;
+                ov_do               <= ov_di;
             else
-                ov_do   <= led_buf(ov_p);
+                ov_do   <= led_buf(ov_rd_p);
             end if;
         end if;
     end process;
@@ -248,8 +253,8 @@ begin
         led_cnt, led_width, led_height, led_step, led_offs, FRAME_RGB, buf_do, buf_ov_do,
         overlaps, abs_overlap, next_inner_x, first_leds_pos
     )
-        alias cr        : reg_type is cur_reg;      -- synchronous registers
-        variable r      : reg_type := reg_type_def; -- asynchronous combinational signals
+        alias cr    : reg_type is cur_reg;      -- synchronous registers
+        variable r  : reg_type := reg_type_def; -- asynchronous combinational signals
     begin
         r   := cr;
         
@@ -259,7 +264,8 @@ begin
         case cr.state is
             
             when FIRST_LED_FIRST_PIXEL =>
-                r.buf_p             := 0;
+                r.buf_rd_p          := 0;
+                r.buf_wr_p          := 0;
                 r.buf_ov_wr_en      := '0';
                 r.led_pos           := first_leds_pos(cr.side);
                 r.inner_coords(X)   := x"0001";
@@ -275,8 +281,9 @@ begin
                 end if;
             
             when LEFT_BORDER_PIXEL =>
+                r.buf_wr_p          := r.buf_rd_p;
                 r.inner_coords(X)   := x"0001";
-                r.buf_di            := FRAME_RGB;
+                r.buf_di            := led_arith_mean(FRAME_RGB, buf_do);
                 r.buf_ov_wr_en      := '0';
                 if
                     FRAME_RGB_WR_EN='1' and
@@ -287,6 +294,7 @@ begin
                 end if;
             
             when MAIN_PIXEL =>
+                r.buf_wr_p  := r.buf_rd_p;
                 r.buf_di    := led_arith_mean(FRAME_RGB, buf_do);
                 if FRAME_RGB_WR_EN='1' then
                     r.buf_wr_en         := '1';
@@ -313,9 +321,9 @@ begin
                     r.buf_wr_en     := '1';
                     r.led_pos(X)    := cr.led_pos(X)+led_step;
                     r.state         := LEFT_BORDER_PIXEL;
-                    r.buf_p         := cr.buf_p+1;
-                    if cr.buf_p=led_cnt-1 then
-                        r.buf_p := 0;
+                    r.buf_rd_p      := cr.buf_rd_p+1;
+                    if cr.buf_rd_p=led_cnt-1 then
+                        r.buf_rd_p  := 0;
                     end if;
                     if overlaps then
                         if next_inner_x=0 then
@@ -324,7 +332,7 @@ begin
                         end if;
                         r.state := MAIN_PIXEL;
                     end if;
-                    if cr.buf_p=led_cnt-1 then
+                    if cr.buf_rd_p=led_cnt-1 then
                         -- finished one line of all LED areas
                         r.state := LINE_SWITCH;
                     end if;
@@ -343,24 +351,25 @@ begin
                 end if;
                 if FRAME_RGB_WR_EN='1' then
                     -- give out the LED color
+                    -- (no need for buffering)
                     r.led_rgb_valid := '1';
                     r.led_rgb       := led_arith_mean(FRAME_RGB, buf_do);
-                    r.led_num       := stdulv(cr.buf_p, 8);
+                    r.led_num       := stdulv(cr.buf_rd_p, 8);
                     
                     r.led_pos(X)    := cr.led_pos(X)+led_step;
-                    r.buf_p         := cr.buf_p+1;
+                    r.buf_rd_p      := cr.buf_rd_p+1;
                     r.state         := LEFT_BORDER_PIXEL;
                     if overlaps then
                         r.state := MAIN_PIXEL;
                     end if;
-                    if cr.buf_p=LED_CNT-1 then
-                        r.buf_p := 0;
-                        r.state := SIDE_SWITCH;
+                    if cr.buf_rd_p=led_cnt-1 then
+                        r.buf_rd_p  := 0;
+                        r.state     := SIDE_SWITCH;
                     end if;
                 end if;
             
             when SIDE_SWITCH =>
-                r.side  := (cr.side+1) mod 2;
+                r.side  := B;
                 r.state := FIRST_LED_FIRST_PIXEL;
             
         end case;
