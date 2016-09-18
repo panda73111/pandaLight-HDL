@@ -67,7 +67,7 @@ architecture rtl of HOR_SCANNER is
     -- horizontal buffer: used by the top LED row and the bottom LED row, one frame row
     -- contains one pixel of each LED of one side, so we need a buffer for all those LEDs
     type led_buf_type is
-        array(0 to MAX_LED_COUNT) of
+        array(0 to MAX_LED_COUNT-1) of
         std_ulogic_vector(RGB_BITS-1 downto 0);
     
     type inner_coords_type is
