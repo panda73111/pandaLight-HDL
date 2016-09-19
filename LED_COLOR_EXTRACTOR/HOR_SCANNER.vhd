@@ -234,7 +234,7 @@ begin
                 do  <= led_buf(p);
             end if;
             
-            ov_p    := p+1 mod 256;
+            ov_p    := p+1 mod MAX_LED_COUNT;
             if ov_wr_en='1' then
                 led_buf(ov_p)   <= ov_di;
                 ov_do           <= ov_di;
