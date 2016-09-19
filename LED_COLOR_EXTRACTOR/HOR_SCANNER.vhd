@@ -85,6 +85,7 @@ architecture rtl of HOR_SCANNER is
     type state_type is (
         FIRST_LED_FIRST_PIXEL,
         LEFT_BORDER_PIXEL,
+        OVERLAPPED_MAIN_PIXEL,
         MAIN_PIXEL,
         RIGHT_BORDER_PIXEL,
         LINE_SWITCH,
@@ -276,14 +277,42 @@ begin
             
             when LEFT_BORDER_PIXEL =>
                 r.inner_coords(X)   := x"0001";
-                r.buf_di            := led_arith_mean(FRAME_RGB, buf_do);
                 r.buf_ov_wr_en      := '0';
+                r.buf_di            := led_arith_mean(FRAME_RGB, buf_do);
+                if cr.inner_coords(Y)=0 then
+                    -- first pixel after side switch
+                    r.buf_di    := FRAME_RGB;
+                end if;
                 if
                     FRAME_RGB_WR_EN='1' and
                     FRAME_X=stdulv(cr.led_pos(X))
                 then
+                    r.buf_p := cr.buf_p+1;
+                    if cr.buf_p=led_cnt-1 then
+                        r.buf_p := 0;
+                    end if;
+                    
                     r.buf_wr_en := '1';
                     r.state     := MAIN_PIXEL;
+                end if;
+            
+            when OVERLAPPED_MAIN_PIXEL =>
+                r.buf_di    := led_arith_mean(FRAME_RGB, buf_ov_do);
+                if FRAME_RGB_WR_EN='1' then
+                    r.buf_p             := cr.buf_p+1;
+                    r.buf_wr_en         := '1';
+                    r.inner_coords(X)   := cr.inner_coords(X)+1;
+                    r.state             := MAIN_PIXEL;
+                    if overlaps and next_inner_x=0 then
+                        -- begin processing the next overlapping LED
+                        r.buf_ov_wr_en  := '1';
+                    end if;
+                    if cr.inner_coords(X)=led_width-2 then
+                        r.state := RIGHT_BORDER_PIXEL;
+                        if cr.inner_coords(Y)=led_height-1 then
+                            r.state := LAST_PIXEL;
+                        end if;
+                    end if;
                 end if;
             
             when MAIN_PIXEL =>
@@ -313,16 +342,12 @@ begin
                     r.buf_wr_en     := '1';
                     r.led_pos(X)    := cr.led_pos(X)+led_step;
                     r.state         := LEFT_BORDER_PIXEL;
-                    r.buf_p         := cr.buf_p+1;
-                    if cr.buf_p=led_cnt-1 then
-                        r.buf_p := 0;
-                    end if;
                     if overlaps then
                         if next_inner_x=0 then
                             -- begin processing the next overlapping LED
                             r.buf_ov_wr_en  := '1';
                         end if;
-                        r.state := MAIN_PIXEL;
+                        r.state := OVERLAPPED_MAIN_PIXEL;
                     end if;
                     if cr.buf_p=led_cnt-1 then
                         -- finished one line of all LED areas
@@ -349,7 +374,6 @@ begin
                     r.led_num       := stdulv(cr.buf_p, cr.led_num'length);
                     
                     r.led_pos(X)    := cr.led_pos(X)+led_step;
-                    r.buf_p         := cr.buf_p+1;
                     r.state         := LEFT_BORDER_PIXEL;
                     if overlaps then
                         r.state := MAIN_PIXEL;
