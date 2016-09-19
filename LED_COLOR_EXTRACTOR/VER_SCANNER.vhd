@@ -263,7 +263,7 @@ begin
             
             when LEFT_BORDER_PIXEL =>
                 tr.inner_coords(X)  := x"0001";
-                tr.buf_di           := FRAME_RGB;
+                tr.buf_di           := led_arith_mean(FRAME_RGB, buf_do);
                 if
                     overlaps and
                     cr.led_num/=0 and
@@ -324,6 +324,7 @@ begin
                 tr.buf_p            := 0;
                 tr.inner_coords(Y)  := cr.inner_coords(Y)+1;
                 tr.led_pos(X)       := first_leds_pos(L)(X);
+                tr.state            := LEFT_BORDER_PIXEL;
                 if cr.inner_coords(Y)=LED_HEIGHT-1 then
                     tr.led_num          := cr.led_num+1;
                     tr.inner_coords(Y)  := (others => '0');
@@ -331,7 +332,6 @@ begin
                         tr.inner_coords(Y)  := abs_overlap;
                     end if;
                 end if;
-                tr.state    := LEFT_BORDER_PIXEL;
             
             when LAST_PIXEL =>
                 tr.inner_coords(X)  := (others => '0');
