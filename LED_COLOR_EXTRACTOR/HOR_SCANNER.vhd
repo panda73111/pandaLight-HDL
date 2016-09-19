@@ -104,7 +104,7 @@ architecture rtl of HOR_SCANNER is
         led_pos         : led_pos_type;
         led_rgb_valid   : std_ulogic;
         led_rgb         : std_ulogic_vector(RGB_BITS-1 downto 0);
-        led_num         : std_ulogic_vector(7 downto 0);
+        led_num         : std_ulogic_vector(log2(MAX_LED_COUNT)-1 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -119,7 +119,7 @@ architecture rtl of HOR_SCANNER is
         led_pos         => (others => x"0000"),
         led_rgb_valid   => '0',
         led_rgb         => (others => '0'),
-        led_num         => x"00"
+        led_num         => (others => '0')
     );
     
     signal next_inner_x         : unsigned(15 downto 0) := x"0000";
@@ -167,7 +167,7 @@ begin
     
     LED_RGB_VALID   <= cur_reg.led_rgb_valid;
     LED_RGB         <= cur_reg.led_rgb;
-    LED_NUM         <= cur_reg.led_num;
+    LED_NUM         <= stdulv(int(cur_reg.led_num), 8);
     LED_SIDE        <= '0' when cur_reg.side=T else '1';
     
     -- the position of the first top/bottom LED
@@ -346,7 +346,7 @@ begin
                     -- (no need for buffering)
                     r.led_rgb_valid := '1';
                     r.led_rgb       := led_arith_mean(FRAME_RGB, buf_do);
-                    r.led_num       := stdulv(cr.buf_p, 8);
+                    r.led_num       := stdulv(cr.buf_p, cr.led_num'length);
                     
                     r.led_pos(X)    := cr.led_pos(X)+led_step;
                     r.buf_p         := cr.buf_p+1;
@@ -354,7 +354,7 @@ begin
                     if overlaps then
                         r.state := MAIN_PIXEL;
                     end if;
-                    if cr.buf_p=LED_CNT-1 then
+                    if cr.buf_p=led_cnt-1 then
                         r.buf_p := 0;
                         r.state := SIDE_SWITCH;
                     end if;
