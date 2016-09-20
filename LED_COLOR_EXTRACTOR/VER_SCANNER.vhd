@@ -17,9 +17,10 @@ use work.help_funcs.all;
 
 entity VER_SCANNER is
     generic (
-        R_BITS  : natural range 1 to 12 := 8;
-        G_BITS  : natural range 1 to 12 := 8;
-        B_BITS  : natural range 1 to 12 := 8
+        LED_NUMBER_OFFSET   : natural range 0 to 1;
+        R_BITS              : natural range 1 to 12 := 8;
+        G_BITS              : natural range 1 to 12 := 8;
+        B_BITS              : natural range 1 to 12 := 8
     );
     port (
         CLK : in std_ulogic;
@@ -63,9 +64,9 @@ architecture rtl of VER_SCANNER is
     -------------
     
     -- vertical buffer: used by the left LED column and the right LED column, one frame row
-    -- contains one row of two LEDs, so we need a buffer for those two plus two overlapping LEDs
+    -- contains one row of two LEDs, so we need a buffer for those two
     type led_buf_type is
-        array(0 to 3) of
+        array(0 to 1) of
         std_ulogic_vector(RGB_BITS-1 downto 0);
     
     type inner_coords_type is
@@ -95,7 +96,6 @@ architecture rtl of VER_SCANNER is
         side            : natural range L to R;
         buf_p           : natural range 0 to 1;
         buf_di          : std_ulogic_vector(RGB_BITS-1 downto 0);
-        ov_buf_di       : std_ulogic_vector(RGB_BITS-1 downto 0);
         buf_wr_en       : std_ulogic;
         inner_coords    : inner_coords_type;
         led_pos         : led_pos_type;
@@ -109,7 +109,6 @@ architecture rtl of VER_SCANNER is
         side            => L,
         buf_p           => 0,
         buf_di          => (others => '0'),
-        ov_buf_di       => (others => '0'),
         buf_wr_en       => '0',
         inner_coords    => (others => x"0000"),
         led_pos         => (others => x"0000"),
@@ -121,11 +120,8 @@ architecture rtl of VER_SCANNER is
     signal next_inner_y         : unsigned(15 downto 0) := x"0000";
     signal first_leds_pos       : leds_pos_type := (others => (others => x"0000"));
     signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal overlaps             : boolean := false;
-    signal abs_overlap          : unsigned(15 downto 0) := x"0000";
     signal led_buf              : led_buf_type := (others => (others => '0'));
     signal buf_do               : std_ulogic_vector(RGB_BITS-1 downto 0) := (others => '0');
-    signal ov_buf_do            : std_ulogic_vector(RGB_BITS-1 downto 0) := (others => '0');
     
     -- configuration registers
     signal led_width    : std_ulogic_vector(15 downto 0) := x"0000";
@@ -174,12 +170,6 @@ begin
     -- in case of overlapping LEDs, the position of the next LED's pixel area is needed
     next_inner_y    <= cur_reg.inner_coords(Y)-uns(led_step);
     
-    -- is there any overlap?
-    overlaps    <= led_step<led_height;
-    
-    -- the amount of overlapping pixels (in one dimension)
-    abs_overlap <= uns(led_height-led_step);
-    
     
     -----------------
     --- processes ---
@@ -212,28 +202,22 @@ begin
     led_buf_proc : process(CLK)
         alias p     is next_reg.buf_p;
         alias di    is next_reg.buf_di;
-        alias ov_di is next_reg.ov_buf_di;
         alias do    is buf_do;
-        alias ov_do is ov_buf_do;
         alias wr_en is next_reg.buf_wr_en;
     begin
         if rising_edge(CLK) then
             -- write first mode
             if wr_en='1' then
                 led_buf(p)      <= di;
-                led_buf(p+2)    <= ov_di;
                 do              <= di;
-                ov_do           <= ov_di;
             else
                 do      <= led_buf(p);
-                ov_do   <= led_buf(p+2);
             end if;
         end if;
     end process;
     
     stm_proc : process(RST, cur_reg, FRAME_WIDTH, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_X, FRAME_Y,
-        LED_WIDTH, LED_HEIGHT, LED_STEP, LED_OFFS, FRAME_RGB, buf_do, ov_buf_do, overlaps,
-        abs_overlap, next_inner_y, first_leds_pos
+        LED_WIDTH, LED_HEIGHT, LED_STEP, LED_OFFS, FRAME_RGB, buf_do, next_inner_y, first_leds_pos
     )
         alias cr        : reg_type is cur_reg;      -- synchronous registers
         variable tr     : reg_type := reg_type_def; -- asynchronous combinational signals
@@ -242,8 +226,6 @@ begin
         
         tr.led_rgb_valid    := '0';
         tr.buf_wr_en        := '0';
-        
-        tr.ov_buf_di    := led_arith_mean(FRAME_RGB, ov_buf_do);
         
         case cr.state is
             
@@ -265,20 +247,6 @@ begin
                 tr.inner_coords(X)  := x"0001";
                 tr.buf_di           := led_arith_mean(FRAME_RGB, buf_do);
                 if
-                    overlaps and
-                    cr.led_num/=0 and
-                    cr.inner_coords(Y)=abs_overlap
-                then
-                    -- not the first LED and there's an overlap,
-                    -- use the buffered color average for the first pixel
-                    tr.buf_di   := led_arith_mean(FRAME_RGB, ov_buf_do);
-                end if;
-                if next_inner_y=0 then
-                    -- first pixel of the following LED,
-                    -- reset the buffer with the current color
-                    tr.ov_buf_di    := FRAME_RGB;
-                end if;
-                if
                     FRAME_RGB_WR_EN='1' and
                     FRAME_X=stdulv(cr.led_pos(X)) and
                     FRAME_Y>=stdulv(cr.led_pos(Y))
@@ -289,14 +257,6 @@ begin
             
             when MAIN_PIXEL =>
                 tr.buf_di   := led_arith_mean(FRAME_RGB, buf_do);
-                if
-                    cr.led_num/=0 and
-                    overlaps
-                then
-                    -- not the first LED and there's an overlap,
-                    -- use the buffered color average
-                    tr.buf_di   := led_arith_mean(FRAME_RGB, ov_buf_do);
-                end if;
                 if FRAME_RGB_WR_EN='1' then
                     tr.buf_wr_en        := '1';
                     tr.inner_coords(X)  := cr.inner_coords(X)+1;
@@ -328,9 +288,6 @@ begin
                 if cr.inner_coords(Y)=LED_HEIGHT-1 then
                     tr.led_num          := cr.led_num+1;
                     tr.inner_coords(Y)  := (others => '0');
-                    if overlaps then
-                        tr.inner_coords(Y)  := abs_overlap;
-                    end if;
                 end if;
             
             when LAST_PIXEL =>
