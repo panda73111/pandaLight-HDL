@@ -18,11 +18,11 @@ use work.help_funcs.all;
 
 entity HOR_SCANNER is
     generic (
-        MAX_LED_COUNT       : positive;
-        LED_NUMBER_OFFSET   : natural range 0 to 1;
-        R_BITS              : natural range 1 to 12 := 8;
-        G_BITS              : natural range 1 to 12 := 8;
-        B_BITS              : natural range 1 to 12 := 8
+        MAX_LED_COUNT   : positive;
+        ODD_LEDS        : boolean;
+        R_BITS          : natural range 1 to 12 := 8;
+        G_BITS          : natural range 1 to 12 := 8;
+        B_BITS          : natural range 1 to 12 := 8
     );
     port (
         CLK : in std_ulogic;
@@ -121,7 +121,6 @@ architecture rtl of HOR_SCANNER is
         skip_next_led   => false
     );
     
-    signal next_inner_x         : unsigned(15 downto 0) := x"0000";
     signal first_leds_pos       : leds_pos_type := (others => (others => x"0000"));
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal led_buf              : led_buf_type := (others => (others => '0'));
@@ -133,26 +132,10 @@ architecture rtl of HOR_SCANNER is
     signal led_step     : std_ulogic_vector(15 downto 0) := x"0000";
     signal led_pad      : std_ulogic_vector(15 downto 0) := x"0000";
     signal led_offs     : std_ulogic_vector(15 downto 0) := x"0000";
-    
     signal frame_height : std_ulogic_vector(15 downto 0) := x"0000";
     
-    function led_arith_mean(vl, vr : std_ulogic_vector) return std_ulogic_vector is
-        variable rl, rr : std_ulogic_vector(R_BITS-1 downto 0);
-        variable gl, gr : std_ulogic_vector(G_BITS-1 downto 0);
-        variable bl, br : std_ulogic_vector(B_BITS-1 downto 0);
-    begin
-        -- computes the arithmetic means of each R, G and B component
-        rl  := vl(RGB_BITS-1 downto G_BITS+B_BITS);
-        gl  := vl(G_BITS+B_BITS-1 downto B_BITS);
-        bl  := vl(B_BITS-1 downto 0);
-        rr  := vr(RGB_BITS-1 downto G_BITS+B_BITS);
-        gr  := vr(G_BITS+B_BITS-1 downto B_BITS);
-        br  := vr(B_BITS-1 downto 0);
-        return
-            arith_mean(rl, rr) &
-            arith_mean(gl, gr) &
-            arith_mean(bl, br);
-    end function;
+    signal half_led_cnt     : unsigned(6 downto 0) := "0000000";
+    signal double_led_step  : unsigned(15 downto 0) := x"0000";
     
 begin
     
@@ -166,13 +149,13 @@ begin
     LED_SIDE        <= '0' when cur_reg.side=T else '1';
     
     -- the position of the first top/bottom LED
-    first_leds_pos(T)(X)    <= uns(led_offs);
+    first_leds_pos(T)(X)    <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
     first_leds_pos(T)(Y)    <= uns(led_pad);
-    first_leds_pos(B)(X)    <= uns(led_offs);
+    first_leds_pos(B)(X)    <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
     first_leds_pos(B)(Y)    <= uns(frame_height-led_height-led_pad);
     
-    -- in case of overlapping LEDs, the position of the next LED's pixel area is needed
-    next_inner_x    <= cur_reg.inner_coords(X)-uns(led_step);
+    half_led_cnt    <= led_cnt(7 downto 1);
+    double_led_step <= led_step(14 downto 0) & '0';
     
     
     -----------------
@@ -222,7 +205,7 @@ begin
     end process;
     
     stm_proc : process(RST, cur_reg, frame_height, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_X, FRAME_Y,
-        led_cnt, led_width, led_height, led_step, led_offs, FRAME_RGB, buf_do, next_inner_x, first_leds_pos
+        half_led_cnt, led_width, led_height, double_led_step, led_offs, FRAME_RGB, buf_do, first_leds_pos
     )
         alias cr    : reg_type is cur_reg;      -- synchronous registers
         variable r  : reg_type := reg_type_def; -- asynchronous combinational signals
@@ -261,7 +244,7 @@ begin
                     FRAME_X=stdulv(cr.led_pos(X))
                 then
                     r.buf_p := cr.buf_p+1;
-                    if cr.buf_p=led_cnt-1 then
+                    if cr.buf_p=half_led_cnt-1 then
                         r.buf_p := 0;
                     end if;
                     
@@ -287,9 +270,9 @@ begin
                 r.buf_di            := led_arith_mean(FRAME_RGB, buf_do);
                 if FRAME_RGB_WR_EN='1' then
                     r.buf_wr_en     := '1';
-                    r.led_pos(X)    := cr.led_pos(X)+led_step;
+                    r.led_pos(X)    := cr.led_pos(X)+double_led_step;
                     r.state         := LEFT_BORDER_PIXEL;
-                    if cr.buf_p=led_cnt-1 then
+                    if cr.buf_p=half_led_cnt-1 then
                         -- finished one line of all LED areas
                         r.state := LINE_SWITCH;
                     end if;
@@ -310,9 +293,9 @@ begin
                     r.led_rgb       := led_arith_mean(FRAME_RGB, buf_do);
                     r.led_num       := stdulv(cr.buf_p, cr.led_num'length);
                     
-                    r.led_pos(X)    := cr.led_pos(X)+led_step;
+                    r.led_pos(X)    := cr.led_pos(X)+double_led_step;
                     r.state         := LEFT_BORDER_PIXEL;
-                    if cr.buf_p=led_cnt-1 then
+                    if cr.buf_p=half_led_cnt-1 then
                         r.buf_p := 0;
                         r.state := SIDE_SWITCH;
                     end if;
