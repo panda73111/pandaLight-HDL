@@ -29,7 +29,7 @@ entity LED_OUT_QUEUE is
         
         WR_EN       : in std_ulogic;
         ACCU        : in std_ulogic_vector(3*ACCU_BITS-1 downto 0);
-        PIXEL_COUNT : in std_ulogic_vector(ACCU_BITS-1 downto 0);
+        PIXEL_COUNT : in std_ulogic_vector(31 downto 0);
         
         LED_RGB_VALID   : out std_ulogic := '0';
         LED_RGB         : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0')
@@ -45,6 +45,8 @@ architecture rtl of LED_OUT_QUEUE is
     signal divs_valid       : std_ulogic_vector(2 downto 0) := "000";
     signal divs_busy        : std_ulogic_vector(2 downto 0) := "000";
     
+    signal divisor  : std_ulogic_vector(ACCU_BITS-1 downto 0);
+    
     signal fifo_rd_en   : std_ulogic := '0';
     signal fifo_empty   : std_ulogic := '0';
     signal fifo_valid   : std_ulogic := '0';
@@ -57,6 +59,8 @@ begin
         divs_quotient(0)(R_BITS-1 downto 0) &
         divs_quotient(1)(G_BITS-1 downto 0) &
         divs_quotient(2)(B_BITS-1 downto 0);
+    
+    divisor(PIXEL_COUNT'range)  <= PIXEL_COUNT;
     
     ASYNC_FIFO_inst : entity work.ASYNC_FIFO
         generic map (
@@ -94,7 +98,7 @@ begin
                 START   => fifo_valid,
                 
                 DIVIDEND    => divs_dividend(i),
-                DIVISOR     => PIXEL_COUNT,
+                DIVISOR     => divisor,
                 
                 BUSY    => divs_busy(i),
                 VALID   => divs_valid(i),

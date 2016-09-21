@@ -17,10 +17,11 @@ use work.help_funcs.all;
 
 entity VER_SCANNER is
     generic (
-        R_BITS      : positive range 5 to 12;
-        G_BITS      : positive range 6 to 12;
-        B_BITS      : positive range 5 to 12;
-        ACCU_BITS   : positive range 8 to 40
+        MAX_LED_COUNT   : positive;
+        R_BITS          : positive range 5 to 12;
+        G_BITS          : positive range 6 to 12;
+        B_BITS          : positive range 5 to 12;
+        ACCU_BITS       : positive range 8 to 40
     );
     port (
         CLK : in std_ulogic;
@@ -44,12 +45,12 @@ entity VER_SCANNER is
     );
 end VER_SCANNER;
 
-architecture rtl of HOR_SCANNER is
+architecture rtl of VER_SCANNER is
     
     type scanners_pixel_count_type is array(0 to 1) of std_ulogic_vector(31 downto 0);
     type scanners_accu_type is array(0 to 1) of std_ulogic_vector(3*ACCU_BITS-1 downto 0);
     
-    signal scanners_pixel_count : pixel_counts_type := (others => x"0000_0000");
+    signal scanners_pixel_count : scanners_pixel_count_type := (others => x"0000_0000");
     signal scanners_accu_valid  : std_ulogic_vector(1 downto 0) := "00";
     signal scanners_accu        : scanners_accu_type := (others => (others => '0'));
     
@@ -57,11 +58,8 @@ architecture rtl of HOR_SCANNER is
     signal accu         : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
     
     signal led_count    : std_ulogic_vector(7 downto 0) := x"00";
-    signal led_counter  : unsigned(log2(MAX_LED_COUNT)-1 downto 0) := x"00";
+    signal led_counter  : unsigned(log2(MAX_LED_COUNT)-1 downto 0) := (others => '0');
     signal side         : std_ulogic := '0';
-    
-    signal leds_rgb_valid   : std_ulogic_vector(1 downto 0);
-    signal leds_rgb         : leds_rgb_type := (others => (others => '0'));
     
     signal queue_led_rgb_valid  : std_ulogic := '0';
     
@@ -100,14 +98,13 @@ begin
             PIXEL_COUNT => scanners_pixel_count(0),
             
             LED_RGB_VALID   => queue_led_rgb_valid,
-            LED_RBG         => LED_RGB
+            LED_RGB         => LED_RGB
         );
     
     HALF_VER_SCANNERs_gen : for odd in 0 to 1 generate
         
         HALF_VER_SCANNER_inst : entity work.HALF_VER_SCANNER
             generic map (
-                MAX_LED_COUNT   => MAX_LED_COUNT,
                 ODD_LEDS        => odd=1,
                 R_BITS          => R_BITS,
                 G_BITS          => G_BITS,
@@ -129,7 +126,7 @@ begin
                 FRAME_X => FRAME_X,
                 FRAME_Y => FRAME_Y,
                 
-                ACCU_VALID  => accu_valid,
+                ACCU_VALID  => scanners_accu_valid(odd),
                 ACCU        => scanners_accu(odd),
                 
                 PIXEL_COUNT => scanners_pixel_count(odd)
@@ -143,7 +140,7 @@ begin
             led_counter <= (others => '0');
             side        <= '0';
         elsif rising_edge(CLK) then
-            if queue_led_rgb_valid then
+            if queue_led_rgb_valid='1' then
                 side    <= not side;
                 
                 if side='1' then

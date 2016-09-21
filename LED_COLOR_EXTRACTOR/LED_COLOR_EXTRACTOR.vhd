@@ -197,7 +197,7 @@ begin
         end if;
     end process;
     
-    HOR_SCANNER_inst : entity work.hor_scanner
+    HOR_SCANNER_inst : entity work.HOR_SCANNER
         generic map (
             MAX_LED_COUNT   => MAX_LED_COUNT,
             R_BITS          => R_BITS,
@@ -226,12 +226,13 @@ begin
             LED_SIDE        => leds_side(HOR)
         );
     
-    VER_SCANNER_inst : entity work.ver_scanner
+    VER_SCANNER_inst : entity work.VER_SCANNER
         generic map (
-            R_BITS      => R_BITS,
-            G_BITS      => G_BITS,
-            B_BITS      => B_BITS,
-            ACCU_BITS   => ACCU_BITS
+            MAX_LED_COUNT   => MAX_LED_COUNT,
+            R_BITS          => R_BITS,
+            G_BITS          => G_BITS,
+            B_BITS          => B_BITS,
+            ACCU_BITS       => ACCU_BITS
         )
         port map (
             CLK => clk,
