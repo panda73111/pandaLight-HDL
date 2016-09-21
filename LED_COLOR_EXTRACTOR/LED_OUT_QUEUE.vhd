@@ -42,10 +42,11 @@ architecture rtl of LED_OUT_QUEUE is
     
     type divs_din_type is array(0 to 2) of std_ulogic_vector(ACCU_BITS-1 downto 0);
     
-    signal divs_dividend    : divs_din_type := (others => (others => '0'));
-    signal divs_quotient    : divs_din_type := (others => (others => '0'));
-    signal divs_valid       : std_ulogic_vector(2 downto 0) := "000";
-    signal divs_busy        : std_ulogic_vector(2 downto 0) := "000";
+    signal divs_dividend        : divs_din_type := (others => (others => '0'));
+    signal divs_quotient        : divs_din_type := (others => (others => '0'));
+    signal divs_valid           : std_ulogic_vector(2 downto 0) := "000";
+    signal divs_valid_latched   : std_ulogic_vector(2 downto 0) := "000";
+    signal divs_busy            : std_ulogic_vector(2 downto 0) := "000";
     
     signal divisor  : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
     
@@ -57,17 +58,17 @@ architecture rtl of LED_OUT_QUEUE is
     
 begin
     
-    LED_RGB_VALID   <= divs_valid(0);
-    LED_RGB         <=
+    LED_RGB_VALID   <=
+        divs_valid_latched(0) and
+        divs_valid_latched(1) and
+        divs_valid_latched(2);
+        
+    LED_RGB <=
         divs_quotient(0)(R_BITS-1 downto 0) &
         divs_quotient(1)(G_BITS-1 downto 0) &
         divs_quotient(2)(B_BITS-1 downto 0);
     
-    divisor_driver_gen : if ACCU_BITS>PIXEL_COUNT'length generate
-        divisor(ACCU_BITS-1 downto PIXEL_COUNT'length)  <= (others => '0');
-    end generate;
-    
-    divisor(minimum(ACCU_BITS-1, 31) downto 0)  <= PIXEL_COUNT(minimum(ACCU_BITS-1, 31) downto 0);
+    divisor <= stdulv(int(PIXEL_COUNT), ACCU_BITS);
     
     fifo_din    <= ACCU_R & ACCU_G & ACCU_B;
     
@@ -120,9 +121,20 @@ begin
     process(RST, CLK)
     begin
         if RST='1' then
-            fifo_rd_en  <= '0';
+            fifo_rd_en          <= '0';
+            divs_valid_latched  <= "000";
         elsif rising_edge(CLK) then
-            fifo_rd_en  <= not fifo_empty and not divs_busy(0);
+            fifo_rd_en  <=
+                not fifo_empty and
+                not fifo_rd_en and
+                not divs_busy(0) and
+                not divs_busy(1) and
+                not divs_busy(2);
+            
+            divs_valid_latched  <= divs_valid_latched or divs_valid;
+            if divs_valid_latched="111" then
+                divs_valid_latched  <= "000";
+            end if;
         end if;
     end process;
     

@@ -104,6 +104,7 @@ architecture rtl of HALF_VER_SCANNER is
         led_pos         : led_pos_type;
         accu_valid      : std_ulogic;
         pixel_counter   : unsigned(ACCU_BITS-9 downto 0);
+        pixel_count     : std_ulogic_vector(ACCU_BITS-9 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -116,7 +117,8 @@ architecture rtl of HALF_VER_SCANNER is
         inner_coords    => (others => x"0000"),
         led_pos         => (others => x"0000"),
         accu_valid      => '0',
-        pixel_counter   => (others => '0')
+        pixel_counter   => (others => '0'),
+        pixel_count     => (others => '0')
     );
     
     -- configuration registers
@@ -166,7 +168,7 @@ begin
     ACCU_G      <= cur_reg.buf_di(2*ACCU_BITS-1 downto   ACCU_BITS);
     ACCU_B      <= cur_reg.buf_di(  ACCU_BITS-1 downto           0);
     
-    PIXEL_COUNT <= stdulv(int(cur_reg.pixel_counter), 32);
+    PIXEL_COUNT <= stdulv(int(cur_reg.pixel_count), 32);
     
     -- the position of the first left/right LED
     first_leds_pos(L)(X)    <= uns(led_pad);
@@ -327,7 +329,7 @@ begin
                     tr.accu_valid   := '1';
                     
                     if cr.buf_wr_p=0 then
-                        tr.pixel_counter    := cr.pixel_counter+1;
+                        tr.pixel_count  := stdulv(cr.pixel_counter+1);
                     end if;
                     
                     tr.state    := SIDE_SWITCH;
