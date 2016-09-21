@@ -117,13 +117,6 @@ architecture rtl of HALF_VER_SCANNER is
         pixel_counter   => (others => '0')
     );
     
-    signal first_leds_pos       : leds_pos_type := (others => (others => x"0000"));
-    signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal led_buf              : led_buf_type := (others => (others => '0'));
-    signal buf_do               : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
-    
-    signal padded_frame_rgb : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
-    
     -- configuration registers
     signal led_width    : std_ulogic_vector(15 downto 0) := x"0000";
     signal led_height   : std_ulogic_vector(15 downto 0) := x"0000";
@@ -132,7 +125,13 @@ architecture rtl of HALF_VER_SCANNER is
     signal led_offs     : std_ulogic_vector(15 downto 0) := x"0000";
     signal frame_width  : std_ulogic_vector(15 downto 0) := x"0000";
     
+    signal first_leds_pos       : leds_pos_type := (others => (others => x"0000"));
+    signal cur_reg, next_reg    : reg_type := reg_type_def;
+    signal led_buf              : led_buf_type := (others => (others => '0'));
+    signal buf_do               : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
+    
     signal double_led_step  : unsigned(15 downto 0) := x"0000";
+    signal padded_frame_rgb : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
     
     function led_sum(
         one, two    : std_ulogic_vector(3*ACCU_BITS-1 downto 0)

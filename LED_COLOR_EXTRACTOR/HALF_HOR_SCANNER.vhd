@@ -119,12 +119,6 @@ architecture rtl of HALF_HOR_SCANNER is
         pixel_counter   => (others => '0')
     );
     
-    signal first_leds_pos       : leds_pos_type := (others => (others => x"0000"));
-    signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal led_buf              : led_buf_type := (others => (others => '0'));
-    signal buf_do               : std_ulogic_vector(3*ACCU_BITS-1 downto 0);
-    signal switch               : boolean := false;
-    
     -- configuration registers
     signal led_count    : std_ulogic_vector(7 downto 0) := x"00";
     signal led_width    : std_ulogic_vector(15 downto 0) := x"0000";
@@ -134,9 +128,14 @@ architecture rtl of HALF_HOR_SCANNER is
     signal led_offs     : std_ulogic_vector(15 downto 0) := x"0000";
     signal frame_height : std_ulogic_vector(15 downto 0) := x"0000";
     
+    signal first_leds_pos       : leds_pos_type := (others => (others => x"0000"));
+    signal cur_reg, next_reg    : reg_type := reg_type_def;
+    signal led_buf              : led_buf_type := (others => (others => '0'));
+    signal buf_do               : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
+    signal switch               : boolean := false;
+    
     signal half_led_count   : unsigned(6 downto 0) := "0000000";
     signal double_led_step  : unsigned(15 downto 0) := x"0000";
-    
     signal padded_frame_rgb : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
     
     function led_sum(
@@ -337,6 +336,9 @@ begin
                     if switch then
                         r.buf_p         := 0;
                         r.state         := SIDE_SWITCH;
+                    end if;
+                    
+                    if cr.buf_p=0 then
                         r.pixel_counter := cr.pixel_counter+1;
                     end if;
                 end if;
