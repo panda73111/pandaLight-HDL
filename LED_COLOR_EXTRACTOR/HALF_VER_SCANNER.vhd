@@ -39,7 +39,9 @@ entity HALF_VER_SCANNER is
         FRAME_Y : in std_ulogic_vector(15 downto 0);
         
         ACCU_VALID  : out std_ulogic := '0';
-        ACCU        : out std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
+        ACCU_R      : out std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
+        ACCU_G      : out std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
+        ACCU_B      : out std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
         PIXEL_COUNT : out std_ulogic_vector(31 downto 0) := x"0000_0000"
     );
 end HALF_VER_SCANNER;
@@ -159,7 +161,9 @@ begin
     ---------------------
     
     ACCU_VALID  <= cur_reg.accu_valid;
-    ACCU        <= buf_do;
+    ACCU_R      <= buf_do(3*ACCU_BITS-1 downto 2*ACCU_BITS);
+    ACCU_G      <= buf_do(2*ACCU_BITS-1 downto   ACCU_BITS);
+    ACCU_B      <= buf_do(  ACCU_BITS-1 downto           0);
     
     PIXEL_COUNT <= stdulv(int(cur_reg.pixel_counter), 32);
     

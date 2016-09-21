@@ -48,14 +48,18 @@ end VER_SCANNER;
 architecture rtl of VER_SCANNER is
     
     type scanners_pixel_count_type is array(0 to 1) of std_ulogic_vector(31 downto 0);
-    type scanners_accu_type is array(0 to 1) of std_ulogic_vector(3*ACCU_BITS-1 downto 0);
+    type scanners_accu_type is array(0 to 1) of std_ulogic_vector(ACCU_BITS-1 downto 0);
     
     signal scanners_pixel_count : scanners_pixel_count_type := (others => x"0000_0000");
     signal scanners_accu_valid  : std_ulogic_vector(1 downto 0) := "00";
-    signal scanners_accu        : scanners_accu_type := (others => (others => '0'));
+    signal scanners_accu_r      : scanners_accu_type := (others => (others => '0'));
+    signal scanners_accu_g      : scanners_accu_type := (others => (others => '0'));
+    signal scanners_accu_b      : scanners_accu_type := (others => (others => '0'));
     
     signal accu_valid   : std_ulogic := '0';
-    signal accu         : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
+    signal accu_r       : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
+    signal accu_g       : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
+    signal accu_b       : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
     
     signal led_count    : std_ulogic_vector(7 downto 0) := x"00";
     signal led_counter  : unsigned(log2(MAX_LED_COUNT)-1 downto 0) := (others => '0');
@@ -70,7 +74,9 @@ begin
     LED_SIDE        <= side;
     
     accu_valid  <= scanners_accu_valid(0) or scanners_accu_valid(1);
-    accu        <= scanners_accu(0) when scanners_accu_valid(0)='1' else scanners_accu(1);
+    accu_r      <= scanners_accu_r(0) when scanners_accu_valid(0)='1' else scanners_accu_r(1);
+    accu_g      <= scanners_accu_g(0) when scanners_accu_valid(0)='1' else scanners_accu_g(1);
+    accu_b      <= scanners_accu_b(0) when scanners_accu_valid(0)='1' else scanners_accu_b(1);
     
     cfg_proc : process(CLK)
     begin
@@ -94,7 +100,9 @@ begin
             RST => RST,
             
             WR_EN       => accu_valid,
-            ACCU        => accu,
+            ACCU_R      => accu_r,
+            ACCU_G      => accu_g,
+            ACCU_B      => accu_b,
             PIXEL_COUNT => scanners_pixel_count(0),
             
             LED_RGB_VALID   => queue_led_rgb_valid,
@@ -127,7 +135,9 @@ begin
                 FRAME_Y => FRAME_Y,
                 
                 ACCU_VALID  => scanners_accu_valid(odd),
-                ACCU        => scanners_accu(odd),
+                ACCU_R      => scanners_accu_r(odd),
+                ACCU_G      => scanners_accu_g(odd),
+                ACCU_B      => scanners_accu_b(odd),
                 
                 PIXEL_COUNT => scanners_pixel_count(odd)
             );

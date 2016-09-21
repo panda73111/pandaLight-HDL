@@ -28,7 +28,9 @@ entity LED_OUT_QUEUE is
         RST : in std_ulogic;
         
         WR_EN       : in std_ulogic;
-        ACCU        : in std_ulogic_vector(3*ACCU_BITS-1 downto 0);
+        ACCU_R      : in std_ulogic_vector(ACCU_BITS-1 downto 0);
+        ACCU_G      : in std_ulogic_vector(ACCU_BITS-1 downto 0);
+        ACCU_B      : in std_ulogic_vector(ACCU_BITS-1 downto 0);
         PIXEL_COUNT : in std_ulogic_vector(31 downto 0);
         
         LED_RGB_VALID   : out std_ulogic := '0';
@@ -50,6 +52,7 @@ architecture rtl of LED_OUT_QUEUE is
     signal fifo_rd_en   : std_ulogic := '0';
     signal fifo_empty   : std_ulogic := '0';
     signal fifo_valid   : std_ulogic := '0';
+    signal fifo_din     : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
     signal fifo_dout    : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
     
 begin
@@ -62,6 +65,8 @@ begin
     
     divisor(PIXEL_COUNT'range)  <= PIXEL_COUNT;
     
+    fifo_din    <= ACCU_R & ACCU_G & ACCU_B;
+    
     ASYNC_FIFO_inst : entity work.ASYNC_FIFO
         generic map (
             WIDTH   => 3*ACCU_BITS,
@@ -71,7 +76,7 @@ begin
             CLK => CLK,
             RST => RST,
             
-            DIN     => ACCU,
+            DIN     => fifo_din,
             WR_EN   => WR_EN,
             RD_EN   => fifo_rd_en,
             
@@ -85,7 +90,7 @@ begin
         -- divider 0 -> red
         -- divider 1 -> green
         -- divider 2 -> blue
-        divs_dividend(i)    <= ACCU((3-i)*ACCU_BITS-1 downto (2-i)*ACCU_BITS);
+        divs_dividend(i)    <= fifo_dout((3-i)*ACCU_BITS-1 downto (2-i)*ACCU_BITS);
         
         ITERATIVE_DIVIDER_inst : entity work.ITERATIVE_DIVIDER
             generic map (
