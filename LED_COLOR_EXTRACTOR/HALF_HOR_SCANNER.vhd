@@ -70,7 +70,7 @@ architecture rtl of HALF_HOR_SCANNER is
     -- horizontal buffer: used by the top LED row and the bottom LED row, one frame row
     -- contains one pixel of each LED of one side, so we need a buffer for all those LEDs
     type led_buf_type is
-        array(0 to MAX_LED_COUNT-1) of
+        array(0 to MAX_LED_COUNT/2-1) of
         std_ulogic_vector(3*ACCU_BITS-1 downto 0);
     
     type inner_coords_type is
@@ -98,8 +98,8 @@ architecture rtl of HALF_HOR_SCANNER is
     type reg_type is record
         state           : state_type;
         side            : natural range T to B;
-        buf_rd_p        : natural range 0 to MAX_LED_COUNT;
-        buf_wr_p        : natural range 0 to MAX_LED_COUNT;
+        buf_rd_p        : natural range 0 to MAX_LED_COUNT/2;
+        buf_wr_p        : natural range 0 to MAX_LED_COUNT/2;
         buf_di          : std_ulogic_vector(3*ACCU_BITS-1 downto 0);
         buf_wr_en       : std_ulogic;
         inner_coords    : inner_coords_type;
