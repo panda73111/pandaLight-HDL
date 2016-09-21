@@ -47,7 +47,7 @@ architecture rtl of LED_OUT_QUEUE is
     signal divs_valid       : std_ulogic_vector(2 downto 0) := "000";
     signal divs_busy        : std_ulogic_vector(2 downto 0) := "000";
     
-    signal divisor  : std_ulogic_vector(ACCU_BITS-1 downto 0);
+    signal divisor  : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
     
     signal fifo_rd_en   : std_ulogic := '0';
     signal fifo_empty   : std_ulogic := '0';
@@ -63,7 +63,11 @@ begin
         divs_quotient(1)(G_BITS-1 downto 0) &
         divs_quotient(2)(B_BITS-1 downto 0);
     
-    divisor(PIXEL_COUNT'range)  <= PIXEL_COUNT;
+    divisor_driver_gen : if ACCU_BITS>PIXEL_COUNT'length generate
+        divisor(ACCU_BITS-1 downto PIXEL_COUNT'length)  <= (others => '0');
+    end generate;
+    
+    divisor(minimum(ACCU_BITS-1, 31) downto 0)  <= PIXEL_COUNT(minimum(ACCU_BITS-1, 31) downto 0);
     
     fifo_din    <= ACCU_R & ACCU_G & ACCU_B;
     
