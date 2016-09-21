@@ -15,8 +15,6 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 use work.help_funcs.all;
 use work.txt_util.all;
 use work.video_profiles.all;
@@ -24,9 +22,9 @@ use work.video_profiles.all;
 ENTITY LED_COLOR_EXTRACTOR_tb IS
     generic (
         MAX_LED_COUNT   : natural := 64;
-        R_BITS          : natural range 1 to 12 := 8;
-        G_BITS          : natural range 1 to 12 := 8;
-        B_BITS          : natural range 1 to 12 := 8
+        R_BITS          : natural range 5 to 12 := 8;
+        G_BITS          : natural range 6 to 12 := 8;
+        B_BITS          : natural range 5 to 12 := 8
     );
 END LED_COLOR_EXTRACTOR_tb;
 

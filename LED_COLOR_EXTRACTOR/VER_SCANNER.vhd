@@ -1,14 +1,14 @@
 ----------------------------------------------------------------------------------
 -- Engineer: Sebastian Huether
 -- 
--- Create Date:    15:19:05 07/03/2014 
+-- Create Date:    ‏‎14:13:07 09/21/2016
 -- Design Name:    LED_COLOR_EXTRACTOR
--- Module Name:    VER_SCANNER - rtl 
+-- Module Name:    VER_SCANNER - rtl
 -- Tool versions:  Xilinx ISE 14.7
--- Description: 
---
--- Additional Comments: 
---
+-- Description:
+--  
+-- Additional Comments:
+--  
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.std_logic_1164.ALL;
@@ -17,10 +17,10 @@ use work.help_funcs.all;
 
 entity VER_SCANNER is
     generic (
-        ODD_LEDS    : boolean;
-        R_BITS      : natural range 1 to 12 := 8;
-        G_BITS      : natural range 1 to 12 := 8;
-        B_BITS      : natural range 1 to 12 := 8
+        R_BITS      : positive range 5 to 12;
+        G_BITS      : positive range 6 to 12;
+        B_BITS      : positive range 5 to 12;
+        ACCU_BITS   : positive range 8 to 40
     );
     port (
         CLK : in std_ulogic;
@@ -44,273 +44,118 @@ entity VER_SCANNER is
     );
 end VER_SCANNER;
 
-architecture rtl of VER_SCANNER is
+architecture rtl of HOR_SCANNER is
     
-    constant RGB_BITS   : natural := R_BITS+G_BITS+B_BITS;
+    type scanners_pixel_count_type is array(0 to 1) of std_ulogic_vector(31 downto 0);
+    type scanners_accu_type is array(0 to 1) of std_ulogic_vector(3*ACCU_BITS-1 downto 0);
     
-    -----------------------------
-    --- array element aliases ---
-    -----------------------------
+    signal scanners_pixel_count : pixel_counts_type := (others => x"0000_0000");
+    signal scanners_accu_valid  : std_ulogic_vector(1 downto 0) := "00";
+    signal scanners_accu        : scanners_accu_type := (others => (others => '0'));
     
-    constant L  : natural := 0; -- left
-    constant R  : natural := 1; -- right
+    signal accu_valid   : std_ulogic := '0';
+    signal accu         : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
     
-    constant X  : natural := 0;
-    constant Y  : natural := 1;
+    signal led_count    : std_ulogic_vector(7 downto 0) := x"00";
+    signal led_counter  : unsigned(log2(MAX_LED_COUNT)-1 downto 0) := x"00";
+    signal side         : std_ulogic := '0';
     
+    signal leds_rgb_valid   : std_ulogic_vector(1 downto 0);
+    signal leds_rgb         : leds_rgb_type := (others => (others => '0'));
     
-    -------------
-    --- types ---
-    -------------
-    
-    -- vertical buffer: used by the left LED column and the right LED column, one frame row
-    -- contains one row of two LEDs, so we need a buffer for those two
-    type led_buf_type is
-        array(0 to 1) of
-        std_ulogic_vector(RGB_BITS-1 downto 0);
-    
-    type inner_coords_type is
-        array(0 to 1) of
-        unsigned(15 downto 0);
-    
-    type led_pos_type is
-        array(0 to 1) of
-        unsigned(15 downto 0);
-    
-    type leds_pos_type is
-        array(0 to 1) of
-        led_pos_type;
-    
-    type state_type is (
-        FIRST_LED_FIRST_PIXEL,
-        LEFT_BORDER_PIXEL,
-        MAIN_PIXEL,
-        RIGHT_BORDER_PIXEL,
-        LINE_SWITCH,
-        LAST_PIXEL,
-        SIDE_SWITCH
-    );
-    
-    type reg_type is record
-        state           : state_type;
-        side            : natural range L to R;
-        buf_p           : natural range 0 to 1;
-        buf_di          : std_ulogic_vector(RGB_BITS-1 downto 0);
-        buf_wr_en       : std_ulogic;
-        inner_coords    : inner_coords_type;
-        led_pos         : led_pos_type;
-        led_rgb_valid   : std_ulogic;
-        led_rgb         : std_ulogic_vector(RGB_BITS-1 downto 0);
-        led_num         : std_ulogic_vector(7 downto 0);
-    end record;
-    
-    constant reg_type_def   : reg_type := (
-        state           => FIRST_LED_FIRST_PIXEL,
-        side            => L,
-        buf_p           => 0,
-        buf_di          => (others => '0'),
-        buf_wr_en       => '0',
-        inner_coords    => (others => x"0000"),
-        led_pos         => (others => x"0000"),
-        led_rgb_valid   => '0',
-        led_rgb         => (others => '0'),
-        led_num         => x"00"
-    );
-    
-    signal first_leds_pos       : leds_pos_type := (others => (others => x"0000"));
-    signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal led_buf              : led_buf_type := (others => (others => '0'));
-    signal buf_do               : std_ulogic_vector(RGB_BITS-1 downto 0) := (others => '0');
-    
-    -- configuration registers
-    signal led_width    : std_ulogic_vector(15 downto 0) := x"0000";
-    signal led_height   : std_ulogic_vector(15 downto 0) := x"0000";
-    signal led_step     : std_ulogic_vector(15 downto 0) := x"0000";
-    signal led_pad      : std_ulogic_vector(15 downto 0) := x"0000";
-    signal led_offs     : std_ulogic_vector(15 downto 0) := x"0000";
-    signal frame_width  : std_ulogic_vector(15 downto 0) := x"0000";
-    
-    signal double_led_step  : unsigned(15 downto 0) := x"0000";
+    signal queue_led_rgb_valid  : std_ulogic := '0';
     
 begin
     
-    ---------------------
-    --- static routes ---
-    ---------------------
+    LED_RGB_VALID   <= queue_led_rgb_valid;
+    LED_NUM         <= stdulv(int(led_counter), 8);
+    LED_SIDE        <= side;
     
-    LED_RGB_VALID   <= cur_reg.led_rgb_valid;
-    LED_RGB         <= cur_reg.led_rgb;
-    LED_NUM         <= cur_reg.led_num;
-    LED_SIDE        <= '0' when cur_reg.side=L else '1';
-    
-    -- the position of the first left/right LED
-    first_leds_pos(L)(X)    <= uns(led_pad);
-    first_leds_pos(L)(Y)    <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
-    first_leds_pos(R)(X)    <= uns(frame_width-led_width-led_pad);
-    first_leds_pos(R)(Y)    <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
-    
-    double_led_step <= led_step(14 downto 0) & '0';
-    
-    
-    -----------------
-    --- processes ---
-    -----------------
+    accu_valid  <= scanners_accu_valid(0) or scanners_accu_valid(1);
+    accu        <= scanners_accu(0) when scanners_accu_valid(0)='1' else scanners_accu(1);
     
     cfg_proc : process(CLK)
     begin
         if rising_edge(CLK) then
-            if RST='1' and CFG_WR_EN='1' then
-                case CFG_ADDR is
-                    when "01100" => led_width(15 downto 8)      <= CFG_DATA;
-                    when "01101" => led_width(7 downto 0)       <= CFG_DATA;
-                    when "01110" => led_height(15 downto 8)     <= CFG_DATA;
-                    when "01111" => led_height(7 downto 0)      <= CFG_DATA;
-                    when "10000" => led_step(15 downto 8)       <= CFG_DATA;
-                    when "10001" => led_step(7 downto 0)        <= CFG_DATA;
-                    when "10010" => led_pad(15 downto 8)        <= CFG_DATA;
-                    when "10011" => led_pad(7 downto 0)         <= CFG_DATA;
-                    when "10100" => led_offs(15 downto 8)       <= CFG_DATA;
-                    when "10101" => led_offs(7 downto 0)        <= CFG_DATA;
-                    when "10110" => frame_width(15 downto 8)    <= CFG_DATA;
-                    when "10111" => frame_width(7 downto 0)     <= CFG_DATA;
-                    when others => null;
-                end case;
+            if RST='1' and CFG_WR_EN='1' and CFG_ADDR="00000" then
+                led_count   <= CFG_DATA;
             end if;
         end if;
     end process;
     
-    -- ensure block RAM usage
-    led_buf_proc : process(CLK)
-        alias p     is next_reg.buf_p;
-        alias di    is next_reg.buf_di;
-        alias do    is buf_do;
-        alias wr_en is next_reg.buf_wr_en;
-    begin
-        if rising_edge(CLK) then
-            -- write first mode
-            if wr_en='1' then
-                led_buf(p)      <= di;
-                do              <= di;
-            else
-                do      <= led_buf(p);
-            end if;
-        end if;
-    end process;
+    LED_OUT_QUEUE_inst : entity work.LED_OUT_QUEUE
+        generic map (
+            MAX_LED_COUNT   => MAX_LED_COUNT,
+            R_BITS          => R_BITS,
+            G_BITS          => G_BITS,
+            B_BITS          => B_BITS,
+            ACCU_BITS       => ACCU_BITS
+        )
+        port map (
+            CLK => CLK,
+            RST => RST,
+            
+            WR_EN       => accu_valid,
+            ACCU        => accu,
+            PIXEL_COUNT => scanners_pixel_count(0),
+            
+            LED_RGB_VALID   => queue_led_rgb_valid,
+            LED_RBG         => LED_RGB
+        );
     
-    stm_proc : process(RST, cur_reg, FRAME_WIDTH, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_X, FRAME_Y,
-        LED_WIDTH, LED_HEIGHT, double_led_step, LED_OFFS, FRAME_RGB, buf_do, first_leds_pos
-    )
-        alias cr        : reg_type is cur_reg;      -- synchronous registers
-        variable tr     : reg_type := reg_type_def; -- asynchronous combinational signals
-    begin
-        tr  := cr;
+    HALF_VER_SCANNERs_gen : for odd in 0 to 1 generate
         
-        tr.led_rgb_valid    := '0';
-        tr.buf_wr_en        := '0';
+        HALF_VER_SCANNER_inst : entity work.HALF_VER_SCANNER
+            generic map (
+                MAX_LED_COUNT   => MAX_LED_COUNT,
+                ODD_LEDS        => odd=1,
+                R_BITS          => R_BITS,
+                G_BITS          => G_BITS,
+                B_BITS          => B_BITS,
+                ACCU_BITS       => ACCU_BITS
+            )
+            port map (
+                CLK => CLK,
+                RST => RST,
+                
+                CFG_ADDR    => CFG_ADDR,
+                CFG_WR_EN   => CFG_WR_EN,
+                CFG_DATA    => CFG_DATA,
+                
+                FRAME_VSYNC     => FRAME_VSYNC,
+                FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
+                FRAME_RGB       => FRAME_RGB,
+                
+                FRAME_X => FRAME_X,
+                FRAME_Y => FRAME_Y,
+                
+                ACCU_VALID  => accu_valid,
+                ACCU        => scanners_accu(odd),
+                
+                PIXEL_COUNT => scanners_pixel_count(odd)
+            );
         
-        case cr.state is
-            
-            when FIRST_LED_FIRST_PIXEL =>
-                tr.led_pos          := first_leds_pos(cr.side);
-                tr.inner_coords(X)  := x"0001";
-                tr.inner_coords(Y)  := (others => '0');
-                tr.buf_di           := FRAME_RGB;
-                if
-                    FRAME_RGB_WR_EN='1' and
-                    FRAME_X=stdulv(first_leds_pos(cr.side)(X)) and
-                    FRAME_Y=stdulv(first_leds_pos(cr.side)(Y))
-                then
-                    tr.buf_wr_en    := '1';
-                    tr.state        := MAIN_PIXEL;
-                end if;
-            
-            when LEFT_BORDER_PIXEL =>
-                tr.inner_coords(X)  := x"0001";
-                tr.buf_di           := led_arith_mean(FRAME_RGB, buf_do);
-                if
-                    FRAME_RGB_WR_EN='1' and
-                    FRAME_X=stdulv(cr.led_pos(X)) and
-                    FRAME_Y>=stdulv(cr.led_pos(Y))
-                then
-                    tr.buf_wr_en    := '1';
-                    tr.state        := MAIN_PIXEL;
-                end if;
-            
-            when MAIN_PIXEL =>
-                tr.buf_di   := led_arith_mean(FRAME_RGB, buf_do);
-                if FRAME_RGB_WR_EN='1' then
-                    tr.buf_wr_en        := '1';
-                    tr.inner_coords(X)  := cr.inner_coords(X)+1;
-                    if cr.inner_coords(X)=LED_WIDTH-2 then
-                        tr.state    := RIGHT_BORDER_PIXEL;
-                        if cr.inner_coords(Y)=LED_HEIGHT-1 then
-                            tr.state    := LAST_PIXEL;
-                        end if;
-                    end if;
-                end if;
-            
-            when RIGHT_BORDER_PIXEL =>
-                tr.inner_coords(X)  := (others => '0');
-                tr.buf_di           := led_arith_mean(FRAME_RGB, buf_do);
-                if FRAME_RGB_WR_EN='1' then
-                    tr.buf_wr_en    := '1';
-                    tr.state        := SIDE_SWITCH;
-                    if cr.side=R then
-                        tr.state    := LINE_SWITCH;
-                    end if;
-                end if;
-            
-            when LINE_SWITCH =>
-                tr.side             := L;
-                tr.buf_p            := 0;
-                tr.inner_coords(Y)  := cr.inner_coords(Y)+1;
-                tr.led_pos(X)       := first_leds_pos(L)(X);
-                tr.state            := LEFT_BORDER_PIXEL;
-                if cr.inner_coords(Y)=LED_HEIGHT-1 then
-                    tr.led_num          := cr.led_num+1;
-                    tr.inner_coords(Y)  := (others => '0');
-                end if;
-            
-            when LAST_PIXEL =>
-                tr.inner_coords(X)  := (others => '0');
-                if FRAME_RGB_WR_EN='1' then
-                    -- give out the LED color
-                    tr.led_rgb_valid    := '1';
-                    tr.led_rgb          := led_arith_mean(FRAME_RGB, buf_do);
-                    
-                    tr.state    := SIDE_SWITCH;
-                    if cr.side=R then
-                        tr.led_pos(Y)   := cr.led_pos(Y)+uns(double_led_step);
-                        tr.state        := LINE_SWITCH;
-                    end if;
-                end if;
-            
-            when SIDE_SWITCH =>
-                tr.side         := R;
-                tr.buf_p        := 1;
-                tr.led_pos(X)   := first_leds_pos(R)(X);
-                tr.state        := LEFT_BORDER_PIXEL;
-                if cr.led_num=0 and cr.inner_coords(Y)=0 then
-                    tr.state    := FIRST_LED_FIRST_PIXEL;
-                end if;
-            
-        end case;
-        
-        if RST='1' or FRAME_VSYNC='1' then
-            tr  := reg_type_def;
-        end if;
-        
-        next_reg    <= tr;
-    end process;
+    end generate;
     
-    stm_sync_proc : process(RST, CLK)
+    led_counter_proc : process(RST, CLK)
     begin
         if RST='1' then
-            cur_reg <= reg_type_def;
+            led_counter <= (others => '0');
+            side        <= '0';
         elsif rising_edge(CLK) then
-            cur_reg <= next_reg;
+            if queue_led_rgb_valid then
+                side    <= not side;
+                
+                if side='1' then
+                    led_counter <= led_counter+1;
+                end if;
+                
+                if led_counter=led_count-1 then
+                    led_counter <= (others => '0');
+                    side        <= '0';
+                end if;
+            end if;
         end if;
     end process;
     
 end rtl;
-

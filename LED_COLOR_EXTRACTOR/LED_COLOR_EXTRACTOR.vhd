@@ -11,9 +11,9 @@
 --   to a LED stripe around a TV
 -- Additional Comments:
 --   Generic:
---     R_BITS   : (1 to 12) Number of bits for the 'red' value in both frame and LED data
---     G_BITS   : (1 to 12) Number of bits for the 'green' value in both frame and LED data
---     B_BITS   : (1 to 12) Number of bits for the 'blue' value in both frame and LED data
+--     R_BITS   : (5 to 12) Number of bits for the 'red' value in both frame and LED data
+--     G_BITS   : (6 to 12) Number of bits for the 'green' value in both frame and LED data
+--     B_BITS   : (5 to 12) Number of bits for the 'blue' value in both frame and LED data
 --   Port:
 --     CLK : clock input
 --     RST : active high reset, aborts and resets calculation until released
@@ -32,7 +32,7 @@
 --     LED_RGB      : LED RGB color
 --   
 --   These configuration registers can only be set while RST is high, using the CFG_* inputs:
---     Except for the LED counts, all values are 16 Bit in size, separated in high an low byte
+--     Except for the LED counts, all values are 16 Bit in size, separated into high and low byte
 --   
 --    [0] = HOR_LED_CNT      : number of LEDs at each top and bottom side of the TV screen
 --    [1] = HOR_LED_WIDTH_H  : width of one LED area of each of these horizontal LEDs
@@ -69,9 +69,10 @@ use work.help_funcs.all;
 entity LED_COLOR_EXTRACTOR is
     generic (
         MAX_LED_COUNT   : positive;
-        R_BITS          : natural range 1 to 12 := 8;
-        G_BITS          : natural range 1 to 12 := 8;
-        B_BITS          : natural range 1 to 12 := 8
+        R_BITS          : positive range 5 to 12 := 8;
+        G_BITS          : positive range 6 to 12 := 8;
+        B_BITS          : positive range 5 to 12 := 8;
+        ACCU_BITS       : positive range 8 to 40 := 40
     );
     port (
         CLK : in std_ulogic;
@@ -201,7 +202,8 @@ begin
             MAX_LED_COUNT   => MAX_LED_COUNT,
             R_BITS          => R_BITS,
             G_BITS          => G_BITS,
-            B_BITS          => B_BITS
+            B_BITS          => B_BITS,
+            ACCU_BITS       => ACCU_BITS
         )
         port map (
             CLK => clk,
@@ -226,9 +228,10 @@ begin
     
     VER_SCANNER_inst : entity work.ver_scanner
         generic map (
-            R_BITS  => R_BITS,
-            G_BITS  => G_BITS,
-            B_BITS  => B_BITS
+            R_BITS      => R_BITS,
+            G_BITS      => G_BITS,
+            B_BITS      => B_BITS,
+            ACCU_BITS   => ACCU_BITS
         )
         port map (
             CLK => clk,
