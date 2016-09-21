@@ -98,7 +98,8 @@ architecture rtl of HALF_HOR_SCANNER is
     type reg_type is record
         state           : state_type;
         side            : natural range T to B;
-        buf_p           : natural range 0 to MAX_LED_COUNT;
+        buf_rd_p        : natural range 0 to MAX_LED_COUNT;
+        buf_wr_p        : natural range 0 to MAX_LED_COUNT;
         buf_di          : std_ulogic_vector(3*ACCU_BITS-1 downto 0);
         buf_wr_en       : std_ulogic;
         inner_coords    : inner_coords_type;
@@ -110,7 +111,8 @@ architecture rtl of HALF_HOR_SCANNER is
     constant reg_type_def   : reg_type := (
         state           => FIRST_LED_FIRST_PIXEL,
         side            => T,
-        buf_p           => 0,
+        buf_rd_p        => 0,
+        buf_wr_p        => 0,
         buf_di          => (others => '0'),
         buf_wr_en       => '0',
         inner_coords    => (others => x"0000"),
@@ -165,9 +167,9 @@ begin
     ---------------------
     
     ACCU_VALID  <= cur_reg.accu_valid;
-    ACCU_R      <= buf_do(3*ACCU_BITS-1 downto 2*ACCU_BITS);
-    ACCU_G      <= buf_do(2*ACCU_BITS-1 downto   ACCU_BITS);
-    ACCU_B      <= buf_do(  ACCU_BITS-1 downto           0);
+    ACCU_R      <= cur_reg.buf_di(3*ACCU_BITS-1 downto 2*ACCU_BITS);
+    ACCU_G      <= cur_reg.buf_di(2*ACCU_BITS-1 downto   ACCU_BITS);
+    ACCU_B      <= cur_reg.buf_di(  ACCU_BITS-1 downto           0);
     
     PIXEL_COUNT <= stdulv(int(cur_reg.pixel_counter), 32);
     
@@ -179,7 +181,11 @@ begin
     
     half_led_count  <= uns(led_count(7 downto 1));
     double_led_step <= uns(led_step(14 downto 0) & '0');
-    switch          <= cur_reg.buf_p=half_led_count-1 or half_led_count=0;
+    switch          <= cur_reg.buf_rd_p=half_led_count-1 or half_led_count=0;
+    
+    padded_frame_rgb(3*ACCU_BITS-1 downto 2*ACCU_BITS+R_BITS)   <= (others => '0');
+    padded_frame_rgb(2*ACCU_BITS-1 downto   ACCU_BITS+G_BITS)   <= (others => '0');
+    padded_frame_rgb(  ACCU_BITS-1 downto             B_BITS)   <= (others => '0');
     
     padded_frame_rgb(2*ACCU_BITS+R_BITS-1 downto 2*ACCU_BITS)   <= FRAME_RGB(     RGB_BITS-1 downto G_BITS+B_BITS);
     padded_frame_rgb(  ACCU_BITS+G_BITS-1 downto   ACCU_BITS)   <= FRAME_RGB(G_BITS+B_BITS-1 downto        B_BITS);
@@ -216,7 +222,8 @@ begin
     
     -- ensure block RAM usage
     led_buf_proc : process(CLK)
-        alias p     is next_reg.buf_p;
+        alias rd_p  is next_reg.buf_rd_p;
+        alias wr_p  is next_reg.buf_wr_p;
         alias di    is next_reg.buf_di;
         alias do    is buf_do;
         alias wr_en is next_reg.buf_wr_en;
@@ -224,10 +231,10 @@ begin
         if rising_edge(CLK) then
             -- write first mode
             if wr_en='1' then
-                led_buf(p)  <= di;
-                do          <= di;
+                led_buf(wr_p)   <= di;
+                do              <= di;
             else
-                do  <= led_buf(p);
+                do  <= led_buf(rd_p);
             end if;
         end if;
     end process;
@@ -246,7 +253,7 @@ begin
         case cr.state is
             
             when FIRST_LED_FIRST_PIXEL =>
-                r.buf_p             := 0;
+                r.buf_wr_p          := 0;
                 r.led_pos           := first_leds_pos(cr.side);
                 r.inner_coords(X)   := x"0001";
                 r.inner_coords(Y)   := (others => '0');
@@ -263,6 +270,7 @@ begin
             
             when LEFT_BORDER_PIXEL =>
                 r.inner_coords(X)   := x"0001";
+                r.buf_wr_p          := cr.buf_rd_p;
                 r.buf_di            := led_sum(padded_frame_rgb, buf_do);
                 if cr.inner_coords(Y)=0 then
                     -- first pixel after side switch
@@ -272,9 +280,7 @@ begin
                     FRAME_RGB_WR_EN='1' and
                     FRAME_X=stdulv(cr.led_pos(X))
                 then
-                    r.buf_p := cr.buf_p+1;
                     if switch then
-                        r.buf_p         := 0;
                         r.pixel_counter := cr.pixel_counter+1;
                     end if;
                     
@@ -288,7 +294,7 @@ begin
                     r.buf_wr_en         := '1';
                     r.inner_coords(X)   := cr.inner_coords(X)+1;
                     
-                    if cr.buf_p=0 then
+                    if cr.buf_wr_p=0 then
                         r.pixel_counter := cr.pixel_counter+1;
                     end if;
                     
@@ -304,21 +310,23 @@ begin
                 r.inner_coords(X)   := x"0000";
                 r.buf_di            := led_sum(padded_frame_rgb, buf_do);
                 if FRAME_RGB_WR_EN='1' then
+                    r.buf_rd_p      := cr.buf_rd_p+1;
                     r.buf_wr_en     := '1';
                     r.led_pos(X)    := cr.led_pos(X)+double_led_step;
                     r.state         := LEFT_BORDER_PIXEL;
                     
                     if switch then
                         -- finished one line of all LED areas
-                        r.state := LINE_SWITCH;
+                        r.state     := LINE_SWITCH;
                     end if;
                     
-                    if cr.buf_p=0 then
+                    if cr.buf_wr_p=0 then
                         r.pixel_counter := cr.pixel_counter+1;
                     end if;
                 end if;
             
             when LINE_SWITCH =>
+                r.buf_rd_p          := 0;
                 r.inner_coords(Y)   := cr.inner_coords(Y)+1;
                 r.led_pos           := first_leds_pos(cr.side);
                 r.state             := LEFT_BORDER_PIXEL;
@@ -327,25 +335,25 @@ begin
                 r.inner_coords(X)   := x"0000";
                 r.buf_di            := led_sum(padded_frame_rgb, buf_do);
                 if FRAME_RGB_WR_EN='1' then
-                    r.buf_wr_en     := '1';
+                    r.buf_rd_p      := cr.buf_rd_p+1;
                     r.accu_valid    := '1';
                     
                     r.led_pos(X)    := cr.led_pos(X)+double_led_step;
                     r.state         := LEFT_BORDER_PIXEL;
                     
                     if switch then
-                        r.buf_p         := 0;
-                        r.state         := SIDE_SWITCH;
+                        r.state := SIDE_SWITCH;
                     end if;
                     
-                    if cr.buf_p=0 then
+                    if cr.buf_wr_p=0 then
                         r.pixel_counter := cr.pixel_counter+1;
                     end if;
                 end if;
             
             when SIDE_SWITCH =>
-                r.side  := B;
-                r.state := FIRST_LED_FIRST_PIXEL;
+                r.buf_rd_p  := 0;
+                r.side      := B;
+                r.state     := FIRST_LED_FIRST_PIXEL;
             
         end case;
         
