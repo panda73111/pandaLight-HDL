@@ -82,7 +82,7 @@ begin
     cfg_proc : process(CLK)
     begin
         if rising_edge(CLK) then
-            if RST='1' and CFG_WR_EN='1' and CFG_ADDR="00000" then
+            if RST='1' and CFG_WR_EN='1' and CFG_ADDR="01011" then
                 led_count   <= CFG_DATA;
             end if;
         end if;
@@ -158,7 +158,7 @@ begin
                     led_counter <= led_counter+1;
                 end if;
                 
-                if led_counter=led_count-1 then
+                if led_counter=led_count-1 and side='1' then
                     led_counter <= (others => '0');
                     side        <= '0';
                 end if;
