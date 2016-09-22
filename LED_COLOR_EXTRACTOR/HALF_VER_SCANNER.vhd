@@ -266,6 +266,10 @@ begin
                 tr.inner_coords(X)  := x"0001";
                 tr.buf_wr_p         := cr.buf_rd_p;
                 tr.buf_di           := led_sum(padded_frame_rgb, buf_do);
+                if cr.inner_coords(Y)=0 then
+                    -- first pixel after side or line switch
+                    r.buf_di    := padded_frame_rgb;
+                end if;
                 if
                     FRAME_RGB_WR_EN='1' and
                     FRAME_X=stdulv(cr.led_pos(X)) and
