@@ -56,8 +56,8 @@ architecture rtl of HALF_HOR_SCANNER is
     --- array element aliases ---
     -----------------------------
     
-    constant T  : natural := 0; -- top
-    constant B  : natural := 1; -- bottom
+    constant TOP    : natural := 0;
+    constant BOTTOM : natural := 1;
     
     constant X  : natural := 0;
     constant Y  : natural := 1;
@@ -97,7 +97,7 @@ architecture rtl of HALF_HOR_SCANNER is
     
     type reg_type is record
         state           : state_type;
-        side            : natural range T to B;
+        side            : natural range TOP to BOTTOM;
         buf_rd_p        : natural range 0 to MAX_LED_COUNT/2;
         buf_wr_p        : natural range 0 to MAX_LED_COUNT/2;
         buf_di          : std_ulogic_vector(3*ACCU_BITS-1 downto 0);
@@ -111,7 +111,7 @@ architecture rtl of HALF_HOR_SCANNER is
     
     constant reg_type_def   : reg_type := (
         state           => FIRST_LED_FIRST_PIXEL,
-        side            => T,
+        side            => TOP,
         buf_rd_p        => 0,
         buf_wr_p        => 0,
         buf_di          => (others => '0'),
@@ -176,10 +176,10 @@ begin
     PIXEL_COUNT <= stdulv(int(cur_reg.pixel_count), 32);
     
     -- the position of the first top/bottom LED
-    first_leds_pos(T)(X)    <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
-    first_leds_pos(T)(Y)    <= uns(led_pad);
-    first_leds_pos(B)(X)    <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
-    first_leds_pos(B)(Y)    <= uns(frame_height-led_height-led_pad);
+    first_leds_pos(TOP)(X)      <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
+    first_leds_pos(TOP)(Y)      <= uns(led_pad);
+    first_leds_pos(BOTTOM)(X)   <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
+    first_leds_pos(BOTTOM)(Y)   <= uns(frame_height-led_height-led_pad);
     
     half_led_count  <= uns(led_count(7 downto 1));
     double_led_step <= uns(led_step(14 downto 0) & '0');
@@ -354,7 +354,7 @@ begin
             
             when SIDE_SWITCH =>
                 r.buf_rd_p  := 0;
-                r.side      := B;
+                r.side      := BOTTOM;
                 r.state     := FIRST_LED_FIRST_PIXEL;
             
         end case;

@@ -54,8 +54,8 @@ architecture rtl of HALF_VER_SCANNER is
     --- array element aliases ---
     -----------------------------
     
-    constant L  : natural := 0; -- left
-    constant R  : natural := 1; -- right
+    constant LEFT   : natural := 0;
+    constant RIGHT  : natural := 1;
     
     constant X  : natural := 0;
     constant Y  : natural := 1;
@@ -95,7 +95,7 @@ architecture rtl of HALF_VER_SCANNER is
     
     type reg_type is record
         state           : state_type;
-        side            : natural range L to R;
+        side            : natural range LEFT to RIGHT;
         buf_rd_p        : natural range 0 to 1;
         buf_wr_p        : natural range 0 to 1;
         buf_di          : std_ulogic_vector(3*ACCU_BITS-1 downto 0);
@@ -109,7 +109,7 @@ architecture rtl of HALF_VER_SCANNER is
     
     constant reg_type_def   : reg_type := (
         state           => FIRST_LED_FIRST_PIXEL,
-        side            => L,
+        side            => LEFT,
         buf_rd_p        => 0,
         buf_wr_p        => 0,
         buf_di          => (others => '0'),
@@ -171,10 +171,10 @@ begin
     PIXEL_COUNT <= stdulv(int(cur_reg.pixel_count), 32);
     
     -- the position of the first left/right LED
-    first_leds_pos(L)(X)    <= uns(led_pad);
-    first_leds_pos(L)(Y)    <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
-    first_leds_pos(R)(X)    <= uns(frame_width-led_width-led_pad);
-    first_leds_pos(R)(Y)    <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
+    first_leds_pos(LEFT)(X)     <= uns(led_pad);
+    first_leds_pos(LEFT)(Y)     <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
+    first_leds_pos(RIGHT)(X)    <= uns(frame_width-led_width-led_pad);
+    first_leds_pos(RIGHT)(Y)    <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
     
     double_led_step <= uns(led_step(14 downto 0) & '0');
     
@@ -307,13 +307,13 @@ begin
                     
                     tr.buf_wr_en    := '1';
                     tr.state        := SIDE_SWITCH;
-                    if cr.side=R then
+                    if cr.side=RIGHT then
                         tr.state    := LINE_SWITCH;
                     end if;
                 end if;
             
             when LINE_SWITCH =>
-                tr.side             := L;
+                tr.side             := LEFT;
                 tr.buf_rd_p         := 0;
                 tr.inner_coords(Y)  := cr.inner_coords(Y)+1;
                 tr.led_pos(X)       := first_leds_pos(L)(X);
@@ -333,7 +333,7 @@ begin
                     end if;
                     
                     tr.state    := SIDE_SWITCH;
-                    if cr.side=R then
+                    if cr.side=RIGHT then
                         tr.led_pos(Y)   := cr.led_pos(Y)+double_led_step;
                         tr.state        := LINE_SWITCH;
                     end if;
@@ -341,7 +341,7 @@ begin
             
             when SIDE_SWITCH =>
                 tr.buf_rd_p     := 1;
-                tr.side         := R;
+                tr.side         := RIGHT;
                 tr.led_pos(X)   := first_leds_pos(R)(X);
                 tr.state        := LEFT_BORDER_PIXEL;
             

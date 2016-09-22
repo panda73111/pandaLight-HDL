@@ -104,11 +104,6 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     constant HOR    : natural := 0;
     constant VER    : natural := 1;
     
-    constant T  : natural := 0; -- top
-    constant B  : natural := 1; -- bottom
-    constant L  : natural := 2; -- right
-    constant R  : natural := 3; -- left
-    
     constant X  : natural := 0;
     constant Y  : natural := 1;
     
@@ -265,14 +260,19 @@ begin
             if FRAME_VSYNC='0' then
                 LED_VSYNC   <= '0';
             end if;
+            
             LED_RGB_VALID   <= '0';
+            
             if leds_rgb_valid(VER)='1' then
                 -- if two edge LEDs are completed at the same time,
                 -- queue the vertical one
                 ver_queued  <= true;
             end if;
+            
             for dim in HOR to VER loop
+                
                 if leds_rgb_valid(dim)='1' or ver_queued then
+                    
                     -- count the LEDs from top left clockwise
                     if dim=HOR then
                         if leds_side(dim)='0' then
@@ -291,14 +291,19 @@ begin
                             LED_NUM <= hor_led_cnt+leds_num(VER);
                         end if;
                     end if;
+                    
                     LED_RGB         <= leds_rgb(dim)(RGB_BITS-1 downto 0);
                     LED_RGB_VALID   <= '1';
+                    
                     if dim=VER then
                         ver_queued  <= false;
                     end if;
+                    
                     exit;
                 end if;
+                
             end loop;
+            
             if
                 FRAME_VSYNC='1' and
                 leds_rgb_valid="00" and
