@@ -241,8 +241,8 @@ begin
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, frame_height, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_X, FRAME_Y,
-        led_width, led_height, double_led_step, led_offs, padded_frame_rgb, buf_do, first_leds_pos, switch
+    stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_X, FRAME_Y,
+        led_width, led_height, double_led_step, padded_frame_rgb, buf_do, first_leds_pos, switch
     )
         alias cr    : reg_type is cur_reg;      -- synchronous registers
         variable r  : reg_type := reg_type_def; -- asynchronous combinational signals
