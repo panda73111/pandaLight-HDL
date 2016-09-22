@@ -21,10 +21,11 @@ use work.video_profiles.all;
 
 ENTITY LED_COLOR_EXTRACTOR_tb IS
     generic (
-        MAX_LED_COUNT   : natural := 64;
-        R_BITS          : natural range 5 to 12 := 8;
-        G_BITS          : natural range 6 to 12 := 8;
-        B_BITS          : natural range 5 to 12 := 8
+        MAX_LED_COUNT   : positive := 64;
+        R_BITS          : positive range 5 to 12 := 8;
+        G_BITS          : positive range 6 to 12 := 8;
+        B_BITS          : positive range 5 to 12 := 8;
+        ACCU_BITS       : positive range 8 to 40 := 24
     );
 END LED_COLOR_EXTRACTOR_tb;
 
@@ -77,6 +78,7 @@ BEGIN
     generic map (
         CLK_IN_PERIOD   => G_CLK_PERIOD_REAL,
         FRAME_STEP      => 0,
+        SIMPLE_PATTERN  => false,
         R_BITS          => R_BITS,
         G_BITS          => G_BITS,
         B_BITS          => B_BITS
@@ -128,7 +130,8 @@ BEGIN
         MAX_LED_COUNT   => MAX_LED_COUNT,
         R_BITS          => R_BITS,
         G_BITS          => G_BITS,
-        B_BITS          => B_BITS
+        B_BITS          => B_BITS,
+        ACCU_BITS       => ACCU_BITS
     )
     port map (
         CLK => CLK,

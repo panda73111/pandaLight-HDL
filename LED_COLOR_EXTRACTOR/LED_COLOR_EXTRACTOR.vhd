@@ -126,7 +126,8 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     ---------------
     
     signal leds_num         : leds_num_type := (others => (others => '0'));
-    signal frame_x, frame_y : unsigned(15 downto 0) := (others => '0');
+    signal frame_x          : unsigned(15 downto 0) := x"0000";
+    signal frame_y          : unsigned(15 downto 0) := x"0000";
     signal leds_rgb_valid   : std_ulogic_vector(0 to 1) := (others => '0');
     signal leds_side        : std_ulogic_vector(0 to 1) := (others => '0');
     signal leds_rgb         : leds_rgb_type := (others => (others => '0'));
@@ -175,17 +176,17 @@ begin
     pixel_cnt_proc : process(RST, CLK)
     begin
         if RST='1' then
-            frame_x <= (others => '0');
-            frame_y <= (others => '0');
+            frame_x <= x"0000";
+            frame_y <= x"0000";
         elsif rising_edge(CLK) then
             if FRAME_VSYNC='1' then
-                frame_x <= (others => '0');
-                frame_y <= (others => '0');
+                frame_x <= x"0000";
+                frame_y <= x"0000";
             end if;
             if FRAME_RGB_WR_EN='1' then
                 frame_x <= frame_x+1;
                 if frame_x=frame_width-1 then
-                    frame_x <= (others => '0');
+                    frame_x <= x"0000";
                     frame_y <= frame_y+1;
                 end if;
             end if;
