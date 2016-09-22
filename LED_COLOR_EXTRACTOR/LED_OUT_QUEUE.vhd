@@ -13,6 +13,7 @@
 library IEEE;
 use IEEE.std_logic_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
+use IEEE.std_logic_misc.ALL;
 use work.help_funcs.all;
 
 entity LED_OUT_QUEUE is
@@ -58,11 +59,8 @@ architecture rtl of LED_OUT_QUEUE is
     
 begin
     
-    LED_RGB_VALID   <=
-        divs_valid_latched(0) and
-        divs_valid_latched(1) and
-        divs_valid_latched(2);
-        
+    LED_RGB_VALID   <= and_reduce(divs_valid_latched);
+    
     LED_RGB <=
         divs_quotient(0)(R_BITS-1 downto 0) &
         divs_quotient(1)(G_BITS-1 downto 0) &
@@ -127,9 +125,7 @@ begin
             fifo_rd_en  <=
                 not fifo_empty and
                 not fifo_rd_en and
-                not divs_busy(0) and
-                not divs_busy(1) and
-                not divs_busy(2);
+                not or_reduce(divs_busy);
             
             divs_valid_latched  <= divs_valid_latched or divs_valid;
             if divs_valid_latched="111" then

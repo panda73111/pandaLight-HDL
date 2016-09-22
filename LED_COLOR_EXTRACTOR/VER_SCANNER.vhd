@@ -13,6 +13,7 @@
 library IEEE;
 use IEEE.std_logic_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
+use IEEE.std_logic_misc.ALL;
 use work.help_funcs.all;
 
 entity VER_SCANNER is
@@ -73,7 +74,7 @@ begin
     LED_NUM         <= stdulv(int(led_counter), 8);
     LED_SIDE        <= side;
     
-    accu_valid  <= scanners_accu_valid(0) or scanners_accu_valid(1);
+    accu_valid  <= or_reduce(scanners_accu_valid);
     accu_r      <= scanners_accu_r(0) when scanners_accu_valid(0)='1' else scanners_accu_r(1);
     accu_g      <= scanners_accu_g(0) when scanners_accu_valid(0)='1' else scanners_accu_g(1);
     accu_b      <= scanners_accu_b(0) when scanners_accu_valid(0)='1' else scanners_accu_b(1);
