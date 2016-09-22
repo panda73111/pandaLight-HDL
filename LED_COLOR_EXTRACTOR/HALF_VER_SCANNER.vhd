@@ -105,6 +105,7 @@ architecture rtl of HALF_VER_SCANNER is
         accu_valid      : std_ulogic;
         pixel_counter   : unsigned(ACCU_BITS-9 downto 0);
         pixel_count     : std_ulogic_vector(ACCU_BITS-9 downto 0);
+        got_pixel_count : boolean;
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -118,7 +119,8 @@ architecture rtl of HALF_VER_SCANNER is
         led_pos         => (others => x"0000"),
         accu_valid      => '0',
         pixel_counter   => (others => '0'),
-        pixel_count     => (others => '0')
+        pixel_count     => (others => '0'),
+        got_pixel_count => false
     );
     
     -- configuration registers
@@ -236,36 +238,36 @@ begin
     stm_proc : process(RST, cur_reg, FRAME_WIDTH, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_X, FRAME_Y,
         LED_WIDTH, LED_HEIGHT, double_led_step, padded_frame_rgb, buf_do, first_leds_pos
     )
-        alias cr        : reg_type is cur_reg;      -- synchronous registers
-        variable tr     : reg_type := reg_type_def; -- asynchronous combinational signals
+        alias cr    : reg_type is cur_reg;      -- synchronous registers
+        variable r  : reg_type := reg_type_def; -- asynchronous combinational signals
     begin
-        tr  := cr;
+        r   := cr;
         
-        tr.accu_valid   := '0';
-        tr.buf_wr_en    := '0';
+        r.accu_valid    := '0';
+        r.buf_wr_en     := '0';
         
         case cr.state is
             
             when FIRST_LED_FIRST_PIXEL =>
-                tr.buf_wr_p         := 0;
-                tr.led_pos          := first_leds_pos(cr.side);
-                tr.inner_coords(X)  := x"0001";
-                tr.inner_coords(Y)  := (others => '0');
-                tr.buf_di           := padded_frame_rgb;
-                tr.pixel_counter    := uns(1, ACCU_BITS-8);
+                r.buf_wr_p          := 0;
+                r.led_pos           := first_leds_pos(cr.side);
+                r.inner_coords(X)   := x"0001";
+                r.inner_coords(Y)   := (others => '0');
+                r.buf_di            := padded_frame_rgb;
+                r.pixel_counter     := uns(1, ACCU_BITS-8);
                 if
                     FRAME_RGB_WR_EN='1' and
                     FRAME_X=stdulv(first_leds_pos(cr.side)(X)) and
                     FRAME_Y=stdulv(first_leds_pos(cr.side)(Y))
                 then
-                    tr.buf_wr_en    := '1';
-                    tr.state        := MAIN_PIXEL;
+                    r.buf_wr_en := '1';
+                    r.state     := MAIN_PIXEL;
                 end if;
             
             when LEFT_BORDER_PIXEL =>
-                tr.inner_coords(X)  := x"0001";
-                tr.buf_wr_p         := cr.buf_rd_p;
-                tr.buf_di           := led_sum(padded_frame_rgb, buf_do);
+                r.inner_coords(X)   := x"0001";
+                r.buf_wr_p          := cr.buf_rd_p;
+                r.buf_di            := led_sum(padded_frame_rgb, buf_do);
                 if cr.inner_coords(Y)=0 then
                     -- first pixel after side or line switch
                     r.buf_di    := padded_frame_rgb;
@@ -276,86 +278,87 @@ begin
                     FRAME_Y>=stdulv(cr.led_pos(Y))
                 then
                     if cr.buf_wr_p=0 then
-                        tr.pixel_counter    := cr.pixel_counter+1;
+                        r.pixel_counter := cr.pixel_counter+1;
                     end if;
                     
-                    tr.buf_wr_en    := '1';
-                    tr.state        := MAIN_PIXEL;
+                    r.buf_wr_en := '1';
+                    r.state     := MAIN_PIXEL;
                 end if;
             
             when MAIN_PIXEL =>
-                tr.buf_di   := led_sum(padded_frame_rgb, buf_do);
+                r.buf_di    := led_sum(padded_frame_rgb, buf_do);
                 if FRAME_RGB_WR_EN='1' then
-                    tr.buf_wr_en        := '1';
-                    tr.inner_coords(X)  := cr.inner_coords(X)+1;
+                    r.buf_wr_en         := '1';
+                    r.inner_coords(X)   := cr.inner_coords(X)+1;
                     
                     if cr.buf_wr_p=0 then
-                        tr.pixel_counter    := cr.pixel_counter+1;
+                        r.pixel_counter := cr.pixel_counter+1;
                     end if;
                     
                     if cr.inner_coords(X)=LED_WIDTH-2 then
-                        tr.state    := RIGHT_BORDER_PIXEL;
+                        r.state := RIGHT_BORDER_PIXEL;
                         if cr.inner_coords(Y)=LED_HEIGHT-1 then
-                            tr.state    := LAST_PIXEL;
+                            r.state := LAST_PIXEL;
                         end if;
                     end if;
                 end if;
             
             when RIGHT_BORDER_PIXEL =>
-                tr.inner_coords(X)  := (others => '0');
-                tr.buf_di           := led_sum(padded_frame_rgb, buf_do);
+                r.inner_coords(X)   := (others => '0');
+                r.buf_di            := led_sum(padded_frame_rgb, buf_do);
                 if FRAME_RGB_WR_EN='1' then
                     if cr.buf_wr_p=0 then
-                        tr.pixel_counter    := cr.pixel_counter+1;
+                        r.pixel_counter := cr.pixel_counter+1;
                     end if;
                     
-                    tr.buf_wr_en    := '1';
-                    tr.state        := SIDE_SWITCH;
+                    r.buf_wr_en := '1';
+                    r.state     := SIDE_SWITCH;
                     if cr.side=RIGHT then
-                        tr.state    := LINE_SWITCH;
+                        r.state := LINE_SWITCH;
                     end if;
                 end if;
             
             when LINE_SWITCH =>
-                tr.side             := LEFT;
-                tr.buf_rd_p         := 0;
-                tr.inner_coords(Y)  := cr.inner_coords(Y)+1;
-                tr.led_pos(X)       := first_leds_pos(L)(X);
-                tr.state            := LEFT_BORDER_PIXEL;
+                r.side              := LEFT;
+                r.buf_rd_p          := 0;
+                r.inner_coords(Y)   := cr.inner_coords(Y)+1;
+                r.led_pos(X)        := first_leds_pos(LEFT)(X);
+                r.state             := LEFT_BORDER_PIXEL;
                 if cr.inner_coords(Y)=LED_HEIGHT-1 then
-                    tr.inner_coords(Y)  := (others => '0');
+                    r.inner_coords(Y)   := (others => '0');
                 end if;
             
             when LAST_PIXEL =>
-                tr.inner_coords(X)  := (others => '0');
-                tr.buf_di           := led_sum(padded_frame_rgb, buf_do);
+                r.inner_coords(X)   := (others => '0');
+                r.buf_di        := led_sum(padded_frame_rgb, buf_do);
                 if FRAME_RGB_WR_EN='1' then
-                    tr.accu_valid   := '1';
+                    r.accu_valid    := '1';
                     
-                    if cr.buf_wr_p=0 then
-                        tr.pixel_count  := stdulv(cr.pixel_counter+1);
+                    if not cr.got_pixel_count then
+                        r.got_pixel_count   := true;
+                        r.pixel_count       := stdulv(cr.pixel_counter+1);
                     end if;
                     
-                    tr.state    := SIDE_SWITCH;
+                    r.state := SIDE_SWITCH;
                     if cr.side=RIGHT then
-                        tr.led_pos(Y)   := cr.led_pos(Y)+double_led_step;
-                        tr.state        := LINE_SWITCH;
+                        r.led_pos(Y)    := cr.led_pos(Y)+double_led_step;
+                        r.state         := LINE_SWITCH;
                     end if;
                 end if;
             
             when SIDE_SWITCH =>
-                tr.buf_rd_p     := 1;
-                tr.side         := RIGHT;
-                tr.led_pos(X)   := first_leds_pos(R)(X);
-                tr.state        := LEFT_BORDER_PIXEL;
+                r.buf_rd_p      := 1;
+                r.side          := RIGHT;
+                r.led_pos(X)    := first_leds_pos(RIGHT)(X);
+                r.state         := LEFT_BORDER_PIXEL;
             
         end case;
         
         if RST='1' or FRAME_VSYNC='1' then
-            tr  := reg_type_def;
+            r   := reg_type_def;
         end if;
         
-        next_reg    <= tr;
+        next_reg    <= r;
     end process;
     
     stm_sync_proc : process(RST, CLK)

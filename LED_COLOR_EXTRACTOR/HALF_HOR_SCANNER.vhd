@@ -107,6 +107,7 @@ architecture rtl of HALF_HOR_SCANNER is
         accu_valid      : std_ulogic;
         pixel_counter   : unsigned(ACCU_BITS-9 downto 0);
         pixel_count     : std_ulogic_vector(ACCU_BITS-9 downto 0);
+        got_pixel_count : boolean;
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -120,7 +121,8 @@ architecture rtl of HALF_HOR_SCANNER is
         led_pos         => (others => x"0000"),
         accu_valid      => '0',
         pixel_counter   => (others => '0'),
-        pixel_count     => (others => '0')
+        pixel_count     => (others => '0'),
+        got_pixel_count => false
     );
     
     -- configuration registers
@@ -347,8 +349,9 @@ begin
                         r.state := SIDE_SWITCH;
                     end if;
                     
-                    if cr.buf_wr_p=0 then
-                        r.pixel_count   := stdulv(cr.pixel_counter+1);
+                    if not cr.got_pixel_count then
+                        r.got_pixel_count   := true;
+                        r.pixel_count       := stdulv(cr.pixel_counter+1);
                     end if;
                 end if;
             
