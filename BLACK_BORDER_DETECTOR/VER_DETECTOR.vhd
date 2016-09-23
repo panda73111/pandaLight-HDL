@@ -41,34 +41,60 @@ entity VER_DETECTOR is
     );
 end VER_DETECTOR;
 
-architecture rtl of VER_DETECTOR is
+architecture rtl of HOR_DETECTOR is
     
     type state_type is (
+        WAITING_FOR_SCANCOLUMN,
         SCANNING_TOP,
         WAITING_FOR_BOTTOM_SCAN,
         SCANNING_BOTTOM,
-        WAITING_FOR_FRAME_END
+        SWITCHING_LINE,
+        COMPARING_BORDER_SIZES
     );
+    
+    type columnflags_type   is array(0 to 2) of boolean;
     
     type reg_type is record
         state           : state_type;
         border_valid    : std_ulogic;
-        border_size     : unsigned(15 downto 0);´
-        found_non_black : boolean;
+        border_size     : unsigned(15 downto 0);
+        got_non_black   : columnflags_type;
+        buf_wr_en       : std_ulogic;
+        buf_rd_p        : natural range 0 to 2;
+        buf_wr_p        : natural range 0 to 2;
+        buf_di          : std_ulogic_vector(15 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
-        state           => SCANNING_TOP,
+        state           => WAITING_FOR_SCANLINE,
         border_valid    => '0',
         border_size     => x"0000",
-        found_non_black => false
+        got_non_black   => (others => false),
+        buf_wr_en       => '0',
+        buf_rd_p        => 0,
+        buf_wr_p        => 0,
+        buf_di          => x"0000"
     );
     
+    type buf_type           is array(0 to 2) of std_ulogic_vector(15 downto 0);
+    type scancolumns_type   is array(0 to 2) of std_ulogic_vector(15 downto 0);
+    
     signal cur_reg, next_reg    : reg_type := reg_type_def;
+    signal right_scan_start     : unsigned(15 downto 0) := (others => '0');
+    
+    signal qu_frame_width       : std_ulogic_vector(15 downto 0) := x"0000";
+    signal half_frame_width     : std_ulogic_vector(15 downto 0) := x"0000";
+    signal three_qu_frame_width : std_ulogic_vector(15 downto 0) := x"0000";
+    signal scancolumns          : scancolumns_type := (others => x"0000");
+    signal scancolumn           : std_ulogic_vector(15 downto 0) := x"0000";
+    
+    signal buf      : buf_type := (others => x"0000");
+    signal buf_do   : std_ulogic_vector(15 downto 0) := x"0000";
     
     -- configuration registers
     signal threshold    : std_ulogic_vector(7 downto 0) := x"00";
     signal scan_height  : std_ulogic_vector(15 downto 0) := x"0000";
+    signal frame_width  : std_ulogic_vector(15 downto 0) := x"0000";
     signal frame_height : std_ulogic_vector(15 downto 0) := x"0000";
     
     function is_black(
@@ -84,6 +110,18 @@ architecture rtl of VER_DETECTOR is
     
 begin
     
+    BORDER_VALID    <= cur_reg.border_valid;
+    BORDER_SIZE     <= stdulv(cur_reg.border_size);
+    
+    qu_frame_width          <= "00" & frame_width(15 downto 2);
+    half_frame_width        <= "0" & frame_width(15 downto 1);
+    three_qu_frame_width    <= half_frame_width+qu_frame_width;
+    
+    scancolumns(0)  <= qu_frame_width;
+    scancolumns(1)  <= half_frame_width;
+    scancolumns(2)  <= three_qu_frame_width;
+    scancolumn      <= scancolumns(cur_reg.buf_rd_p);
+    
     cfg_proc : process(CLK)
     begin
         if rising_edge(CLK) then
@@ -92,6 +130,8 @@ begin
                     when "0001" => threshold                    <= CFG_DATA;
                     when "0111" => scan_height (15 downto 8)    <= CFG_DATA;
                     when "1000" => scan_height ( 7 downto 0)    <= CFG_DATA;
+                    when "1001" => frame_width (15 downto 8)    <= CFG_DATA;
+                    when "1010" => frame_width ( 7 downto 0)    <= CFG_DATA;
                     when "1011" => frame_height(15 downto 8)    <= CFG_DATA;
                     when "1100" => frame_height( 7 downto 0)    <= CFG_DATA;
                     when others => null;
@@ -100,32 +140,86 @@ begin
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_X, FRAME_Y, threshold)
-        alias cr    : reg_type is cur_reg;
+    buf_proc : process(CLK)
+        alias wr_en is next_reg.buf_wr_en;
+        alias rd_p  is next_reg.buf_rd_p;
+        alias wr_p  is next_reg.buf_wr_p;
+        alias di    is next_reg.buf_di;
+        alias do    is buf_do;
+    begin
+        if rising_edge(CLK) then
+            do  <= buf(rd_p);
+            
+            if wr_en='1' then
+                buf(wr_p)   <= di;
+                
+                if wr_p=rd_p then
+                    do  <= di;
+                end if;
+            end if;
+        end process;
+    end process;
+    
+    stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_RGB,
+        FRAME_X, FRAME_Y, threshold, frame_width, frame_height, scan_height, scancolumn, buf_do)
+        alias cr    is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
         r   := cur_reg;
         
+        r.border_valid  := '0';
+        r.buf_wr_en     := '0';
+        
         case cur_reg.state is
             
             when SCANNING_TOP =>
-                r.border_size   := uns(FRAME_Y)+1;
+                r.buf_wr_p  := cr.buf_rd_p;
+                r.buf_di    := FRAME_Y+1;
                 
                 if FRAME_RGB_WR_EN='1' then
-                    if not is_black(FRAME_RGB, threshold) then
-                        r.found_non_black   := true;
-                        r.state             := WAITING_FOR_BOTTOM_SCAN;
+                    
+                    if FRAME_X=scancolumn-1 then
+                    
+                        if not is_black(FRAME_RGB, threshold) then
+                            r.got_non_black(cr.buf_rd_p)    := true;
+                        elsif not cr.got_non_black(cr.buf_rd_p) then
+                            buf_wr_en   := '1';
+                        end if;
+                        
+                        r.buf_rd_p  := cr.buf_rd_p+1;
+                        if cr.buf_rd_p=2 then
+                            r.buf_rd_p  := 0;
+                        end if;
+                        
                     end if;
+                    
+                    if FRAME_X=frame_width-1 then
+                        r.state := SWITCHING_LINE;
+                    end if;
+                    
+                end if;
+            
+            when SWITCHING_LINE =>
+                if FRAME_RGB_WR_EN='1' then
+                    
+                    if FRAME_Y=scan_height-1 then
+                        r.state := WAITING_FOR_BOTTOM_SCAN;
+                    end if;
+                    
                 end if;
             
             when WAITING_FOR_BOTTOM_SCAN =>
-                
+                if
+                    FRAME_RGB_WR_EN='1' and
+                    FRAME_Y=frame_height-scan_height-1 then
+                then
+                    r.state := SCANNING_BOTTOM;
+                end if;
             
             when SCANNING_BOTTOM =>
-                
-            
-            when WAITING_FOR_FRAME_END =>
-                null;
+                if FRAME_RGB_WR_EN='1' then
+                    
+                end if;
             
         end case;
         
