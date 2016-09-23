@@ -55,22 +55,41 @@ architecture rtl of HOR_DETECTOR is
         border_valid    : std_ulogic;
         border_size     : unsigned(15 downto 0);´
         found_non_black : boolean;
+        buf_wr_en       : std_ulogic;
+        buf_p           : natural range 0 to 2;
+        buf_di          : std_ulogic_vector(15 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
         state           => SCANNING_LEFT,
         border_valid    => '0',
         border_size     => x"0000",
-        found_non_black => false
+        found_non_black => false,
+        buf_wr_en       => '0',
+        buf_p           => 0,
+        buf_di          => x"0000"
     );
+    
+    type buf_type       is array(0 to 2) of std_ulogic_vector(15 downto 0);
+    type scanlines_type is array(0 to 2) of std_ulogic_vector(15 downto 0);
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal right_scan_start     : unsigned(15 downto 0) := (others => '0');
+    
+    signal qu_frame_height          : std_ulogic_vector(15 downto 0) := x"0000";
+    signal half_frame_height        : std_ulogic_vector(15 downto 0) := x"0000";
+    signal three_qu_frame_height    : std_ulogic_vector(15 downto 0) := x"0000";
+    signal scanlines                : scanlines_type := (others => x"0000");
+    signal scanline                 : std_ulogic_vector(15 downto 0) := x"0000";
+    
+    signal buf      : buf_type := (others => x"0000");
+    signal buf_do   : std_ulogic_vector(15 downto 0) := x"0000";
     
     -- configuration registers
     signal threshold    : std_ulogic_vector(7 downto 0) := x"00";
     signal scan_width   : std_ulogic_vector(15 downto 0) := x"0000";
     signal frame_width  : std_ulogic_vector(15 downto 0) := x"0000";
+    signal frame_height : std_ulogic_vector(15 downto 0) := x"0000";
     
     function is_black(
         pixel       : std_ulogic_vector(RGB_BITS-1 downto 0),
@@ -86,10 +105,16 @@ architecture rtl of HOR_DETECTOR is
 begin
     
     BORDER_VALID    <= cur_reg.border_valid;
-    BORDER_SIZE     <=
-        stdulv(cur_reg.left_border_size)
-            when cur_reg.left_border_size<cur_reg.right_border_size else
-        stdulv(cur_reg.right_border_size);
+    BORDER_SIZE     <= stdulv(cur_reg.border_size);
+    
+    qu_frame_height         <= "00" & frame_height(15 downto 2);
+    half_frame_height       <= "0" & frame_height(15 downto 1);
+    three_qu_frame_height   <= half_frame_height+qu_frame_height;
+    
+    scanlines(0)    <= qu_frame_height;
+    scanlines(1)    <= half_frame_height;
+    scanlines(2)    <= three_qu_frame_height;
+    scanline        <= scanlines(cur_reg.buf_p);
     
     cfg_proc : process(CLK)
     begin
@@ -101,59 +126,98 @@ begin
                     when "0110" => scan_width  ( 7 downto 0)    <= CFG_DATA;
                     when "1001" => frame_width (15 downto 8)    <= CFG_DATA;
                     when "1010" => frame_width ( 7 downto 0)    <= CFG_DATA;
+                    when "1011" => frame_height(15 downto 8)    <= CFG_DATA;
+                    when "1100" => frame_height( 7 downto 0)    <= CFG_DATA;
                     when others => null;
                 end case;
             end if;
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_RGB, FRAME_X, FRAME_Y, threshold, frame_width, scan_width)
+    buf_proc : process(CLK)
+        alias wr_en is cur_reg.buf_wr_en;
+        alias p     is cur_reg.buf_p;
+        alias di    is cur_reg.buf_di;
+        alias do    is buf_do;
+    begin
+        if rising_edge(CLK) then
+            if wr_en='1' then
+                buf(p)  <= di;
+                do      <= di;
+            else
+                do  <= buf(p);
+            end if;
+        end process;
+    end process;
+    
+    stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_RGB,
+        FRAME_X, FRAME_Y, threshold, frame_width, scan_width, scanline, buf_do)
         alias cr    : reg_type is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
         r   := cur_reg;
         
         r.border_valid  := '0';
+        r.buf_wr_en     := '0';
         
         case cur_reg.state is
             
             when SCANNING_LEFT =>
+                r.buf_di    := uns(FRAME_X)+1;
+                
                 if FRAME_RGB_WR_EN='1' then
-                    r.border_size   := uns(FRAME_X)+1;
-                    
                     if FRAME_X=scan_width-1 then
                         r.state := WAITING_FOR_RIGHT_SCAN;
                     end if;
                     
-                    if not is_black(FRAME_RGB, threshold) then
-                        r.found_non_black   := true;
-                        r.state             := WAITING_FOR_RIGHT_SCAN;
+                    if FRAME_Y=scanline then
+                        r.buf_wr_en := '1';
+                        
+                        if not is_black(FRAME_RGB, threshold) then
+                            r.found_non_black   := true;
+                            r.state             := WAITING_FOR_RIGHT_SCAN;
+                        end if;
                     end if;
                 end if;
             
             when WAITING_FOR_RIGHT_SCAN =>
-                if
-                    FRAME_RGB_WR_EN='1' and
-                    FRAME_X=frame_width-cr.border_size
-                then
-                    r.state := SCANNING_RIGHT;
+                if FRAME_RGB_WR_EN='1' then
+                    if FRAME_X=frame_width-buf_do then
+                        r.state := SCANNING_RIGHT;
+                    end if;
+                    if FRAME_X=frame_width-1 then
+                        -- not a scanline, end of line
+                        r.state := SCANNING_LEFT;
+                    end if;
                 end if;
             
             when SCANNING_RIGHT =>
+                r.buf_di            := uns(frame_width-FRAME_X-1);
+                
                 if FRAME_RGB_WR_EN='1' then
-                    if not is_black(FRAME_RGB, threshold) then
-                        r.found_non_black   := '1';
-                        r.border_size       := uns(frame_width-FRAME_X-1);
-                    end if;
-                        
                     if FRAME_X=frame_width-1 then
+                        -- end of line
                         r.state := SCANNING_LEFT;
-                        
-                        if not is_black(FRAME_RGB, threshold) or cr.found_non_black then
-                            r.border_valid  := '1';
-                            r.state         := WAITING_FOR_FRAME_END;
-                        end if;
                     end if;
+                    
+                    if FRAME_Y=scanline then
+                        
+                        if not is_black(FRAME_RGB, threshold) then
+                            r.buf_wr_en         := '1';
+                            r.found_non_black   := true;
+                        end if;
+                        
+                        if FRAME_X=frame_width-1 then
+                            if
+                                not is_black(FRAME_RGB, threshold) or
+                                cr.found_non_black
+                            then
+                                r.state := WAITING_FOR_FRAME_END;
+                            end if;
+                        end if;
+                        
+                    end if;
+                    
                 end if;
             
             when WAITING_FOR_FRAME_END =>

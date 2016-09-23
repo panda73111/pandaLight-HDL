@@ -45,16 +45,23 @@ architecture rtl of VER_DETECTOR is
     
     type state_type is (
         SCANNING_TOP,
-        WAITING,
-        SCANNING_BOTTOM
+        WAITING_FOR_BOTTOM_SCAN,
+        SCANNING_BOTTOM,
+        WAITING_FOR_FRAME_END
     );
     
     type reg_type is record
-        state   : state_type;
+        state           : state_type;
+        border_valid    : std_ulogic;
+        border_size     : unsigned(15 downto 0);´
+        found_non_black : boolean;
     end record;
     
     constant reg_type_def   : reg_type := (
-        state   => SCANNING_TOP
+        state           => SCANNING_TOP,
+        border_valid    => '0',
+        border_size     => x"0000",
+        found_non_black => false
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -93,7 +100,7 @@ begin
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN)
+    stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_X, FRAME_Y, threshold)
         alias cr    : reg_type is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
@@ -101,7 +108,24 @@ begin
         
         case cur_reg.state is
             
-            when 
+            when SCANNING_TOP =>
+                r.border_size   := uns(FRAME_Y)+1;
+                
+                if FRAME_RGB_WR_EN='1' then
+                    if not is_black(FRAME_RGB, threshold) then
+                        r.found_non_black   := true;
+                        r.state             := WAITING_FOR_BOTTOM_SCAN;
+                    end if;
+                end if;
+            
+            when WAITING_FOR_BOTTOM_SCAN =>
+                
+            
+            when SCANNING_BOTTOM =>
+                
+            
+            when WAITING_FOR_FRAME_END =>
+                null;
             
         end case;
         
