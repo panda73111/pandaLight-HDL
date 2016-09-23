@@ -10,6 +10,7 @@
 -- Additional Comments:
 --   Any LED area must be within the FRAME!
 --   The minimum LED area is 1x3 pixel in size!
+--   Maximum overlap of two LEDs by half their width!
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.std_logic_1164.ALL;
