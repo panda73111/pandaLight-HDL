@@ -15,18 +15,17 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 use work.help_funcs.all;
 use work.txt_util.all;
 use work.video_profiles.all;
 
 ENTITY LED_COLOR_EXTRACTOR_tb IS
     generic (
-        MAX_LED_COUNT   : natural := 64;
-        R_BITS          : natural range 1 to 12 := 8;
-        G_BITS          : natural range 1 to 12 := 8;
-        B_BITS          : natural range 1 to 12 := 8
+        MAX_LED_COUNT   : positive := 64;
+        R_BITS          : positive range 5 to 12 := 8;
+        G_BITS          : positive range 6 to 12 := 8;
+        B_BITS          : positive range 5 to 12 := 8;
+        ACCU_BITS       : positive range 8 to 40 := 30
     );
 END LED_COLOR_EXTRACTOR_tb;
 
@@ -130,7 +129,8 @@ BEGIN
         MAX_LED_COUNT   => MAX_LED_COUNT,
         R_BITS          => R_BITS,
         G_BITS          => G_BITS,
-        B_BITS          => B_BITS
+        B_BITS          => B_BITS,
+        ACCU_BITS       => ACCU_BITS
     )
     port map (
         CLK => CLK,
@@ -252,9 +252,9 @@ BEGIN
         
         cfg := (
             HOR_LED_CNT         => stdulv( 16,  8),
-            HOR_LED_WIDTH       => stdulv(145, 16),
+            HOR_LED_WIDTH       => stdulv(132, 16),
             HOR_LED_HEIGHT      => stdulv( 80, 16),
-            HOR_LED_STEP        => stdulv( 65, 16),
+            HOR_LED_STEP        => stdulv( 66, 16),
             HOR_LED_PAD         => stdulv(  5, 16),
             HOR_LED_OFFS        => stdulv( 80, 16),
             VER_LED_CNT         => stdulv(  9,  8),

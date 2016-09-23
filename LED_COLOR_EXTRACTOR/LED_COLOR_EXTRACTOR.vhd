@@ -11,9 +11,9 @@
 --   to a LED stripe around a TV
 -- Additional Comments:
 --   Generic:
---     R_BITS   : (1 to 12) Number of bits for the 'red' value in both frame and LED data
---     G_BITS   : (1 to 12) Number of bits for the 'green' value in both frame and LED data
---     B_BITS   : (1 to 12) Number of bits for the 'blue' value in both frame and LED data
+--     R_BITS   : (5 to 12) Number of bits for the 'red' value in both frame and LED data
+--     G_BITS   : (6 to 12) Number of bits for the 'green' value in both frame and LED data
+--     B_BITS   : (5 to 12) Number of bits for the 'blue' value in both frame and LED data
 --   Port:
 --     CLK : clock input
 --     RST : active high reset, aborts and resets calculation until released
@@ -32,7 +32,7 @@
 --     LED_RGB      : LED RGB color
 --   
 --   These configuration registers can only be set while RST is high, using the CFG_* inputs:
---     Except for the LED counts, all values are 16 Bit in size, separated in high an low byte
+--     Except for the LED counts, all values are 16 Bit in size, separated into high and low byte
 --   
 --    [0] = HOR_LED_CNT      : number of LEDs at each top and bottom side of the TV screen
 --    [1] = HOR_LED_WIDTH_H  : width of one LED area of each of these horizontal LEDs
@@ -69,9 +69,10 @@ use work.help_funcs.all;
 entity LED_COLOR_EXTRACTOR is
     generic (
         MAX_LED_COUNT   : positive;
-        R_BITS          : natural range 1 to 12 := 8;
-        G_BITS          : natural range 1 to 12 := 8;
-        B_BITS          : natural range 1 to 12 := 8
+        R_BITS          : positive range 5 to 12 := 8;
+        G_BITS          : positive range 6 to 12 := 8;
+        B_BITS          : positive range 5 to 12 := 8;
+        ACCU_BITS       : positive range 8 to 40 := 30
     );
     port (
         CLK : in std_ulogic;
@@ -103,11 +104,6 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     constant HOR    : natural := 0;
     constant VER    : natural := 1;
     
-    constant T  : natural := 0; -- top
-    constant B  : natural := 1; -- bottom
-    constant L  : natural := 2; -- right
-    constant R  : natural := 3; -- left
-    
     constant X  : natural := 0;
     constant Y  : natural := 1;
     
@@ -130,7 +126,8 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     ---------------
     
     signal leds_num         : leds_num_type := (others => (others => '0'));
-    signal frame_x, frame_y : unsigned(15 downto 0) := (others => '0');
+    signal frame_x          : unsigned(15 downto 0) := x"0000";
+    signal frame_y          : unsigned(15 downto 0) := x"0000";
     signal leds_rgb_valid   : std_ulogic_vector(0 to 1) := (others => '0');
     signal leds_side        : std_ulogic_vector(0 to 1) := (others => '0');
     signal leds_rgb         : leds_rgb_type := (others => (others => '0'));
@@ -179,29 +176,30 @@ begin
     pixel_cnt_proc : process(RST, CLK)
     begin
         if RST='1' then
-            frame_x <= (others => '0');
-            frame_y <= (others => '0');
+            frame_x <= x"0000";
+            frame_y <= x"0000";
         elsif rising_edge(CLK) then
             if FRAME_VSYNC='1' then
-                frame_x <= (others => '0');
-                frame_y <= (others => '0');
+                frame_x <= x"0000";
+                frame_y <= x"0000";
             end if;
             if FRAME_RGB_WR_EN='1' then
                 frame_x <= frame_x+1;
                 if frame_x=frame_width-1 then
-                    frame_x <= (others => '0');
+                    frame_x <= x"0000";
                     frame_y <= frame_y+1;
                 end if;
             end if;
         end if;
     end process;
     
-    HOR_SCANNER_inst : entity work.hor_scanner
+    HOR_SCANNER_inst : entity work.HOR_SCANNER
         generic map (
             MAX_LED_COUNT   => MAX_LED_COUNT,
             R_BITS          => R_BITS,
             G_BITS          => G_BITS,
-            B_BITS          => B_BITS
+            B_BITS          => B_BITS,
+            ACCU_BITS       => ACCU_BITS
         )
         port map (
             CLK => clk,
@@ -224,11 +222,13 @@ begin
             LED_SIDE        => leds_side(HOR)
         );
     
-    VER_SCANNER_inst : entity work.ver_scanner
+    VER_SCANNER_inst : entity work.VER_SCANNER
         generic map (
-            R_BITS  => R_BITS,
-            G_BITS  => G_BITS,
-            B_BITS  => B_BITS
+            MAX_LED_COUNT   => MAX_LED_COUNT,
+            R_BITS          => R_BITS,
+            G_BITS          => G_BITS,
+            B_BITS          => B_BITS,
+            ACCU_BITS       => ACCU_BITS
         )
         port map (
             CLK => clk,
@@ -261,14 +261,19 @@ begin
             if FRAME_VSYNC='0' then
                 LED_VSYNC   <= '0';
             end if;
+            
             LED_RGB_VALID   <= '0';
+            
             if leds_rgb_valid(VER)='1' then
                 -- if two edge LEDs are completed at the same time,
                 -- queue the vertical one
                 ver_queued  <= true;
             end if;
+            
             for dim in HOR to VER loop
+                
                 if leds_rgb_valid(dim)='1' or ver_queued then
+                    
                     -- count the LEDs from top left clockwise
                     if dim=HOR then
                         if leds_side(dim)='0' then
@@ -287,14 +292,19 @@ begin
                             LED_NUM <= hor_led_cnt+leds_num(VER);
                         end if;
                     end if;
+                    
                     LED_RGB         <= leds_rgb(dim)(RGB_BITS-1 downto 0);
                     LED_RGB_VALID   <= '1';
+                    
                     if dim=VER then
                         ver_queued  <= false;
                     end if;
+                    
                     exit;
                 end if;
+                
             end loop;
+            
             if
                 FRAME_VSYNC='1' and
                 leds_rgb_valid="00" and
