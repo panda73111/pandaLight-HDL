@@ -72,7 +72,7 @@ entity LED_COLOR_EXTRACTOR is
         R_BITS          : positive range 5 to 12 := 8;
         G_BITS          : positive range 6 to 12 := 8;
         B_BITS          : positive range 5 to 12 := 8;
-        ACCU_BITS       : positive range 8 to 40 := 24
+        ACCU_BITS       : positive range 8 to 40 := 30
     );
     port (
         CLK : in std_ulogic;

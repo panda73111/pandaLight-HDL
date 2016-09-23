@@ -25,7 +25,7 @@ ENTITY LED_COLOR_EXTRACTOR_tb IS
         R_BITS          : positive range 5 to 12 := 8;
         G_BITS          : positive range 6 to 12 := 8;
         B_BITS          : positive range 5 to 12 := 8;
-        ACCU_BITS       : positive range 8 to 40 := 24
+        ACCU_BITS       : positive range 8 to 40 := 30
     );
 END LED_COLOR_EXTRACTOR_tb;
 
@@ -223,30 +223,30 @@ BEGIN
         
         -- Test 1: Standard 50 LED configuration, no overlap, no edges
         
-        cfg := (
-            HOR_LED_CNT         => stdulv( 16,  8),
-            HOR_LED_WIDTH       => stdulv( 60, 16),
-            HOR_LED_HEIGHT      => stdulv( 80, 16),
-            HOR_LED_STEP        => stdulv( 80, 16),
-            HOR_LED_PAD         => stdulv(  5, 16),
-            HOR_LED_OFFS        => stdulv( 10, 16),
-            VER_LED_CNT         => stdulv(  9,  8),
-            VER_LED_WIDTH       => stdulv( 80, 16),
-            VER_LED_HEIGHT      => stdulv( 60, 16),
-            VER_LED_STEP        => stdulv( 80, 16),
-            VER_LED_PAD         => stdulv(  5, 16),
-            VER_LED_OFFS        => stdulv( 10, 16),
-            FRAME_WIDTH         => frame_width,
-            FRAME_HEIGHT        => frame_height
-        );
-        write_config(cfg);
-        
-        for i in 1 to 5 loop
-            wait until rising_edge(FRAME_VSYNC);
-        end loop;
-        
-        wait for 10 us;
-        wait until rising_edge(CLK);
+--        cfg := (
+--            HOR_LED_CNT         => stdulv( 16,  8),
+--            HOR_LED_WIDTH       => stdulv( 60, 16),
+--            HOR_LED_HEIGHT      => stdulv( 80, 16),
+--            HOR_LED_STEP        => stdulv( 80, 16),
+--            HOR_LED_PAD         => stdulv(  5, 16),
+--            HOR_LED_OFFS        => stdulv( 10, 16),
+--            VER_LED_CNT         => stdulv(  9,  8),
+--            VER_LED_WIDTH       => stdulv( 80, 16),
+--            VER_LED_HEIGHT      => stdulv( 60, 16),
+--            VER_LED_STEP        => stdulv( 80, 16),
+--            VER_LED_PAD         => stdulv(  5, 16),
+--            VER_LED_OFFS        => stdulv( 10, 16),
+--            FRAME_WIDTH         => frame_width,
+--            FRAME_HEIGHT        => frame_height
+--        );
+--        write_config(cfg);
+--        
+--        for i in 1 to 5 loop
+--            wait until rising_edge(FRAME_VSYNC);
+--        end loop;
+--        
+--        wait for 10 us;
+--        wait until rising_edge(CLK);
         
         -- Test 1 finished
         -- Test 2: Standard 50 LED configuration, overlaps, edges
