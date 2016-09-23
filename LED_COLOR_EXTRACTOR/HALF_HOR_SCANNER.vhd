@@ -233,12 +233,15 @@ begin
         alias wr_en is next_reg.buf_wr_en;
     begin
         if rising_edge(CLK) then
-            -- write first mode
+            do  <= led_buf(rd_p);
+            
             if wr_en='1' then
                 led_buf(wr_p)   <= di;
-                do              <= di;
-            else
-                do  <= led_buf(rd_p);
+                
+                if wr_p=rd_p then
+                    -- write first mode
+                    do  <= di;
+                end if;
             end if;
         end if;
     end process;
