@@ -19,9 +19,10 @@ use work.help_funcs.all;
 entity LED_OUT_QUEUE is
     generic (
         MAX_LED_COUNT   : positive;
-        R_BITS          : positive range 5 to 12 := 8;
-        G_BITS          : positive range 6 to 12 := 8;
-        B_BITS          : positive range 5 to 12 := 8;
+        R_BITS          : positive range 5 to 12;
+        G_BITS          : positive range 6 to 12;
+        B_BITS          : positive range 5 to 12;
+        DIM_BITS        : positive range 8 to 16;
         ACCU_BITS       : positive range 8 to 40
     );
     port (
@@ -32,7 +33,7 @@ entity LED_OUT_QUEUE is
         ACCU_R      : in std_ulogic_vector(ACCU_BITS-1 downto 0);
         ACCU_G      : in std_ulogic_vector(ACCU_BITS-1 downto 0);
         ACCU_B      : in std_ulogic_vector(ACCU_BITS-1 downto 0);
-        PIXEL_COUNT : in std_ulogic_vector(31 downto 0);
+        PIXEL_COUNT : in std_ulogic_vector(2*DIM_BITS-1 downto 0);
         
         LED_RGB_VALID   : out std_ulogic := '0';
         LED_RGB         : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0')

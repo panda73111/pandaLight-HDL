@@ -25,6 +25,7 @@ ENTITY LED_COLOR_EXTRACTOR_tb IS
         R_BITS          : positive range 5 to 12 := 8;
         G_BITS          : positive range 6 to 12 := 8;
         B_BITS          : positive range 5 to 12 := 8;
+        DIM_BITS        : positive range 8 to 16 := 11;
         ACCU_BITS       : positive range 8 to 40 := 30
     );
 END LED_COLOR_EXTRACTOR_tb;
@@ -80,7 +81,8 @@ BEGIN
         FRAME_STEP      => 0,
         R_BITS          => R_BITS,
         G_BITS          => G_BITS,
-        B_BITS          => B_BITS
+        B_BITS          => B_BITS,
+        DIM_BITS        => DIM_BITS
     )
     port map (
         CLK_IN  => g_clk,
@@ -130,6 +132,7 @@ BEGIN
         R_BITS          => R_BITS,
         G_BITS          => G_BITS,
         B_BITS          => B_BITS,
+        DIM_BITS        => DIM_BITS,
         ACCU_BITS       => ACCU_BITS
     )
     port map (
