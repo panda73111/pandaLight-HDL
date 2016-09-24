@@ -24,6 +24,7 @@ entity HALF_HOR_SCANNER is
         R_BITS          : positive range 5 to 12;
         G_BITS          : positive range 6 to 12;
         B_BITS          : positive range 5 to 12;
+        DIM_BITS        : positive range 9 to 16;
         ACCU_BITS       : positive range 8 to 40
     );
     port (
@@ -38,14 +39,14 @@ entity HALF_HOR_SCANNER is
         FRAME_RGB_WR_EN : in std_ulogic;
         FRAME_RGB       : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
-        FRAME_X : in std_ulogic_vector(15 downto 0);
-        FRAME_Y : in std_ulogic_vector(15 downto 0);
+        FRAME_X : in std_ulogic_vector(DIM_BITS-1 downto 0);
+        FRAME_Y : in std_ulogic_vector(DIM_BITS-1 downto 0);
         
         ACCU_VALID  : out std_ulogic := '0';
         ACCU_R      : out std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
         ACCU_G      : out std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
         ACCU_B      : out std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
-        PIXEL_COUNT : out std_ulogic_vector(31 downto 0) := x"0000_0000"
+        PIXEL_COUNT : out std_ulogic_vector(2*DIM_BITS-1 downto 0) := (others => '0')
     );
 end HALF_HOR_SCANNER;
 
@@ -76,11 +77,11 @@ architecture rtl of HALF_HOR_SCANNER is
     
     type inner_coords_type is
         array(0 to 1) of
-        unsigned(15 downto 0);
+        unsigned(DIM_BITS-1 downto 0);
     
     type led_pos_type is
         array(0 to 1) of
-        unsigned(15 downto 0);
+        unsigned(DIM_BITS-1 downto 0);
     
     type leds_pos_type is
         array(0 to 1) of
@@ -106,8 +107,8 @@ architecture rtl of HALF_HOR_SCANNER is
         inner_coords    : inner_coords_type;
         led_pos         : led_pos_type;
         accu_valid      : std_ulogic;
-        pixel_counter   : unsigned(ACCU_BITS-9 downto 0);
-        pixel_count     : std_ulogic_vector(ACCU_BITS-9 downto 0);
+        pixel_counter   : unsigned(2*DIM_BITS-1 downto 0);
+        pixel_count     : std_ulogic_vector(2*DIM_BITS-1 downto 0);
         got_pixel_count : boolean;
     end record;
     
@@ -118,8 +119,8 @@ architecture rtl of HALF_HOR_SCANNER is
         buf_wr_p        => 0,
         buf_di          => (others => '0'),
         buf_wr_en       => '0',
-        inner_coords    => (others => x"0000"),
-        led_pos         => (others => x"0000"),
+        inner_coords    => (others => (others => '0')),
+        led_pos         => (others => (others => '0')),
         accu_valid      => '0',
         pixel_counter   => (others => '0'),
         pixel_count     => (others => '0'),
@@ -128,21 +129,21 @@ architecture rtl of HALF_HOR_SCANNER is
     
     -- configuration registers
     signal led_count    : std_ulogic_vector(7 downto 0) := x"00";
-    signal led_width    : std_ulogic_vector(15 downto 0) := x"0000";
-    signal led_height   : std_ulogic_vector(15 downto 0) := x"0000";
-    signal led_step     : std_ulogic_vector(15 downto 0) := x"0000";
-    signal led_pad      : std_ulogic_vector(15 downto 0) := x"0000";
-    signal led_offs     : std_ulogic_vector(15 downto 0) := x"0000";
-    signal frame_height : std_ulogic_vector(15 downto 0) := x"0000";
+    signal led_width    : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal led_height   : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal led_step     : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal led_pad      : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal led_offs     : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal frame_height : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
-    signal first_leds_pos       : leds_pos_type := (others => (others => x"0000"));
+    signal first_leds_pos       : leds_pos_type := (others => (others => (others => '0')));
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal led_buf              : led_buf_type := (others => (others => '0'));
     signal buf_do               : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
     signal switch               : boolean := false;
     
     signal half_led_count   : unsigned(6 downto 0) := "0000000";
-    signal double_led_step  : unsigned(15 downto 0) := x"0000";
+    signal double_led_step  : unsigned(DIM_BITS-1 downto 0) := (others => '0');
     signal padded_frame_rgb : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
     
     function led_sum(
@@ -176,7 +177,7 @@ begin
     ACCU_G      <= cur_reg.buf_di(2*ACCU_BITS-1 downto   ACCU_BITS);
     ACCU_B      <= cur_reg.buf_di(  ACCU_BITS-1 downto           0);
     
-    PIXEL_COUNT <= stdulv(int(cur_reg.pixel_count), 32);
+    PIXEL_COUNT <= stdulv(int(cur_reg.pixel_count), 2*DIM_BITS);
     
     -- the position of the first top/bottom LED
     first_leds_pos(TOP)(X)      <= uns(led_offs)+uns(led_step) when ODD_LEDS else uns(led_offs);
@@ -185,7 +186,7 @@ begin
     first_leds_pos(BOTTOM)(Y)   <= uns(frame_height-led_height-led_pad);
     
     half_led_count  <= uns(led_count(7 downto 1));
-    double_led_step <= uns(led_step(14 downto 0) & '0');
+    double_led_step <= uns(led_step(DIM_BITS-2 downto 0) & '0');
     switch          <= cur_reg.buf_rd_p=half_led_count-1 or half_led_count=0;
     
     padded_frame_rgb(3*ACCU_BITS-1 downto 2*ACCU_BITS+R_BITS)   <= (others => '0');
@@ -206,19 +207,19 @@ begin
         if rising_edge(CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
-                    when "00000" => led_count                   <= CFG_DATA;
-                    when "00001" => led_width   (15 downto 8)   <= CFG_DATA;
-                    when "00010" => led_width   ( 7 downto 0)   <= CFG_DATA;
-                    when "00011" => led_height  (15 downto 8)   <= CFG_DATA;
-                    when "00100" => led_height  ( 7 downto 0)   <= CFG_DATA;
-                    when "00101" => led_step    (15 downto 8)   <= CFG_DATA;
-                    when "00110" => led_step    ( 7 downto 0)   <= CFG_DATA;
-                    when "00111" => led_pad     (15 downto 8)   <= CFG_DATA;
-                    when "01000" => led_pad     ( 7 downto 0)   <= CFG_DATA;
-                    when "01001" => led_offs    (15 downto 8)   <= CFG_DATA;
-                    when "01010" => led_offs    ( 7 downto 0)   <= CFG_DATA;
-                    when "11000" => frame_height(15 downto 8)   <= CFG_DATA;
-                    when "11001" => frame_height( 7 downto 0)   <= CFG_DATA;
+                    when "00000" => led_count                           <= CFG_DATA;
+                    when "00001" => led_width   (DIM_BITS-1 downto 8)   <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "00010" => led_width   (         7 downto 0)   <= CFG_DATA;
+                    when "00011" => led_height  (DIM_BITS-1 downto 8)   <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "00100" => led_height  (         7 downto 0)   <= CFG_DATA;
+                    when "00101" => led_step    (DIM_BITS-1 downto 8)   <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "00110" => led_step    (         7 downto 0)   <= CFG_DATA;
+                    when "00111" => led_pad     (DIM_BITS-1 downto 8)   <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "01000" => led_pad     (         7 downto 0)   <= CFG_DATA;
+                    when "01001" => led_offs    (DIM_BITS-1 downto 8)   <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "01010" => led_offs    (         7 downto 0)   <= CFG_DATA;
+                    when "11000" => frame_height(DIM_BITS-1 downto 8)   <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "11001" => frame_height(         7 downto 0)   <= CFG_DATA;
                     when others => null;
                 end case;
             end if;
@@ -263,10 +264,10 @@ begin
             when FIRST_LED_FIRST_PIXEL =>
                 r.buf_wr_p          := 0;
                 r.led_pos           := first_leds_pos(cr.side);
-                r.inner_coords(X)   := x"0001";
+                r.inner_coords(X)   := uns(1, DIM_BITS);
                 r.inner_coords(Y)   := (others => '0');
                 r.buf_di            := padded_frame_rgb;
-                r.pixel_counter     := uns(1, ACCU_BITS-8);
+                r.pixel_counter     := uns(1, 2*DIM_BITS);
                 if
                     FRAME_RGB_WR_EN='1' and
                     FRAME_X=stdulv(first_leds_pos(cr.side)(X)) and
@@ -277,7 +278,7 @@ begin
                 end if;
             
             when LEFT_BORDER_PIXEL =>
-                r.inner_coords(X)   := x"0001";
+                r.inner_coords(X)   := uns(1, DIM_BITS);
                 r.buf_wr_p          := cr.buf_rd_p;
                 r.buf_di            := led_sum(padded_frame_rgb, buf_do);
                 if cr.inner_coords(Y)=0 then
@@ -315,7 +316,7 @@ begin
                 end if;
             
             when RIGHT_BORDER_PIXEL =>
-                r.inner_coords(X)   := x"0000";
+                r.inner_coords(X)   := (others => '0');
                 r.buf_di            := led_sum(padded_frame_rgb, buf_do);
                 if FRAME_RGB_WR_EN='1' then
                     r.buf_rd_p      := cr.buf_rd_p+1;
@@ -340,7 +341,7 @@ begin
                 r.state             := LEFT_BORDER_PIXEL;
             
             when LAST_PIXEL =>
-                r.inner_coords(X)   := x"0000";
+                r.inner_coords(X)   := (others => '0');
                 r.buf_di            := led_sum(padded_frame_rgb, buf_do);
                 if FRAME_RGB_WR_EN='1' then
                     r.buf_rd_p      := cr.buf_rd_p+1;

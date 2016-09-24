@@ -72,6 +72,7 @@ entity LED_COLOR_EXTRACTOR is
         R_BITS          : positive range 5 to 12 := 8;
         G_BITS          : positive range 6 to 12 := 8;
         B_BITS          : positive range 5 to 12 := 8;
+        DIM_BITS        : positive range 9 to 16 := 11;
         ACCU_BITS       : positive range 8 to 40 := 30
     );
     port (
@@ -126,8 +127,8 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     ---------------
     
     signal leds_num         : leds_num_type := (others => (others => '0'));
-    signal frame_x          : unsigned(15 downto 0) := x"0000";
-    signal frame_y          : unsigned(15 downto 0) := x"0000";
+    signal frame_x          : unsigned(DIM_BITS-1 downto 0) := (others => '0');
+    signal frame_y          : unsigned(DIM_BITS-1 downto 0) := (others => '0');
     signal leds_rgb_valid   : std_ulogic_vector(0 to 1) := (others => '0');
     signal leds_side        : std_ulogic_vector(0 to 1) := (others => '0');
     signal leds_rgb         : leds_rgb_type := (others => (others => '0'));
@@ -142,7 +143,7 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     signal hor_led_cnt  : std_ulogic_vector(7 downto 0) := x"00";
     signal ver_led_cnt  : std_ulogic_vector(7 downto 0) := x"00";
     
-    signal frame_width  : std_ulogic_vector(15 downto 0) := x"0000";
+    signal frame_width  : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
 begin
     
@@ -163,10 +164,10 @@ begin
         if rising_edge(CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
-                    when "00000" => hor_led_cnt                 <= CFG_DATA;
-                    when "01011" => ver_led_cnt                 <= CFG_DATA;
-                    when "10110" => frame_width(15 downto 8)    <= CFG_DATA;
-                    when "10111" => frame_width(7 downto 0)     <= CFG_DATA;
+                    when "00000" => hor_led_cnt                         <= CFG_DATA;
+                    when "01011" => ver_led_cnt                         <= CFG_DATA;
+                    when "10110" => frame_width(DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "10111" => frame_width(         7 downto 0)    <= CFG_DATA;
                     when others => null;
                 end case;
             end if;
@@ -176,17 +177,17 @@ begin
     pixel_cnt_proc : process(RST, CLK)
     begin
         if RST='1' then
-            frame_x <= x"0000";
-            frame_y <= x"0000";
+            frame_x <= (others => '0');
+            frame_y <= (others => '0');
         elsif rising_edge(CLK) then
             if FRAME_VSYNC='1' then
-                frame_x <= x"0000";
-                frame_y <= x"0000";
+                frame_x <= (others => '0');
+                frame_y <= (others => '0');
             end if;
             if FRAME_RGB_WR_EN='1' then
                 frame_x <= frame_x+1;
                 if frame_x=frame_width-1 then
-                    frame_x <= x"0000";
+                    frame_x <= (others => '0');
                     frame_y <= frame_y+1;
                 end if;
             end if;
@@ -199,6 +200,7 @@ begin
             R_BITS          => R_BITS,
             G_BITS          => G_BITS,
             B_BITS          => B_BITS,
+            DIM_BITS        => DIM_BITS,
             ACCU_BITS       => ACCU_BITS
         )
         port map (
@@ -228,6 +230,7 @@ begin
             R_BITS          => R_BITS,
             G_BITS          => G_BITS,
             B_BITS          => B_BITS,
+            DIM_BITS        => DIM_BITS,
             ACCU_BITS       => ACCU_BITS
         )
         port map (

@@ -29,11 +29,12 @@ entity led_ppm_visualizer is
         FRAMES_TO_SAVE      : natural;
         STOP_SIM            : boolean;
         WHITESPACE_CHAR     : character := character'val(13);
-        MAX_WIDTH           : natural := 1920;
-        MAX_HEIGHT          : natural := 1080;
-        R_BITS              : natural range 1 to 12 := 8;
-        G_BITS              : natural range 1 to 12 := 8;
-        B_BITS              : natural range 1 to 12 := 8
+        MAX_WIDTH           : positive := 1920;
+        MAX_HEIGHT          : positive := 1080;
+        R_BITS              : positive range 5 to 12 := 8;
+        G_BITS              : positive range 6 to 12 := 8;
+        B_BITS              : positive range 5 to 12 := 8;
+        DIM_BITS            : positive range 8 to 16 := 11
     );
     port (
         CLK : in std_ulogic;
@@ -60,20 +61,20 @@ architecture rtl of led_ppm_visualizer is
     
     -- configuration registers
     signal hor_led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
-    signal hor_led_width    : std_ulogic_vector(15 downto 0) := x"0000";
-    signal hor_led_height   : std_ulogic_vector(15 downto 0) := x"0000";
-    signal hor_led_step     : std_ulogic_vector(15 downto 0) := x"0000";
-    signal hor_led_pad      : std_ulogic_vector(15 downto 0) := x"0000";
-    signal hor_led_offs     : std_ulogic_vector(15 downto 0) := x"0000";
+    signal hor_led_width    : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal hor_led_height   : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal hor_led_step     : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal hor_led_pad      : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal hor_led_offs     : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     signal ver_led_cnt      : std_ulogic_vector(7 downto 0) := x"00";
-    signal ver_led_width    : std_ulogic_vector(15 downto 0) := x"0000";
-    signal ver_led_height   : std_ulogic_vector(15 downto 0) := x"0000";
-    signal ver_led_step     : std_ulogic_vector(15 downto 0) := x"0000";
-    signal ver_led_pad      : std_ulogic_vector(15 downto 0) := x"0000";
-    signal ver_led_offs     : std_ulogic_vector(15 downto 0) := x"0000";
+    signal ver_led_width    : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal ver_led_height   : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal ver_led_step     : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal ver_led_pad      : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal ver_led_offs     : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
-    signal frame_width      : std_ulogic_vector(15 downto 0) := x"0000";
-    signal frame_height     : std_ulogic_vector(15 downto 0) := x"0000";
+    signal frame_width      : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal frame_height     : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     signal configured           : boolean := false;
     signal led_imgs_finished    : boolean := false;
@@ -170,32 +171,32 @@ begin
         if rising_edge(CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
-                    when "00000" => hor_led_cnt                 <= CFG_DATA;
-                    when "00001" => hor_led_width(15 downto 8)  <= CFG_DATA;
-                    when "00010" => hor_led_width(7 downto 0)   <= CFG_DATA;
-                    when "00011" => hor_led_height(15 downto 8) <= CFG_DATA;
-                    when "00100" => hor_led_height(7 downto 0)  <= CFG_DATA;
-                    when "00101" => hor_led_step(15 downto 8)   <= CFG_DATA;
-                    when "00110" => hor_led_step(7 downto 0)    <= CFG_DATA;
-                    when "00111" => hor_led_pad(15 downto 8)    <= CFG_DATA;
-                    when "01000" => hor_led_pad(7 downto 0)     <= CFG_DATA;
-                    when "01001" => hor_led_offs(15 downto 8)   <= CFG_DATA;
-                    when "01010" => hor_led_offs(7 downto 0)    <= CFG_DATA;
-                    when "01011" => ver_led_cnt                 <= CFG_DATA;
-                    when "01100" => ver_led_width(15 downto 8)  <= CFG_DATA;
-                    when "01101" => ver_led_width(7 downto 0)   <= CFG_DATA;
-                    when "01110" => ver_led_height(15 downto 8) <= CFG_DATA;
-                    when "01111" => ver_led_height(7 downto 0)  <= CFG_DATA;
-                    when "10000" => ver_led_step(15 downto 8)   <= CFG_DATA;
-                    when "10001" => ver_led_step(7 downto 0)    <= CFG_DATA;
-                    when "10010" => ver_led_pad(15 downto 8)    <= CFG_DATA;
-                    when "10011" => ver_led_pad(7 downto 0)     <= CFG_DATA;
-                    when "10100" => ver_led_offs(15 downto 8)   <= CFG_DATA;
-                    when "10101" => ver_led_offs(7 downto 0)    <= CFG_DATA;
-                    when "10110" => frame_width(15 downto 8)    <= CFG_DATA;
-                    when "10111" => frame_width(7 downto 0)     <= CFG_DATA;
-                    when "11000" => frame_height(15 downto 8)   <= CFG_DATA;
-                    when "11001" => frame_height(7 downto 0)    <= CFG_DATA;
+                    when "00000" => hor_led_cnt                         <= CFG_DATA;
+                    when "00001" => hor_led_width (DIM_BITS-1 downto 8) <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "00010" => hor_led_width (         7 downto 0) <= CFG_DATA;
+                    when "00011" => hor_led_height(DIM_BITS-1 downto 8) <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "00100" => hor_led_height(         7 downto 0) <= CFG_DATA;
+                    when "00101" => hor_led_step  (DIM_BITS-1 downto 8) <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "00110" => hor_led_step  (         7 downto 0) <= CFG_DATA;
+                    when "00111" => hor_led_pad   (DIM_BITS-1 downto 8) <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "01000" => hor_led_pad   (         7 downto 0) <= CFG_DATA;
+                    when "01001" => hor_led_offs  (DIM_BITS-1 downto 8) <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "01010" => hor_led_offs  (         7 downto 0) <= CFG_DATA;
+                    when "01011" => ver_led_cnt                         <= CFG_DATA;
+                    when "01100" => ver_led_width (DIM_BITS-1 downto 8) <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "01101" => ver_led_width (         7 downto 0) <= CFG_DATA;
+                    when "01110" => ver_led_height(DIM_BITS-1 downto 8) <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "01111" => ver_led_height(         7 downto 0) <= CFG_DATA;
+                    when "10000" => ver_led_step  (DIM_BITS-1 downto 8) <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "10001" => ver_led_step  (         7 downto 0) <= CFG_DATA;
+                    when "10010" => ver_led_pad   (DIM_BITS-1 downto 8) <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "10011" => ver_led_pad   (         7 downto 0) <= CFG_DATA;
+                    when "10100" => ver_led_offs  (DIM_BITS-1 downto 8) <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "10101" => ver_led_offs  (         7 downto 0) <= CFG_DATA;
+                    when "10110" => frame_width   (DIM_BITS-1 downto 8) <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "10111" => frame_width   (         7 downto 0) <= CFG_DATA;
+                    when "11000" => frame_height  (DIM_BITS-1 downto 8) <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "11001" => frame_height  (         7 downto 0) <= CFG_DATA;
                                     configured  <= true;
                     when others => null;
                 end case;

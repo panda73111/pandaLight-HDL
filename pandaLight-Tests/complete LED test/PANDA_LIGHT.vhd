@@ -33,7 +33,12 @@ entity PANDA_LIGHT is
         FCTRL_CLK_DIV       : positive :=  5;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
-        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000"
+        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000";
+        R_BITS              : positive range 5 to 12 := 8;
+        G_BITS              : positive range 5 to 12 := 8;
+        B_BITS              : positive range 5 to 12 := 8;
+        DIM_BITS            : positive range 8 to 16 := 11; -- resolutions up to 2047x2047
+        ACCU_BITS           : positive range 8 to 40 := 30 -- LED areas up to 2047x2047
     );
     port (
         CLK20   : in std_ulogic;
@@ -198,8 +203,8 @@ architecture rtl of PANDA_LIGHT is
     -- Outputs
     signal analyzer_positive_vsync  : std_ulogic := '0';
     signal analyzer_positive_hsync  : std_ulogic := '0';
-    signal analyzer_width           : std_ulogic_vector(15 downto 0) := x"0000";
-    signal analyzer_height          : std_ulogic_vector(15 downto 0) := x"0000";
+    signal analyzer_width           : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal analyzer_height          : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     signal analyzer_interlaced      : std_ulogic := '0';
     signal analyzer_valid           : std_ulogic := '0';
     
@@ -218,13 +223,13 @@ architecture rtl of PANDA_LIGHT is
     
     signal ledex_frame_vsync        : std_ulogic := '0';
     signal ledex_frame_rgb_wr_en    : std_ulogic := '0';
-    signal ledex_frame_rgb          : std_ulogic_vector(23 downto 0) := x"000000";
+    signal ledex_frame_rgb          : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
     
     -- Outputs
     signal ledex_led_vsync      : std_ulogic := '0';
     signal ledex_led_num        : std_ulogic_vector(7 downto 0) := x"00";
     signal ledex_led_rgb_valid  : std_ulogic := '0';  
-    signal ledex_led_rgb        : std_ulogic_vector(23 downto 0) := x"000000";
+    signal ledex_led_rgb        : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
     
     
     ----------------------
@@ -372,8 +377,8 @@ architecture rtl of PANDA_LIGHT is
     signal conf_configure_ledex     : std_ulogic := '0';
     signal conf_configure_ledcor    : std_ulogic := '0';
     
-    signal conf_frame_width     : std_ulogic_vector(15 downto 0) := x"0000";
-    signal conf_frame_height    : std_ulogic_vector(15 downto 0) := x"0000";
+    signal conf_frame_width     : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal conf_frame_height    : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     signal conf_settings_addr   : std_ulogic_vector(9 downto 0) := (others => '0');
     signal conf_settings_wr_en  : std_ulogic := '0';
@@ -666,6 +671,9 @@ begin
     analyzer_rgb_valid  <= rx_rgb_valid;
     
     VIDEO_ANALYZER_inst : entity work.VIDEO_ANALYZER
+        generic map (
+            DIM_BITS    => DIM_BITS
+        )
         port map (
             CLK => analyzer_clk,
             RST => analyzer_rst,
@@ -701,7 +709,12 @@ begin
     
     LED_COLOR_EXTRACTOR_inst : entity work.LED_COLOR_EXTRACTOR
         generic map (
-            MAX_LED_COUNT   => MAX_LED_COUNT
+            MAX_LED_COUNT   => MAX_LED_COUNT,
+            R_BITS          => R_BITS,
+            G_BITS          => G_BITS,
+            B_BITS          => B_BITS,
+            DIM_BITS        => DIM_BITS,
+            ACCU_BITS       => ACCU_BITS
         )
         port map (
             CLK => ledex_clk,
