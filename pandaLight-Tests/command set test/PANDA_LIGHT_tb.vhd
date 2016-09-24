@@ -43,10 +43,10 @@ architecture behavior of testbench is
     signal FLASH_SCK    : std_ulogic;
     
     -- PMOD
-    signal PMOD0    : std_ulogic_vector(3 downto 0) := x"0";
-    signal PMOD1    : std_ulogic_vector(3 downto 0) := x"0";
-    signal PMOD2    : std_ulogic_vector(3 downto 0) := x"0";
-    signal PMOD3    : std_ulogic_vector(3 downto 0) := x"0";
+    signal PMOD0    : std_logic_vector(3 downto 0) := "ZZZZ";
+    signal PMOD1    : std_logic_vector(3 downto 0) := "ZZZZ";
+    signal PMOD2    : std_logic_vector(3 downto 0) := "ZZZZ";
+    signal PMOD3    : std_logic_vector(3 downto 0) := "ZZZZ";
     
     constant G_CLK20_PERIOD : time := 50 ns;
     
@@ -70,11 +70,28 @@ begin
     
     USB_CTSN    <= '0';
     
-    PMOD0(3)    <= g_rst;
+    PMOD0(3)    <= '1' when g_rst='1' else 'Z';
     
     PANDA_LIGHT_inst : entity work.panda_light
     port map (
         CLK20   => g_clk20,
+        
+        -- HDMI
+        RX_CHANNELS_IN_P    => x"FF",
+        RX_CHANNELS_IN_N    => x"00",
+        RX_SDA              => "ZZ",
+        RX_SCL              => "ZZ",
+        RX_CEC              => "ZZ",
+        RX_DET              => "00",
+        RX_EN               => open,
+        
+        TX_CHANNELS_OUT_P   => open,
+        TX_CHANNELS_OUT_N   => open,
+        TX_SDA              => 'Z',
+        TX_SCL              => 'Z',
+        TX_CEC              => 'Z',
+        TX_DET              => '0',
+        TX_EN               => open,
         
         -- USB UART
         USB_RXD     => USB_RXD,
@@ -99,6 +116,10 @@ begin
         FLASH_MOSI  => FLASH_MOSI,
         FLASH_SCK   => FLASH_SCK,
         FLASH_CS    => FLASH_CS,
+        
+        -- LEDs
+        LEDS_CLK    => open,
+        LEDS_DATA   => open,
         
         PMOD0   => PMOD0,
         PMOD1   => PMOD1,

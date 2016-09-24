@@ -28,7 +28,12 @@ entity PANDA_LIGHT is
         FCTRL_CLK_DIV       : positive :=  5;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
-        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000"
+        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000";
+        R_BITS              : positive range 5 to 12 := 8;
+        G_BITS              : positive range 5 to 12 := 8;
+        B_BITS              : positive range 5 to 12 := 8;
+        DIM_BITS            : positive range 8 to 16 := 11; -- resolutions up to 2047x2047
+        ACCU_BITS           : positive range 8 to 40 := 30 -- LED areas up to 2047x2047
     );
     port (
         CLK20   : in std_ulogic;
@@ -79,10 +84,10 @@ entity PANDA_LIGHT is
         LEDS_DATA   : out std_ulogic_vector(1 downto 0) := "00";
         
         -- PMOD
-        PMOD0   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
-        PMOD1   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
-        PMOD2   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
-        PMOD3   : inout std_ulogic_vector(3 downto 0) := "ZZZZ"
+        PMOD0   : inout std_logic_vector(3 downto 0) := "ZZZZ";
+        PMOD1   : inout std_logic_vector(3 downto 0) := "ZZZZ";
+        PMOD2   : inout std_logic_vector(3 downto 0) := "ZZZZ";
+        PMOD3   : inout std_logic_vector(3 downto 0) := "ZZZZ"
     );
 end PANDA_LIGHT;
 
@@ -199,8 +204,8 @@ architecture rtl of PANDA_LIGHT is
     signal conf_configure_ledcor    : std_ulogic := '0';
     signal conf_configure_ledex     : std_ulogic := '0';
     
-    signal conf_frame_width     : std_ulogic_vector(15 downto 0) := x"0000";
-    signal conf_frame_height    : std_ulogic_vector(15 downto 0) := x"0000";
+    signal conf_frame_width     : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal conf_frame_height    : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     signal conf_settings_addr   : std_ulogic_vector(9 downto 0) := (others => '0');
     signal conf_settings_wr_en  : std_ulogic := '0';
@@ -278,7 +283,7 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    g_rst   <= not g_clk_locked='0' or pmod0_deb(3);
+    g_rst   <= not g_clk_locked or pmod0_deb(3);
     
     usb_connected   <= usb_dsrn_deb='0';
     
@@ -375,9 +380,9 @@ begin
                 
                     when WAITING_FOR_START =>
                         lctrl_led_vsync <= '1';
-                        counter         <= uart_led_count-1;
+                        counter         <= '0' & (uart_led_count-1);
                         if start_led_read_from_uart then
-                            state           <= READING_LEDS;
+                            state           <= READING_LED_RED;
                             lctrl_led_vsync <= '0';
                         end if;
                     
@@ -689,6 +694,9 @@ begin
     conf_rst    <= g_rst;
     
     CONFIGURATOR_inst : entity work.CONFIGURATOR
+        generic map (
+            DIM_BITS    => DIM_BITS
+        )
         port map (
             CLK => conf_clk,
             RST => conf_rst,
