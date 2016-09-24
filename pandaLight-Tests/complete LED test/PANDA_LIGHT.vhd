@@ -123,6 +123,15 @@ architecture rtl of PANDA_LIGHT is
     signal usb_dsrn_deb_q       : std_ulogic := '0';
     signal usb_connected        : boolean := false;
     
+    signal uart_clk         : std_ulogic := '0';
+    signal uart_rst         : std_ulogic := '0';
+    signal uart_connected   : boolean := false;
+    signal uart_din         : std_ulogic_vector(7 downto 0) := x"00";
+    signal uart_din_valid   : std_ulogic := '0';
+    signal uart_dout        : std_ulogic_vector(7 downto 0) := x"00";
+    signal uart_dout_wr_en  : std_ulogic := '0';
+    signal uart_dout_send   : std_ulogic := '0';
+    
     signal reboot   : std_ulogic := '0';
     
     type rx_bitfile_addrs_type is array(0 to 1)
@@ -341,30 +350,6 @@ architecture rtl of PANDA_LIGHT is
     signal usbctrl_busy     : std_ulogic := '0';
     
     
-    ----------------------------
-    --- UART transport layer ---
-    ----------------------------
-    
-    signal tl_clk   : std_ulogic := '0';
-    signal tl_rst   : std_ulogic := '0';
-    
-    signal tl_packet_in         : std_ulogic_vector(7 downto 0) := x"00";
-    signal tl_packet_in_wr_en   : std_ulogic := '0';
-    
-    signal tl_packet_out        : std_ulogic_vector(7 downto 0) := x"00";
-    signal tl_packet_out_valid  : std_ulogic := '0';
-    signal tl_packet_out_end    : std_ulogic := '0';
-    
-    signal tl_din           : std_ulogic_vector(7 downto 0) := x"00";
-    signal tl_din_wr_en     : std_ulogic := '0';
-    signal tl_send_packet   : std_ulogic := '0';
-    
-    signal tl_dout          : std_ulogic_vector(7 downto 0) := x"00";
-    signal tl_dout_valid    : std_ulogic := '0';
-    
-    signal tl_busy  : std_ulogic := '0';
-    
-    
     --------------------
     --- configurator ---
     --------------------
@@ -459,6 +444,12 @@ begin
     g_rst   <= not g_clk_locked or pmod2_deb(0);
     
     usb_connected   <= usb_dsrn_deb='0';
+    
+    uart_clk        <= g_clk;
+    uart_rst        <= '1' when g_rst='1' or not uart_connected else '0';
+    uart_connected  <= usb_connected or btctrl_connected='1';
+    uart_din        <= btctrl_dout when btctrl_dout_valid='1' else usbctrl_dout;
+    uart_din_valid  <= btctrl_dout_valid or usbctrl_dout_valid;
     
     FLASH_MOSI  <= fctrl_mosi;
     FLASH_CS    <= fctrl_sn;
@@ -840,14 +831,14 @@ begin
     btctrl_bt_cts   <= not BT_CTSN;
     btctrl_bt_rxd   <= BT_RXD;
     
-    btctrl_din          <= tl_packet_out;
-    btctrl_din_wr_en    <= tl_packet_out_valid;
-    btctrl_send_packet  <= tl_packet_out_end;
+    btctrl_din          <= uart_dout;
+    btctrl_din_wr_en    <= uart_dout_wr_en;
+    btctrl_send_packet  <= uart_dout_send;
     
     UART_BLUETOOTH_CONTROL_inst : entity work.UART_BLUETOOTH_CONTROL
         generic map (
             CLK_IN_PERIOD   => G_CLK_PERIOD,
-            BUFFER_SIZE     => 2048
+            BUFFER_SIZE     => 1024
         )
         port map (
             CLK => btctrl_clk,
@@ -887,8 +878,8 @@ begin
     usbctrl_cts <= not USB_CTSN;
     usbctrl_rxd <= USB_RXD;
     
-    usbctrl_din         <= tl_packet_out;
-    usbctrl_din_wr_en   <= tl_packet_out_valid;
+    usbctrl_din         <= uart_dout;
+    usbctrl_din_wr_en   <= uart_dout_wr_en;
     
     usb_dsrn_DEBOUNCE_inst : entity work.DEBOUNCE
         generic map (
@@ -926,44 +917,7 @@ begin
         );
     
     
-    ----------------------------
-    --- UART transport layer ---
-    ----------------------------
-    
-    tl_clk  <= g_clk;
-    
-    -- if one device connects, tl_rst <= '0'
-    tl_rst  <= '1' when g_rst='1' or (not usb_connected and btctrl_connected='0') else '0';
-    
-    tl_packet_in        <= btctrl_dout when btctrl_dout_valid='1' else usbctrl_dout;
-    tl_packet_in_wr_en  <= btctrl_dout_valid or usbctrl_dout_valid;
-    
-    TRANSPORT_LAYER_inst : entity work.TRANSPORT_LAYER
-        generic map (
-            CLK_IN_PERIOD   => G_CLK_PERIOD
-        )
-        port map (
-            CLK => tl_clk,
-            RST => tl_rst,
-            
-            PACKET_IN       => tl_packet_in,
-            PACKET_IN_WR_EN => tl_packet_in_wr_en,
-            
-            PACKET_OUT          => tl_packet_out,
-            PACKET_OUT_VALID    => tl_packet_out_valid,
-            PACKET_OUT_END      => tl_packet_out_end,
-            
-            DIN         => tl_din,
-            DIN_WR_EN   => tl_din_wr_en,
-            SEND_PACKET => tl_send_packet,
-            
-            DOUT        => tl_dout,
-            DOUT_VALID  => tl_dout_valid,
-            
-            BUSY    => tl_busy
-        );
-    
-    tl_stim_gen : if true generate
+    uart_stim_gen : if true generate
         type cmd_eval_state_type is (
             WAITING_FOR_COMMAND,
             RECEIVING_DATA_FROM_UART,
@@ -994,9 +948,9 @@ begin
         cmd_counter_expired     <= cmd_eval_counter(cmd_eval_counter'high)='1';
         data_counter_expired    <= data_handling_counter(data_handling_counter'high)='1';
         
-        tl_evaluation_proc : process(tl_clk, tl_rst)
+        uart_evaluation_proc : process(uart_rst, uart_clk)
         begin
-            if tl_rst='1' then
+            if uart_rst='1' then
                 cmd_eval_state                  <= WAITING_FOR_COMMAND;
                 cmd_eval_counter                <= uns(1023, cmd_eval_counter'length);
                 start_sysinfo_to_uart           <= false;
@@ -1005,7 +959,7 @@ begin
                 start_settings_read_from_uart   <= false;
                 start_settings_write_to_uart    <= false;
                 start_bitfile_read_from_uart    <= false;
-            elsif rising_edge(tl_clk) then
+            elsif rising_edge(uart_clk) then
                 start_sysinfo_to_uart           <= false;
                 start_settings_read_from_flash  <= false;
                 start_settings_write_to_flash   <= false;
@@ -1015,8 +969,8 @@ begin
                 case cmd_eval_state is
                     
                     when WAITING_FOR_COMMAND =>
-                        if data_handling_state=WAITING_FOR_COMMAND and tl_dout_valid='1' then
-                            case tl_dout is
+                        if data_handling_state=WAITING_FOR_COMMAND and uart_din_valid='1' then
+                            case uart_din is
                                 when x"00" => -- send system information via UART
                                     start_sysinfo_to_uart           <= true;
                                 when x"01" => -- reboot
@@ -1039,7 +993,7 @@ begin
                         end if;
                     
                     when RECEIVING_DATA_FROM_UART =>
-                        if tl_dout_valid='1' then
+                        if uart_din_valid='1' then
                             cmd_eval_counter    <= cmd_eval_counter-1;
                             if cmd_counter_expired then
                                 cmd_eval_state  <= WAITING_FOR_COMMAND;
@@ -1048,19 +1002,19 @@ begin
                     
                     when RECEIVING_BITFILE_INDEX_FROM_UART =>
                         cmd_eval_counter    <= uns(1, cmd_eval_counter'length);
-                        if tl_dout_valid='1' then
-                            bitfile_index   <= uns(tl_dout(0 downto 0));
+                        if uart_din_valid='1' then
+                            bitfile_index   <= uns(uart_din(0 downto 0));
                             cmd_eval_state  <= RECEIVING_BITFILE_SIZE_FROM_UART;
                         end if;
                     
                     when RECEIVING_BITFILE_SIZE_FROM_UART =>
-                        if tl_dout_valid='1' then
+                        if uart_din_valid='1' then
                             cmd_eval_counter    <= cmd_eval_counter-1;
                             -- shift the bitfile size in from the right
-                            bitfile_size        <= bitfile_size(15 downto 0) & uns(tl_dout);
+                            bitfile_size        <= bitfile_size(15 downto 0) & uns(uart_din);
                             if cmd_counter_expired then
                                 cmd_eval_counter                <= (
-                                    bitfile_size(15 downto 0) & uns(tl_dout))-2;
+                                    bitfile_size(15 downto 0) & uns(uart_din))-2;
                                 start_bitfile_read_from_uart    <= true;
                                 cmd_eval_state                  <= RECEIVING_DATA_FROM_UART;
                             end if;
@@ -1070,17 +1024,17 @@ begin
             end if;
         end process;
         
-        tl_stim_proc : process(tl_rst, tl_clk)
+        uart_stim_proc : process(uart_rst, uart_clk)
         begin
-            if tl_rst='1' then
+            if uart_rst='1' then
                 data_handling_state     <= WAITING_FOR_COMMAND;
                 data_handling_counter   <= uns(1022, data_handling_counter'length);
                 magic_char_index        <= uns(1, magic_char_index'length);
-                tl_din_wr_en            <= '0';
-                tl_send_packet          <= '0';
-            elsif rising_edge(tl_clk) then
-                tl_din_wr_en    <= '0';
-                tl_send_packet  <= '0';
+                uart_dout_wr_en         <= '0';
+                uart_dout_send          <= '0';
+            elsif rising_edge(uart_clk) then
+                uart_dout_wr_en <= '0';
+                uart_dout_send  <= '0';
                 
                 case data_handling_state is
                     
@@ -1097,8 +1051,8 @@ begin
                         end if;
                     
                     when SENDING_PANDALIGHT_MAGIC_TO_UART =>
-                        tl_din_wr_en            <= '1';
-                        tl_din                  <= stdulv(PANDALIGHT_MAGIC(int(magic_char_index)));
+                        uart_dout_wr_en         <= '1';
+                        uart_dout               <= stdulv(PANDALIGHT_MAGIC(int(magic_char_index)));
                         magic_char_index        <= magic_char_index+1;
                         data_handling_counter   <= data_handling_counter-1;
                         if data_counter_expired then
@@ -1106,22 +1060,22 @@ begin
                         end if;
                     
                     when SENDING_MAJOR_VERSION_TO_UART =>
-                        tl_din_wr_en        <= '1';
-                        tl_din              <= stdulv(VERSION_MAJOR, 8);
+                        uart_dout_wr_en     <= '1';
+                        uart_dout           <= stdulv(VERSION_MAJOR, 8);
                         data_handling_state <= SENDING_MINOR_VERSION_TO_UART;
                     
                     when SENDING_MINOR_VERSION_TO_UART =>
-                        tl_din_wr_en        <= '1';
-                        tl_din              <= stdulv(VERSION_MINOR, 8);
-                        tl_send_packet      <= '1';
+                        uart_dout_wr_en     <= '1';
+                        uart_dout           <= stdulv(VERSION_MINOR, 8);
+                        uart_dout_send      <= '1';
                         data_handling_state <= WAITING_FOR_COMMAND;
                     
                     when WAITING_FOR_DATA =>
                         data_handling_state <= SENDING_SETTINGS_TO_UART;
                     
                     when SENDING_SETTINGS_TO_UART =>
-                        tl_din_wr_en            <= '1';
-                        tl_din                  <= conf_settings_dout;
+                        uart_dout_wr_en         <= '1';
+                        uart_dout               <= conf_settings_dout;
                         data_handling_counter   <= data_handling_counter-1;
                         if data_counter_expired then
                             data_handling_state <= WAITING_FOR_COMMAND;
@@ -1304,9 +1258,9 @@ begin
                     
                     when RECEIVING_SETTINGS_FROM_UART =>
                         conf_settings_addr  <= settings_addr;
-                        conf_settings_wr_en <= tl_dout_valid;
-                        conf_settings_din   <= tl_dout;
-                        if tl_dout_valid='1' then
+                        conf_settings_wr_en <= uart_din_valid;
+                        conf_settings_din   <= uart_din;
+                        if uart_din_valid='1' then
                             counter         <= counter-1;
                             settings_addr   <= settings_addr+1;
                         end if;
@@ -1435,7 +1389,7 @@ begin
                     
                     when WRITING_SETTINGS =>
                         fctrl_din   <= conf_settings_dout;
-                        if tl_dout_valid='1' then
+                        if uart_din_valid='1' then
                             counter     <= counter-1;
                             fctrl_wr_en <= '1';                        
                             if counter(counter'high)='1' then
@@ -1444,8 +1398,8 @@ begin
                         end if;
                     
                     when WRITING_BITFILE =>
-                        fctrl_din   <= tl_dout;
-                        if tl_dout_valid='1' then
+                        fctrl_din   <= uart_din;
+                        if uart_din_valid='1' then
                             counter     <= counter-1;
                             fctrl_wr_en <= '1';
                             if counter(counter'high)='1' then
