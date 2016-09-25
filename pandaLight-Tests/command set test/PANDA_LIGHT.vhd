@@ -15,6 +15,8 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
+library UNISIM;
+use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
 entity PANDA_LIGHT is
@@ -28,7 +30,11 @@ entity PANDA_LIGHT is
         FCTRL_CLK_DIV       : positive :=  5;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
-        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000"
+        SETTINGS_FLASH_ADDR : std_ulogic_vector(23 downto 0) := x"0C0000";
+        R_BITS              : positive range 5 to 12 := 8;
+        G_BITS              : positive range 5 to 12 := 8;
+        B_BITS              : positive range 5 to 12 := 8;
+        DIM_BITS            : positive range 8 to 16 := 11 -- resolutions up to 2047x2047
     );
     port (
         CLK20   : in std_ulogic;
@@ -79,10 +85,10 @@ entity PANDA_LIGHT is
         LEDS_DATA   : out std_ulogic_vector(1 downto 0) := "00";
         
         -- PMOD
-        PMOD0   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
-        PMOD1   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
-        PMOD2   : inout std_ulogic_vector(3 downto 0) := "ZZZZ";
-        PMOD3   : inout std_ulogic_vector(3 downto 0) := "ZZZZ"
+        PMOD0   : inout std_logic_vector(3 downto 0) := "ZZZZ";
+        PMOD1   : inout std_logic_vector(3 downto 0) := "ZZZZ";
+        PMOD2   : inout std_logic_vector(3 downto 0) := "ZZZZ";
+        PMOD3   : inout std_logic_vector(3 downto 0) := "ZZZZ"
     );
 end PANDA_LIGHT;
 
@@ -118,6 +124,15 @@ architecture rtl of PANDA_LIGHT is
     signal usb_dsrn_deb_q       : std_ulogic := '0';
     signal usb_connected        : boolean := false;
     
+    signal uart_clk         : std_ulogic := '0';
+    signal uart_rst         : std_ulogic := '0';
+    signal uart_connected   : boolean := false;
+    signal uart_din         : std_ulogic_vector(7 downto 0) := x"00";
+    signal uart_din_valid   : std_ulogic := '0';
+    signal uart_dout        : std_ulogic_vector(7 downto 0) := x"00";
+    signal uart_dout_wr_en  : std_ulogic := '0';
+    signal uart_dout_send   : std_ulogic := '0';
+    
     signal spi_flash_control_stim_busy  : std_ulogic := '0';
     
     signal reboot   : std_ulogic := '0';
@@ -132,7 +147,7 @@ architecture rtl of PANDA_LIGHT is
     
     signal lctrl_mode   : std_ulogic_vector(1 downto 0) := "00";
     
-    signal lctrl_led_vsync      : std_ulogic := '0';
+    signal lctrl_led_vsync      : std_ulogic := '1';
     signal lctrl_led_rgb        : std_ulogic_vector(23 downto 0) := x"000000";
     signal lctrl_led_rgb_wr_en  : std_ulogic := '0';
     
@@ -163,30 +178,6 @@ architecture rtl of PANDA_LIGHT is
     signal usbctrl_busy     : std_ulogic := '0';
     
     
-    ----------------------------
-    --- UART transport layer ---
-    ----------------------------
-    
-    signal tl_clk   : std_ulogic := '0';
-    signal tl_rst   : std_ulogic := '0';
-    
-    signal tl_packet_in         : std_ulogic_vector(7 downto 0) := x"00";
-    signal tl_packet_in_wr_en   : std_ulogic := '0';
-    
-    signal tl_packet_out        : std_ulogic_vector(7 downto 0) := x"00";
-    signal tl_packet_out_valid  : std_ulogic := '0';
-    signal tl_packet_out_end    : std_ulogic := '0';
-    
-    signal tl_din           : std_ulogic_vector(7 downto 0) := x"00";
-    signal tl_din_wr_en     : std_ulogic := '0';
-    signal tl_send_packet   : std_ulogic := '0';
-    
-    signal tl_dout          : std_ulogic_vector(7 downto 0) := x"00";
-    signal tl_dout_valid    : std_ulogic := '0';
-    
-    signal tl_busy  : std_ulogic := '0';
-    
-    
     --------------------
     --- configurator ---
     --------------------
@@ -199,8 +190,8 @@ architecture rtl of PANDA_LIGHT is
     signal conf_configure_ledcor    : std_ulogic := '0';
     signal conf_configure_ledex     : std_ulogic := '0';
     
-    signal conf_frame_width     : std_ulogic_vector(15 downto 0) := x"0000";
-    signal conf_frame_height    : std_ulogic_vector(15 downto 0) := x"0000";
+    signal conf_frame_width     : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal conf_frame_height    : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     signal conf_settings_addr   : std_ulogic_vector(9 downto 0) := (others => '0');
     signal conf_settings_wr_en  : std_ulogic := '0';
@@ -278,9 +269,15 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    g_rst   <= not g_clk_locked='0' or pmod0_deb(3);
+    g_rst   <= '1' when g_clk_locked='0' or pmod0_deb(3)='1' else '0';
     
     usb_connected   <= usb_dsrn_deb='0';
+    
+    uart_clk        <= g_clk;
+    uart_rst        <= '1' when g_rst='1' or not uart_connected else '0';
+    uart_connected  <= usb_connected;
+    uart_din        <= usbctrl_dout;
+    uart_din_valid  <= usbctrl_dout_valid;
     
     FLASH_MOSI  <= fctrl_mosi;
     FLASH_CS    <= fctrl_sn;
@@ -295,7 +292,6 @@ begin
     PMOD1(0)    <= blinker;
     PMOD1(1)    <= fctrl_afull;
     PMOD1(2)    <= spi_flash_control_stim_busy;
-    PMOD1(3)    <= not tl_rst and tl_busy;
     
     pmod0_DEBOUNCE_gen : for i in 0 to 3 generate
         
@@ -318,6 +314,34 @@ begin
             blinker         <= blink_counter(blink_counter'high);
         end if;
     end process;
+    
+    
+    ------------------------------------
+    ------ HDMI signal management ------
+    ------------------------------------
+    
+    diff_IBUFDS_gen : for i in 0 to 7 generate
+        
+        rx_channel_IBUFDS_inst : IBUFDS
+            generic map (DIFF_TERM  => false)
+            port map (
+                I   => RX_CHANNELS_IN_P(i),
+                IB  => RX_CHANNELS_IN_N(i),
+                O   => open
+            );
+        
+    end generate;
+    
+    diff_OBUFDS_gen : for i in 0 to 3 generate
+        
+        tx_channel_OBUFDS_inst : OBUFDS
+            port map (
+                I   => '1',
+                O   => TX_CHANNELS_OUT_P(i),
+                OB  => TX_CHANNELS_OUT_N(i)
+            );
+        
+    end generate;
     
     
     ------------------
@@ -375,28 +399,28 @@ begin
                 
                     when WAITING_FOR_START =>
                         lctrl_led_vsync <= '1';
-                        counter         <= uart_led_count-1;
+                        counter         <= '0' & (uart_led_count-2);
                         if start_led_read_from_uart then
-                            state           <= READING_LEDS;
+                            state           <= READING_LED_RED;
                             lctrl_led_vsync <= '0';
                         end if;
                     
                     when READING_LED_RED =>
-                        lctrl_led_rgb(23 downto 16) <= tl_dout;
-                        if tl_dout_valid='1' then
-                            counter <= counter-1;
+                        lctrl_led_rgb(23 downto 16) <= uart_din;
+                        if uart_din_valid='1' then
                             state   <= READING_LED_GREEN;
                         end if;
                     
                     when READING_LED_GREEN =>
-                        lctrl_led_rgb(15 downto 8)  <= tl_dout;
-                        if tl_dout_valid='1' then
+                        lctrl_led_rgb(15 downto 8)  <= uart_din;
+                        if uart_din_valid='1' then
                             state   <= READING_LED_BLUE;
                         end if;
                     
                     when READING_LED_BLUE =>
-                        lctrl_led_rgb(7 downto 0)   <= tl_dout;
-                        if tl_dout_valid='1' then
+                        lctrl_led_rgb(7 downto 0)   <= uart_din;
+                        if uart_din_valid='1' then
+                            counter             <= counter-1;
                             lctrl_led_rgb_wr_en <= '1';
                             state               <= READING_LED_RED;
                             if counter_expired then
@@ -421,8 +445,8 @@ begin
     usbctrl_cts <= not USB_CTSN;
     usbctrl_rxd <= USB_RXD;
     
-    usbctrl_din         <= tl_packet_out;
-    usbctrl_din_wr_en   <= tl_packet_out_valid;
+    usbctrl_din         <= uart_dout;
+    usbctrl_din_wr_en   <= uart_dout_wr_en;
     
     usb_dsrn_DEBOUNCE_inst : entity work.DEBOUNCE
         generic map (
@@ -460,44 +484,7 @@ begin
         );
     
     
-    ----------------------------
-    --- UART transport layer ---
-    ----------------------------
-    
-    tl_clk  <= g_clk;
-    
-    -- if one device connects, tl_rst <= '0'
-    tl_rst  <= '1' when g_rst='1' or not usb_connected else '0';
-    
-    tl_packet_in        <= usbctrl_dout;
-    tl_packet_in_wr_en  <= usbctrl_dout_valid;
-    
-    TRANSPORT_LAYER_inst : entity work.TRANSPORT_LAYER
-        generic map (
-            CLK_IN_PERIOD   => G_CLK_PERIOD
-        )
-        port map (
-            CLK => tl_clk,
-            RST => tl_rst,
-            
-            PACKET_IN       => tl_packet_in,
-            PACKET_IN_WR_EN => tl_packet_in_wr_en,
-            
-            PACKET_OUT          => tl_packet_out,
-            PACKET_OUT_VALID    => tl_packet_out_valid,
-            PACKET_OUT_END      => tl_packet_out_end,
-            
-            DIN         => tl_din,
-            DIN_WR_EN   => tl_din_wr_en,
-            SEND_PACKET => tl_send_packet,
-            
-            DOUT        => tl_dout,
-            DOUT_VALID  => tl_dout_valid,
-            
-            BUSY    => tl_busy
-        );
-    
-    tl_stim_gen : if true generate
+    uart_stim_gen : if true generate
         type cmd_eval_state_type is (
             WAITING_FOR_COMMAND,
             RECEIVING_DATA_FROM_UART,
@@ -529,9 +516,10 @@ begin
         cmd_counter_expired     <= cmd_eval_counter(cmd_eval_counter'high)='1';
         data_counter_expired    <= data_handling_counter(data_handling_counter'high)='1';
         
-        tl_evaluation_proc : process(tl_clk, tl_rst)
+        uart_evaluation_proc : process(uart_rst, uart_clk)
+            variable three_din  : natural range 0 to 2**10-1;
         begin
-            if tl_rst='1' then
+            if uart_rst='1' then
                 cmd_eval_state                  <= WAITING_FOR_COMMAND;
                 cmd_eval_counter                <= uns(1023, cmd_eval_counter'length);
                 start_sysinfo_to_uart           <= false;
@@ -541,7 +529,7 @@ begin
                 start_settings_write_to_uart    <= false;
                 start_bitfile_read_from_uart    <= false;
                 start_led_read_from_uart        <= false;
-            elsif rising_edge(tl_clk) then
+            elsif rising_edge(uart_clk) then
                 start_sysinfo_to_uart           <= false;
                 start_settings_read_from_flash  <= false;
                 start_settings_write_to_flash   <= false;
@@ -552,8 +540,8 @@ begin
                 case cmd_eval_state is
                     
                     when WAITING_FOR_COMMAND =>
-                        if data_handling_state=WAITING_FOR_COMMAND and tl_dout_valid='1' then
-                            case tl_dout is
+                        if data_handling_state=WAITING_FOR_COMMAND and uart_din_valid='1' then
+                            case uart_din is
                                 when x"00" => -- send system information via UART
                                     start_sysinfo_to_uart           <= true;
                                 when x"01" => -- reboot
@@ -578,7 +566,7 @@ begin
                         end if;
                     
                     when RECEIVING_DATA_FROM_UART =>
-                        if tl_dout_valid='1' then
+                        if uart_din_valid='1' then
                             cmd_eval_counter    <= cmd_eval_counter-1;
                             if cmd_counter_expired then
                                 cmd_eval_state  <= WAITING_FOR_COMMAND;
@@ -587,28 +575,29 @@ begin
                     
                     when RECEIVING_BITFILE_INDEX_FROM_UART =>
                         cmd_eval_counter    <= uns(1, cmd_eval_counter'length);
-                        if tl_dout_valid='1' then
-                            bitfile_index   <= uns(tl_dout(0 downto 0));
+                        if uart_din_valid='1' then
+                            bitfile_index   <= uns(uart_din(0 downto 0));
                             cmd_eval_state  <= RECEIVING_BITFILE_SIZE_FROM_UART;
                         end if;
                     
                     when RECEIVING_BITFILE_SIZE_FROM_UART =>
-                        if tl_dout_valid='1' then
+                        if uart_din_valid='1' then
                             cmd_eval_counter    <= cmd_eval_counter-1;
                             -- shift the bitfile size in from the right
-                            bitfile_size        <= bitfile_size(15 downto 0) & uns(tl_dout);
+                            bitfile_size        <= bitfile_size(15 downto 0) & uns(uart_din);
                             if cmd_counter_expired then
                                 cmd_eval_counter                <= (
-                                    bitfile_size(15 downto 0) & uns(tl_dout))-2;
+                                    bitfile_size(15 downto 0) & uns(uart_din))-2;
                                 start_bitfile_read_from_uart    <= true;
                                 cmd_eval_state                  <= RECEIVING_DATA_FROM_UART;
                             end if;
                         end if;
                     
                     when RECEIVING_LED_COUNT_FROM_UART =>
-                        cmd_eval_counter    <= uns((tl_dout(6 downto 0) & '0') + tl_dout)-2; -- tl_dout * 3 - 2
-                        if tl_dout_valid='1' then
-                            uart_led_count              <= uns(tl_dout);
+                        three_din   := int((uart_din(6 downto 0) & '0') + uart_din);
+                        cmd_eval_counter    <= uns(three_din-2, cmd_eval_counter'length);
+                        if uart_din_valid='1' then
+                            uart_led_count              <= uns(uart_din);
                             start_led_read_from_uart    <= true;
                             cmd_eval_state              <= RECEIVING_DATA_FROM_UART;
                         end if;
@@ -617,17 +606,17 @@ begin
             end if;
         end process;
         
-        tl_stim_proc : process(tl_rst, tl_clk)
+        uart_stim_proc : process(uart_rst, uart_clk)
         begin
-            if tl_rst='1' then
+            if uart_rst='1' then
                 data_handling_state     <= WAITING_FOR_COMMAND;
                 data_handling_counter   <= uns(1022, data_handling_counter'length);
                 magic_char_index        <= uns(1, magic_char_index'length);
-                tl_din_wr_en            <= '0';
-                tl_send_packet          <= '0';
-            elsif rising_edge(tl_clk) then
-                tl_din_wr_en    <= '0';
-                tl_send_packet  <= '0';
+                uart_dout_wr_en         <= '0';
+                uart_dout_send          <= '0';
+            elsif rising_edge(uart_clk) then
+                uart_dout_wr_en <= '0';
+                uart_dout_send  <= '0';
                 
                 case data_handling_state is
                     
@@ -644,8 +633,8 @@ begin
                         end if;
                     
                     when SENDING_PANDALIGHT_MAGIC_TO_UART =>
-                        tl_din_wr_en            <= '1';
-                        tl_din                  <= stdulv(PANDALIGHT_MAGIC(int(magic_char_index)));
+                        uart_dout_wr_en         <= '1';
+                        uart_dout               <= stdulv(PANDALIGHT_MAGIC(int(magic_char_index)));
                         magic_char_index        <= magic_char_index+1;
                         data_handling_counter   <= data_handling_counter-1;
                         if data_counter_expired then
@@ -653,22 +642,22 @@ begin
                         end if;
                     
                     when SENDING_MAJOR_VERSION_TO_UART =>
-                        tl_din_wr_en        <= '1';
-                        tl_din              <= stdulv(VERSION_MAJOR, 8);
+                        uart_dout_wr_en     <= '1';
+                        uart_dout           <= stdulv(VERSION_MAJOR, 8);
                         data_handling_state <= SENDING_MINOR_VERSION_TO_UART;
                     
                     when SENDING_MINOR_VERSION_TO_UART =>
-                        tl_din_wr_en        <= '1';
-                        tl_din              <= stdulv(VERSION_MINOR, 8);
-                        tl_send_packet      <= '1';
+                        uart_dout_wr_en     <= '1';
+                        uart_dout           <= stdulv(VERSION_MINOR, 8);
+                        uart_dout_send      <= '1';
                         data_handling_state <= WAITING_FOR_COMMAND;
                     
                     when WAITING_FOR_DATA =>
                         data_handling_state <= SENDING_SETTINGS_TO_UART;
                     
                     when SENDING_SETTINGS_TO_UART =>
-                        tl_din_wr_en            <= '1';
-                        tl_din                  <= conf_settings_dout;
+                        uart_dout_wr_en         <= '1';
+                        uart_dout               <= conf_settings_dout;
                         data_handling_counter   <= data_handling_counter-1;
                         if data_counter_expired then
                             data_handling_state <= WAITING_FOR_COMMAND;
@@ -689,6 +678,9 @@ begin
     conf_rst    <= g_rst;
     
     CONFIGURATOR_inst : entity work.CONFIGURATOR
+        generic map (
+            DIM_BITS    => DIM_BITS
+        )
         port map (
             CLK => conf_clk,
             RST => conf_rst,
@@ -851,9 +843,9 @@ begin
                     
                     when RECEIVING_SETTINGS_FROM_UART =>
                         conf_settings_addr  <= settings_addr;
-                        conf_settings_wr_en <= tl_dout_valid;
-                        conf_settings_din   <= tl_dout;
-                        if tl_dout_valid='1' then
+                        conf_settings_wr_en <= uart_din_valid;
+                        conf_settings_din   <= uart_din;
+                        if uart_din_valid='1' then
                             counter         <= counter-1;
                             settings_addr   <= settings_addr+1;
                         end if;
@@ -984,7 +976,7 @@ begin
                     
                     when WRITING_SETTINGS =>
                         fctrl_din   <= conf_settings_dout;
-                        if tl_dout_valid='1' then
+                        if uart_din_valid='1' then
                             counter     <= counter-1;
                             fctrl_wr_en <= '1';                        
                             if counter(counter'high)='1' then
@@ -993,8 +985,8 @@ begin
                         end if;
                     
                     when WRITING_BITFILE =>
-                        fctrl_din   <= tl_dout;
-                        if tl_dout_valid='1' then
+                        fctrl_din   <= uart_din;
+                        if uart_din_valid='1' then
                             counter     <= counter-1;
                             fctrl_wr_en <= '1';
                             if counter(counter'high)='1' then

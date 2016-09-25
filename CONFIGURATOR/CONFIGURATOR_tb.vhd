@@ -18,6 +18,9 @@ USE ieee.numeric_std.ALL;
 use work.help_funcs.all;
 
 ENTITY CONFIGURATOR_tb IS
+    generic (
+        DIM_BITS    : positive range 9 to 16 := 11
+    );
 END CONFIGURATOR_tb;
 
 ARCHITECTURE behavior OF CONFIGURATOR_tb IS 
@@ -30,8 +33,8 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     signal CONFIGURE_LEDEX  : std_ulogic := '0';
     signal CONFIGURE_LEDCOR : std_ulogic := '0';
     
-    signal FRAME_WIDTH  : std_ulogic_vector(15 downto 0) := x"0000";
-    signal FRAME_HEIGHT : std_ulogic_vector(15 downto 0) := x"0000";
+    signal FRAME_WIDTH  : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal FRAME_HEIGHT : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     signal SETTINGS_ADDR    : std_ulogic_vector(9 downto 0) := (others => '0');
     signal SETTINGS_WR_EN   : std_ulogic := '0';
@@ -54,6 +57,9 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
 BEGIN
     
     CONFIGURATOR_inst : entity work.CONFIGURATOR
+        generic map (
+            DIM_BITS    => DIM_BITS
+        )
         port map (
             CLK => CLK,
             RST => RST,
