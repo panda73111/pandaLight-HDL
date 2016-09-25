@@ -4,9 +4,6 @@ use ieee.numeric_std.all;
 use std.textio.all;
 use work.help_funcs.all;
 use work.txt_util.all;
-use work.transport_layer_pkg.all;
-use work.mcs_parser.all;
-use work.linked_list.all;
 
 entity testbench is
 end testbench;
