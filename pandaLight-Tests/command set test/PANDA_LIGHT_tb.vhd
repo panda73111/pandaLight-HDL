@@ -13,7 +13,7 @@ end testbench;
 
 architecture behavior of testbench is
     
-    constant VERBOSE    : boolean := true;
+    constant VERBOSE    : boolean := false;
 
     signal g_clk20  : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
@@ -129,9 +129,8 @@ begin
     
     test_spi_flash_inst : entity work.test_spi_flash
         generic map (
-            BYTE_COUNT      => 1024*1024, -- 8 MBit
-            INIT_FILE_PATH  => "../pandaLight.mcs",
-            VERBOSE         => VERBOSE
+            BYTE_COUNT  => 1024*1024, -- 8 MBit
+            VERBOSE     => VERBOSE
         )
         port map (
             MISO    => FLASH_MOSI,
@@ -182,12 +181,11 @@ begin
     end process;
     
     stim_proc : process
-        constant BT_ADDR        : string := "05A691C102E8"; -- (random)
         constant SERVICE_UUID   : string(1 to 32) := "56F46190A07D11E4BCD80800200C9A66";
         constant TEST_SETTINGS  : std_ulogic_vector(1024*8-1 downto 0) :=
-            x"10_60_E2_80_0F_10_09_80_A9_E2_08_1D_00_00_00_00" &
-            x"20_00_00_FF_00_FF_00_FF_00_00_00_00_00_00_00_00" &
-            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"10_0B_FF_1C_71_0F_FF_01_C7_01_FF_09_0F_FF_15_55" &
+            x"1C_71_00_FF_03_8E_00_00_00_00_20_00_00_FF_00_FF" &
+            x"00_FF_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
@@ -249,116 +247,33 @@ begin
             x"A9_AB_AC_AE_B0_B1_B3_B5_B6_B8_BA_BC_BD_BF_C1_C3" &
             x"C4_C6_C8_CA_CB_CD_CF_D1_D3_D4_D6_D8_DA_DC_DE_E0" &
             x"E1_E3_E5_E7_E9_EB_ED_EF_F1_F3_F5_F7_F9_FB_FD_FF";
-        constant BITFILE_MCS_PATH   : string := "../PANDA_LIGHT.bit.mcs";
-        constant CRLF               : string := CR & LF;
-        variable cmd_buf            : string(1 to 128);
-        variable cmd_len            : natural;
-        variable tl_packet_i        : natural;
-        
-        function wrap_as_tl_packet(
-            packet_num  : in natural;
-            v           : in std_ulogic_vector)
-        return std_ulogic_vector is
-            variable tmp        : std_ulogic_vector(v'length+4*8-1 downto 0);
-            variable checksum   : std_ulogic_vector(7 downto 0);
-        begin
-            tmp(tmp'high downto tmp'high-7)     := DATA_MAGIC;
-            tmp(tmp'high-8 downto tmp'high-15)  := stdulv(packet_num, 8);
-            tmp(tmp'high-16 downto tmp'high-23) := stdulv(v'length/8-1, 8);
-            tmp(tmp'high-24 downto 8)           := v;
-            checksum                            := DATA_MAGIC+packet_num+v'length/8-1;
-            for i in v'length/8+1 downto 2 loop
-                checksum    := checksum+tmp(i*8-1 downto i*8-8);
-            end loop;
-            tmp(7 downto 0) := checksum;
-            return tmp;
-        end function;
-        
-        procedure send_byte_to_b(v : std_ulogic_vector(7 downto 0)) is
-        begin
-            tx_data     <= v;
-            tx_wr_en    <= '1';
-            wait for UART_CLK_PERIOD;
-            tx_wr_en    <= '0';
-            wait until tx_wr_ack='1';
-        end procedure;
         
         procedure send_bytes_to_b(v : std_ulogic_vector) is
+            constant BYTE_COUNT : positive := v'length/8;
+            variable u  : std_ulogic_vector(v'length-1 downto 0);
+            variable r  : std_ulogic_vector(v'reverse_range);
+            variable b  : std_ulogic_vector(7 downto 0);
         begin
-            for i in v'length/8 downto 1 loop
-                send_byte_to_b(v(i*8-1 downto i*8-8));
-            end loop;
-        end procedure;
-        
-        procedure send_char_to_b(c : in character) is
-        begin
-            send_byte_to_b(stdulv(c));
-        end procedure;
-        
-        procedure send_string_to_b(s : in string) is
-        begin
-            for i in s'range loop
-                send_char_to_b(s(i));
-            end loop;
-        end procedure;
-        
-        procedure send_wrapped_mcs_file_to_b(
-            path        : in string;
-            tl_packet_i : inout natural;
-            packet_size : in positive
-        ) is
-            variable list           : ll_item_pointer_type;
-            variable mcs_valid      : boolean;
-            variable mcs_addr       : std_ulogic_vector(31 downto 0);
-            variable prev_mcs_addr  : std_ulogic_vector(31 downto 0);
-            variable mcs_byte       : std_ulogic_vector(7 downto 0);
-            variable v              : std_ulogic_vector(packet_size*8-1 downto 0);
-            variable i              : natural;
-        begin
-            mcs_init(path, list, VERBOSE);
+            for i in BYTE_COUNT downto 1 loop
             
-            i   := 255;
-            mcs_read_byte(list, mcs_addr, mcs_byte, mcs_valid, VERBOSE);
-            mcs_addr        := stdulv(0, 32);
-            prev_mcs_addr   := mcs_addr-1;
-            
-            while mcs_valid loop
-                
-                assert mcs_addr=prev_mcs_addr+1
-                    report "Bitfile .mcs file contains non-sequential data"
-                    severity FAILURE;
-                
-                v(i*8+7 downto i*8) := mcs_byte;
-                report "Added byte 0x" & hstr(mcs_byte) & " to v(" & str(i*8+7) & " downto " & str(i*8) & ")";
-                
-                if i=0 then
-                    report "Sending v to b, tl_packet_i=" & str(tl_packet_i);
-                    send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, v));
-                    tl_packet_i := tl_packet_i+1;
-                    i   := 255;
+                if v'ascending then
+                    for j in v'range loop
+                        r(v'length-j-1)   := v(j);
+                    end loop;
+                    u   := r;
                 else
-                    i   := i-1;
+                    u   := v;
                 end if;
                 
-                prev_mcs_addr   := mcs_addr;
-                mcs_read_byte(list, mcs_addr, mcs_byte, mcs_valid, VERBOSE);
+                b   := u(i*8-1 downto i*8-8);
+                
+                tx_data     <= b;
+                tx_wr_en    <= '1';
+                wait for UART_CLK_PERIOD;
+                tx_wr_en    <= '0';
+                wait until tx_wr_ack='1';
                 
             end loop;
-        end procedure;
-        
-        procedure get_cmd_from_b(s : out string; len : out natural) is
-            variable tmp    : string(1 to 128);
-            variable char_i : natural;
-        begin
-            char_i  := 3;
-            while tmp(char_i-2 to char_i-1)/=CRLF loop
-                wait until rx_valid='1';
-                tmp(char_i) := character'val(int(rx_data));
-                char_i      := char_i+1;
-            end loop;
-            report "Got command: " & tmp(3 to char_i-3);
-            len                 := char_i-5;
-            s(1 to char_i-5)    := tmp(3 to char_i-3);
         end procedure;
     begin
         g_rst   <= '1';
@@ -368,53 +283,53 @@ begin
         
         main_loop : loop
 
-            tl_packet_i := 0;
+             -- send "send system information via UART" request to the module (device B)
+             report "Sending 'send system information via UART' request";
+             send_bytes_to_b(x"00");
+             wait for 2 ms;
 
---             -- send "send system information via UART" request to the module (device B)
---             report "Sending 'send system information via UART' request";
---             send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"00"));
---             wait for 2 ms;
---
---             tl_packet_i := tl_packet_i+1;
---
---             -- send "load settings from flash" request to the module (device B)
---             report "Sending 'load settings from flash' request";
---             send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"20"));
---             wait for 2 ms;
---
---             tl_packet_i := tl_packet_i+1;
---
---             -- send "save settings to flash" request to the module (device B)
---             report "Sending 'save settings to flash' request";
---             send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"21"));
---             wait for 2 ms;
---
---             tl_packet_i := tl_packet_i+1;
---
---             -- send "receive settings from UART" request to the module (device B)
---             report "Sending 'receive settings from UART' request";
---             send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"22"));
---             for block_i in 4 downto 1 loop
---                 send_bytes_to_b(wrap_as_tl_packet(tl_packet_i,
---                     TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8)));
---
---                 tl_packet_i := tl_packet_i+1;
---             end loop;
---             wait for 2 ms;
---
---             -- send "send settings to UART" request to the module (device B)
---             report "Sending 'send settings to UART' request";
---             send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"23"));
---             wait for 2 ms;
---
---             tl_packet_i := tl_packet_i+1;
+             -- send "load settings from flash" request to the module (device B)
+             report "Sending 'load settings from flash' request";
+             send_bytes_to_b(x"20");
+             wait for 2 ms;
+
+             -- send "save settings to flash" request to the module (device B)
+             report "Sending 'save settings to flash' request";
+             send_bytes_to_b(x"21");
+             wait for 2 ms;
+
+             -- send "receive settings from UART" request to the module (device B)
+             report "Sending 'receive settings from UART' request";
+             send_bytes_to_b(x"22");
+             for block_i in 4 downto 1 loop
+                 send_bytes_to_b(TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8));
+             end loop;
+             wait for 2 ms;
+
+             -- send "send settings to UART" request to the module (device B)
+             report "Sending 'send settings to UART' request";
+             send_bytes_to_b(x"23");
+             wait for 2 ms;
 
             -- send "receive bitfile from UART" (RX0 bitfile) request to the module (device B)
             report "Sending 'receive bitfile from UART' request";
-            send_bytes_to_b(wrap_as_tl_packet(tl_packet_i, x"40"));
-            send_byte_to_b(x"00"); -- bitfile index
-            send_bytes_to_b(x"800000"); -- bitfile size (whole 8 Mbit)
-            send_wrapped_mcs_file_to_b(BITFILE_MCS_PATH, tl_packet_i, 256);
+            send_bytes_to_b(x"40");
+            send_bytes_to_b(x"00"); -- bitfile index
+            send_bytes_to_b(x"000400"); -- bitfile size (1 kB)
+            for i in 0 to 1023 loop
+                send_bytes_to_b(stdulv(i mod 256, 8));
+            end loop;
+            wait for 2 ms;
+
+            -- send "receive LED colors from UART" request to the module (device B)
+            report "Sending 'receive LED colors from UART' request";
+            send_bytes_to_b(x"60");
+            send_bytes_to_b(stdulv(50, 8)); -- LED count
+            for i in 1 to 50 loop
+                send_bytes_to_b(stdulv(i, 8));
+                send_bytes_to_b(stdulv(128+i, 8));
+                send_bytes_to_b(stdulv(255-i, 8));
+            end loop;
             wait for 2 ms;
 
             report "NONE. All tests completed."
