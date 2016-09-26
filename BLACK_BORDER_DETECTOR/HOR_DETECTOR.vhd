@@ -77,7 +77,6 @@ architecture rtl of HOR_DETECTOR is
     type scanlines_type is array(0 to 2) of std_ulogic_vector(DIM_BITS-1 downto 0);
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal right_scan_start     : unsigned(DIM_BITS-1 downto 0) := (others => '0');
     
     signal qu_frame_height          : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     signal half_frame_height        : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
