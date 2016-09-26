@@ -50,11 +50,13 @@ ARCHITECTURE behavior OF BLACK_BORDER_DETECTOR_tb IS
     signal VER_BORDER_SIZE  : std_ulogic_vector(DIM_BITS-1 downto 0);
     
     -- clock period definitions
-    constant CLK_PERIOD             : time := 10 ns;
-    constant CLK_PERIOD_REAL        : real := real(CLK_PERIOD / 1 ps) / real(1 ns / 1 ps);
-    constant CLK_IN_TO_CLK10_MULT   : natural := 1;
-    constant CLK_IN_TO_CLK10_DIV    : natural := 2;
+    constant G_CLK_PERIOD           : time := 40 ns; -- 25 MHz
+    constant G_CLK_PERIOD_REAL      : real := real(G_CLK_PERIOD / 1 ps) / real(1 ns / 1 ps);
+    constant CLK_IN_TO_CLK10_MULT   : natural := 2;
+    constant CLK_IN_TO_CLK10_DIV    : natural := 5;
     
+    signal g_clk            : std_ulogic := '0';
+    signal g_rst            : std_ulogic := '0';
     signal pix_clk          : std_ulogic := '0';
     signal pix_clk_locked   : std_ulogic := '0';
     signal vsync            : std_ulogic := '0';
@@ -72,7 +74,9 @@ ARCHITECTURE behavior OF BLACK_BORDER_DETECTOR_tb IS
 BEGIN
     
     -- clock generation
-    CLK <= not CLK after CLK_PERIOD / 2;
+    g_clk   <= not g_clk after G_CLK_PERIOD/2;
+    
+    CLK <= pix_clk;
     
     BLACK_BORDER_DETECTOR_inst : entity work.BLACK_BORDER_DETECTOR
         generic map (
@@ -82,8 +86,8 @@ BEGIN
             DIM_BITS    => DIM_BITS
         )
         port map (
+            CLK => CLK,
             RST => RST,
-            CLK => pix_clk,
             
             CFG_ADDR    => CFG_ADDR,
             CFG_WR_EN   => CFG_WR_EN,
@@ -100,14 +104,14 @@ BEGIN
     
     VIDEO_TIMING_GEN_inst : entity work.VIDEO_TIMING_GEN
         generic map (
-            CLK_IN_PERIOD           => CLK_PERIOD_REAL,
+            CLK_IN_PERIOD           => G_CLK_PERIOD_REAL,
             CLK_IN_TO_CLK10_MULT    => CLK_IN_TO_CLK10_MULT,
             CLK_IN_TO_CLK10_DIV     => CLK_IN_TO_CLK10_DIV,
             DIM_BITS                => DIM_BITS
         )
         port map (
-            CLK_IN  => CLK,
-            RST     => RST,
+            CLK_IN  => g_clk,
+            RST     => g_rst,
             
             PROFILE => PROFILE,
             
@@ -169,11 +173,13 @@ BEGIN
         FRAME_RGB_WR_EN <= '0';
         
         -- hold reset state for 100 ns.
-        RST <= '1';
+        g_rst   <= '1';
+        RST     <= '1';
         wait for 100 ns;
-        RST <= '0';
-        wait for CLK_PERIOD*10;
-        wait until rising_edge(pix_clk) and pix_clk_locked='1';
+        g_rst   <= '0';
+        RST     <= '0';
+        wait for G_CLK_PERIOD*10;
+        wait until rising_edge(CLK) and pix_clk_locked='1';
         
         cfg := (
             enable              => '1',
@@ -193,28 +199,56 @@ BEGIN
         FRAME_RGB   <= x"FF_FF_FF";
         
         if vsync='0' then
-            wait until rising_edge(pix_clk) and vsync='1';
+            wait until rising_edge(CLK) and vsync='1';
         end if;
         
         for frame_i in 1 to 20 loop
         
-            wait until rising_edge(pix_clk) and vsync='0';
+            wait until rising_edge(CLK) and vsync='0';
             FRAME_VSYNC <= '0';
             
             while vsync='0' loop
                 FRAME_RGB_WR_EN <= rgb_enable;
-                wait until rising_edge(pix_clk);
+                wait until rising_edge(CLK);
             end loop;
             
-            wait until rising_edge(pix_clk) and vsync='1';
+            wait until rising_edge(CLK) and vsync='1';
             FRAME_VSYNC <= '1';
             
         end loop;
         
         wait for 10 us;
-        wait until rising_edge(pix_clk);
+        wait until rising_edge(CLK);
         
         -- Test 1 finished
+        
+        -- Test 2: Black frames
+        
+        FRAME_RGB   <= x"00_00_00";
+        
+        if vsync='0' then
+            wait until rising_edge(CLK) and vsync='1';
+        end if;
+        
+        for frame_i in 1 to 20 loop
+        
+            wait until rising_edge(CLK) and vsync='0';
+            FRAME_VSYNC <= '0';
+            
+            while vsync='0' loop
+                FRAME_RGB_WR_EN <= rgb_enable;
+                wait until rising_edge(CLK);
+            end loop;
+            
+            wait until rising_edge(CLK) and vsync='1';
+            FRAME_VSYNC <= '1';
+            
+        end loop;
+        
+        wait for 10 us;
+        wait until rising_edge(CLK);
+        
+        -- Test 2 finished
         
         report "NONE. All tests successful, quitting"
             severity FAILURE;
