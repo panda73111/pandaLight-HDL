@@ -20,7 +20,7 @@ entity HOR_DETECTOR is
         R_BITS      : positive range 5 to 12;
         G_BITS      : positive range 6 to 12;
         B_BITS      : positive range 5 to 12;
-        DIM_BITS    : positive range 9 to 16;
+        DIM_BITS    : positive range 9 to 16
     );
     port (
         CLK : std_ulogic;
@@ -38,11 +38,13 @@ entity HOR_DETECTOR is
         FRAME_Y : in std_ulogic_vector(DIM_BITS-1 downto 0);
         
         BORDER_VALID    : out std_ulogic := '0';
-        BORDER_SIZE     : out std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+        BORDER_SIZE     : out std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0')
     );
 end HOR_DETECTOR;
 
 architecture rtl of HOR_DETECTOR is
+    
+    constant RGB_BITS   : natural := R_BITS+G_BITS+B_BITS;
     
     type state_type is (
         WAITING_FOR_SCANLINE,
@@ -59,7 +61,7 @@ architecture rtl of HOR_DETECTOR is
         border_size     : unsigned(DIM_BITS-1 downto 0);
         buf_wr_en       : std_ulogic;
         buf_p           : natural range 0 to 2;
-        buf_di          : std_ulogic_vector(15 downto 0);
+        buf_di          : std_ulogic_vector(DIM_BITS-1 downto 0);
     end record;
     
     constant reg_type_def   : reg_type := (
@@ -83,8 +85,8 @@ architecture rtl of HOR_DETECTOR is
     signal scanlines                : scanlines_type := (others => (others => '0'));
     signal scanline                 : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
-    signal buf      : buf_type := (others => x"0000");
-    signal buf_do   : std_ulogic_vector(DIM_BITS-1 downto 0) := x"0000";
+    signal buf      : buf_type := (others => (others => '0'));
+    signal buf_do   : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     -- configuration registers
     signal threshold    : std_ulogic_vector(7 downto 0) := x"00";
@@ -93,8 +95,8 @@ architecture rtl of HOR_DETECTOR is
     signal frame_height : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     function is_black(
-        pixel       : std_ulogic_vector(RGB_BITS-1 downto 0),
-        threshold   : std_ulogic_vector(7 downto 0)
+        pixel       : std_ulogic_vector(RGB_BITS-1 downto 0);
+        threshold   : std_ulogic_vector
     ) return boolean is
     begin
         return
@@ -148,7 +150,7 @@ begin
             else
                 do  <= buf(p);
             end if;
-        end process;
+        end if;
     end process;
     
     stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_RGB,
@@ -164,7 +166,7 @@ begin
         case cur_reg.state is
             
             when WAITING_FOR_SCANLINE =>
-                r.border_size   := scan_width;
+                r.border_size   := uns(scan_width);
                 
                 if
                     FRAME_RGB_WR_EN='1' and
@@ -226,7 +228,7 @@ begin
                 
                 -- search the smallest border of the three scanlines
                 if buf_do<cr.border_size then
-                    r.border_size   := buf_do;
+                    r.border_size   := uns(buf_do);
                 end if;
                 
                 if cr.buf_p=2 then

@@ -38,11 +38,13 @@ entity VER_DETECTOR is
         FRAME_Y : in std_ulogic_vector(DIM_BITS-1 downto 0);
         
         BORDER_VALID    : out std_ulogic := '0';
-        BORDER_SIZE     : out std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+        BORDER_SIZE     : out std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0')
     );
 end VER_DETECTOR;
 
-architecture rtl of HOR_DETECTOR is
+architecture rtl of VER_DETECTOR is
+    
+    constant RGB_BITS   : natural := R_BITS+G_BITS+B_BITS;
     
     type state_type is (
         SCANNING_TOP,
@@ -67,7 +69,7 @@ architecture rtl of HOR_DETECTOR is
     end record;
     
     constant reg_type_def   : reg_type := (
-        state           => WAITING_FOR_SCANLINE,
+        state           => SCANNING_TOP,
         border_valid    => '0',
         border_size     => (others => '0'),
         got_non_black   => (others => false),
@@ -99,8 +101,8 @@ architecture rtl of HOR_DETECTOR is
     signal frame_height : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     function is_black(
-        pixel       : std_ulogic_vector(RGB_BITS-1 downto 0),
-        threshold   : std_ulogic_vector(7 downto 0)
+        pixel       : std_ulogic_vector(RGB_BITS-1 downto 0);
+        threshold   : std_ulogic_vector
     ) return boolean is
     begin
         return
@@ -158,7 +160,7 @@ begin
                     do  <= di;
                 end if;
             end if;
-        end process;
+        end if;
     end process;
     
     stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_RGB,
@@ -174,7 +176,7 @@ begin
         case cur_reg.state is
             
             when SCANNING_TOP =>
-                r.border_size   := scan_width;
+                r.border_size   := uns(scan_height);
                 r.buf_wr_p      := cr.buf_rd_p;
                 r.buf_di        := FRAME_Y+1;
                 
@@ -185,7 +187,7 @@ begin
                         if not is_black(FRAME_RGB, threshold) then
                             r.got_non_black(cr.buf_rd_p)    := true;
                         elsif not cr.got_non_black(cr.buf_rd_p) then
-                            buf_wr_en   := '1';
+                            r.buf_wr_en := '1';
                         end if;
                         
                         r.buf_rd_p  := cr.buf_rd_p+1;
@@ -204,7 +206,7 @@ begin
             when WAITING_FOR_BOTTOM_SCAN =>
                 if
                     FRAME_RGB_WR_EN='1' and
-                    FRAME_Y=frame_height-scan_height-1 then
+                    FRAME_Y=frame_height-scan_height-1
                 then
                     r.state := SCANNING_BOTTOM;
                 end if;
@@ -234,7 +236,7 @@ begin
                         if cr.buf_rd_p=2 then
                             r.buf_rd_p  := 0;
                             
-                            if FRAME_Y=frame-height-1 then
+                            if FRAME_Y=frame_height-1 then
                                 r.state := COMPARING_BORDER_SIZES;
                             end if;
                         end if;
@@ -244,15 +246,15 @@ begin
                 end if;
             
             when COMPARING_BORDER_SIZES =>
-                r.buf_p := cr.buf_p+1;
+                r.buf_rd_p  := cr.buf_rd_p+1;
                 
                 -- search the smallest border of the three scancolumns
                 if buf_do<cr.border_size then
-                    r.border_size   := buf_do;
+                    r.border_size   := uns(buf_do);
                 end if;
                 
-                if cr.buf_p=2 then
-                    r.buf_p         := 0;
+                if cr.buf_rd_p=2 then
+                    r.buf_rd_p      := 0;
                     r.border_valid  := '1';
                     r.state         := SCANNING_TOP;
                 end if;

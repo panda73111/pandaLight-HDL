@@ -61,8 +61,10 @@ architecture rtl of BLACK_BORDER_DETECTOR is
     constant VER    : natural := 1;
     
     type state_type is (
-        WAITING_FOR_ENABLE,
-        WAITING_FOR_FRAME_START
+        WAITING_FOR_BORDER_SIZES,
+        COMPARING_BORDER_SIZES,
+        INCREMENTING_CONSISTENT_COUNTER,
+        INCREMENTING_INCONSISTENT_COUNTER
     );
     
     type borders_size_type is
@@ -80,17 +82,17 @@ architecture rtl of BLACK_BORDER_DETECTOR is
     end record;
     
     constant reg_type_def   : reg_type := (
-        state                   => WAITING_FOR_ENABLE,
+        state                   => WAITING_FOR_BORDER_SIZES,
         consistent_counter      => 0,
         inconsistent_counter    => 0,
         got_border_sizes        => "00",
+        border_sizes            => (others => (others => '0')),
         current_border_sizes    => (others => (others => '0')),
-        prev_border_sizes       => (others => (others => '0')),
         border_valid            => '0'
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal frame_x, frame_y     : unsigned(15 downto 0) := (others => '0');
+    signal frame_x, frame_y     : unsigned(DIM_BITS-1 downto 0) := (others => '0');
     
     signal borders_valid    : std_ulogic_vector(0 to 1) := "00";
     signal borders_size     : borders_size_type := (others => (others => '0'));
@@ -180,7 +182,7 @@ begin
             
             BORDER_VALID    => borders_valid(HOR),
             BORDER_SIZE     => borders_size(HOR)
-        )
+        );
     
     VER_DETECTOR_inst : entity work.VER_DETECTOR
         generic map (
@@ -206,7 +208,7 @@ begin
             
             BORDER_VALID    => borders_valid(VER),
             BORDER_SIZE     => borders_size(VER)
-        )
+        );
     
     stm_proc : process(RST, cur_reg, enable, borders_valid, borders_size)
         alias cr    : reg_type is cur_reg;

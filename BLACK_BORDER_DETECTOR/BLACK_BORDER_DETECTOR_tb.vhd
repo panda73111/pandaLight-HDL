@@ -23,14 +23,14 @@ use work.video_profiles.all;
 
 ENTITY BLACK_BORDER_DETECTOR_tb IS
     generic (
-        R_BITS      : positive range 5 to 12;
-        G_BITS      : positive range 6 to 12;
-        B_BITS      : positive range 5 to 12;
-        DIM_BITS    : positive range 9 to 16
-    )
+        R_BITS      : positive range 5 to 12 := 8;
+        G_BITS      : positive range 6 to 12 := 8;
+        B_BITS      : positive range 5 to 12 := 8;
+        DIM_BITS    : positive range 9 to 16 := 11
+    );
 END BLACK_BORDER_DETECTOR_tb;
 
-ARCHITECTURE behavior OF LED_CONTROL_tb IS
+ARCHITECTURE behavior OF BLACK_BORDER_DETECTOR_tb IS
     
     -- Inputs
     signal CLK  : std_ulogic := '0';
@@ -51,7 +51,7 @@ ARCHITECTURE behavior OF LED_CONTROL_tb IS
     
     -- clock period definitions
     constant CLK_PERIOD             : time := 10 ns;
-    constant G_CLK_PERIOD_REAL      : real := real(G_CLK_PERIOD / 1 ps) / real(1 ns / 1 ps);
+    constant CLK_PERIOD_REAL        : real := real(CLK_PERIOD / 1 ps) / real(1 ns / 1 ps);
     constant CLK_IN_TO_CLK10_MULT   : natural := 1;
     constant CLK_IN_TO_CLK10_DIV    : natural := 2;
     
@@ -83,7 +83,7 @@ BEGIN
         )
         port map (
             RST => RST,
-            CLK => CLK,
+            CLK => pix_clk,
             
             CFG_ADDR    => CFG_ADDR,
             CFG_WR_EN   => CFG_WR_EN,
@@ -100,7 +100,7 @@ BEGIN
     
     VIDEO_TIMING_GEN_inst : entity work.VIDEO_TIMING_GEN
         generic map (
-            CLK_IN_PERIOD           => G_CLK_PERIOD_REAL,
+            CLK_IN_PERIOD           => CLK_PERIOD_REAL,
             CLK_IN_TO_CLK10_MULT    => CLK_IN_TO_CLK10_MULT,
             CLK_IN_TO_CLK10_DIV     => CLK_IN_TO_CLK10_DIV,
             DIM_BITS                => DIM_BITS
