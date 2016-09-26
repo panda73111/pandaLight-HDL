@@ -11,18 +11,18 @@
 --   
 --   These configuration registers can only be set while RST is high, using the CFG_* inputs:
 --   
---    [0] = ENABLE            : 0=disables black border detection; 1=enables it
---    [1] = THRESHOLD         : if all channels are below this value, this pixel is considered black
---    [2] = BORDERED_FRAMES   : number of frames to occur in a row, for the border detection to trigger
---    [3] = UNBORDERED_FRAMES : number of frames to occur in a row, for the border detection to reset
---    [4] = REMOVE_BIAS       : number of pixels to also remove from a frame, additional to the border
---    [5] = SCAN_WIDTH_H      : pixels to scan in horizontal direction
+--    [0] = ENABLE              : 0=disables black border detection; 1=enables it
+--    [1] = THRESHOLD           : if all channels are below this value, this pixel is considered black
+--    [2] = CONSISTENT_FRAMES   : number of frames to occur in a row, for the border detection to trigger
+--    [3] = INCONSISTENT_FRAMES : number of frames to occur in a row, for the border detection to reset
+--    [4] = REMOVE_BIAS         : number of pixels to also remove from a frame, additional to the border
+--    [5] = SCAN_WIDTH_H        : pixels to scan in horizontal direction
 --    [6] = SCAN_WIDTH_L
---    [7] = SCAN_HEIGHT_H     : pixels to scan in vertical direction
+--    [7] = SCAN_HEIGHT_H       : pixels to scan in vertical direction
 --    [8] = SCAN_HEIGHT_L
---    [9] = FRAME_WIDTH_H     : frame width in pixels
+--    [9] = FRAME_WIDTH_H       : frame width in pixels
 --   [10] = FRAME_WIDTH_L
---   [11] = FRAME_HEIGHT_H    : frame height in pixels
+--   [11] = FRAME_HEIGHT_H      : frame height in pixels
 --   [12] = FRAME_HEIGHT_L
 ----------------------------------------------------------------------------------
 library IEEE;
