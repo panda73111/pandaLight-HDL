@@ -45,15 +45,15 @@ end VER_DETECTOR;
 architecture rtl of HOR_DETECTOR is
     
     type state_type is (
-        WAITING_FOR_SCANCOLUMN,
         SCANNING_TOP,
         WAITING_FOR_BOTTOM_SCAN,
         SCANNING_BOTTOM,
-        SWITCHING_LINE,
         COMPARING_BORDER_SIZES
     );
     
-    type columnflags_type   is array(0 to 2) of boolean;
+    type columnflags_type is
+        array(0 to 2) of
+        boolean;
     
     type reg_type is record
         state           : state_type;
@@ -162,7 +162,7 @@ begin
     end process;
     
     stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_RGB,
-        FRAME_X, FRAME_Y, threshold, frame_width, frame_height, scan_height, scancolumn, buf_do)
+        FRAME_X, FRAME_Y, threshold, frame_height, scan_height, scancolumn, buf_do)
         alias cr    is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
@@ -174,8 +174,9 @@ begin
         case cur_reg.state is
             
             when SCANNING_TOP =>
-                r.buf_wr_p  := cr.buf_rd_p;
-                r.buf_di    := FRAME_Y+1;
+                r.border_size   := scan_width;
+                r.buf_wr_p      := cr.buf_rd_p;
+                r.buf_di        := FRAME_Y+1;
                 
                 if FRAME_RGB_WR_EN='1' then
                     
@@ -194,16 +195,7 @@ begin
                         
                     end if;
                     
-                    if FRAME_X=frame_width-1 then
-                        r.state := SWITCHING_LINE;
-                    end if;
-                    
-                end if;
-            
-            when SWITCHING_LINE =>
-                if FRAME_RGB_WR_EN='1' then
-                    
-                    if FRAME_Y=scan_height-1 then
+                    if FRAME_Y=scan_height then
                         r.state := WAITING_FOR_BOTTOM_SCAN;
                     end if;
                     
@@ -218,8 +210,51 @@ begin
                 end if;
             
             when SCANNING_BOTTOM =>
+                r.buf_wr_p  := cr.buf_rd_p;
+                r.buf_di    := frame_height-FRAME_Y-1;
+                
                 if FRAME_RGB_WR_EN='1' then
                     
+                    if FRAME_X=scancolumn-1 then
+                        
+                        if not is_black(FRAME_RGB, threshold) then
+                        
+                            r.got_non_black(cr.buf_rd_p)    := true;
+                        
+                            if
+                                not cr.got_non_black(cr.buf_rd_p) or
+                                frame_height-FRAME_X-1<buf_do
+                            then
+                                r.buf_wr_en := '1';
+                            end if;
+                            
+                        end if;
+                        
+                        r.buf_rd_p  := cr.buf_rd_p+1;
+                        if cr.buf_rd_p=2 then
+                            r.buf_rd_p  := 0;
+                            
+                            if FRAME_Y=frame-height-1 then
+                                r.state := COMPARING_BORDER_SIZES;
+                            end if;
+                        end if;
+                        
+                    end if;
+                    
+                end if;
+            
+            when COMPARING_BORDER_SIZES =>
+                r.buf_p := cr.buf_p+1;
+                
+                -- search the smallest border of the three scancolumns
+                if buf_do<cr.border_size then
+                    r.border_size   := buf_do;
+                end if;
+                
+                if cr.buf_p=2 then
+                    r.buf_p         := 0;
+                    r.border_valid  := '1';
+                    r.state         := SCANNING_TOP;
                 end if;
             
         end case;
