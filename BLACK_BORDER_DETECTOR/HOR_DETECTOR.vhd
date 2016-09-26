@@ -17,9 +17,10 @@ use work.help_funcs.all;
 
 entity HOR_DETECTOR is
     generic (
-        R_BITS  : positive range 5 to 12;
-        G_BITS  : positive range 6 to 12;
-        B_BITS  : positive range 5 to 12
+        R_BITS      : positive range 5 to 12;
+        G_BITS      : positive range 6 to 12;
+        B_BITS      : positive range 5 to 12;
+        DIM_BITS    : positive range 9 to 16;
     );
     port (
         CLK : std_ulogic;
@@ -33,11 +34,11 @@ entity HOR_DETECTOR is
         FRAME_RGB_WR_EN : in std_ulogic;
         FRAME_RGB       : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
-        FRAME_X : in std_ulogic_vector(15 downto 0);
-        FRAME_Y : in std_ulogic_vector(15 downto 0);
+        FRAME_X : in std_ulogic_vector(DIM_BITS-1 downto 0);
+        FRAME_Y : in std_ulogic_vector(DIM_BITS-1 downto 0);
         
         BORDER_VALID    : out std_ulogic := '0';
-        BORDER_SIZE     : out std_ulogic_vector(15 downto 0) := x"0000";
+        BORDER_SIZE     : out std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     );
 end HOR_DETECTOR;
 
@@ -55,7 +56,7 @@ architecture rtl of HOR_DETECTOR is
     type reg_type is record
         state           : state_type;
         border_valid    : std_ulogic;
-        border_size     : unsigned(15 downto 0);
+        border_size     : unsigned(DIM_BITS-1 downto 0);
         buf_wr_en       : std_ulogic;
         buf_p           : natural range 0 to 2;
         buf_di          : std_ulogic_vector(15 downto 0);
@@ -64,32 +65,32 @@ architecture rtl of HOR_DETECTOR is
     constant reg_type_def   : reg_type := (
         state           => WAITING_FOR_SCANLINE,
         border_valid    => '0',
-        border_size     => x"0000",
+        border_size     => (others => '0'),
         buf_wr_en       => '0',
         buf_p           => 0,
-        buf_di          => x"0000"
+        buf_di          => (others => '0')
     );
     
-    type buf_type       is array(0 to 2) of std_ulogic_vector(15 downto 0);
-    type scanlines_type is array(0 to 2) of std_ulogic_vector(15 downto 0);
+    type buf_type       is array(0 to 2) of std_ulogic_vector(DIM_BITS-1 downto 0);
+    type scanlines_type is array(0 to 2) of std_ulogic_vector(DIM_BITS-1 downto 0);
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal right_scan_start     : unsigned(15 downto 0) := (others => '0');
+    signal right_scan_start     : unsigned(DIM_BITS-1 downto 0) := (others => '0');
     
-    signal qu_frame_height          : std_ulogic_vector(15 downto 0) := x"0000";
-    signal half_frame_height        : std_ulogic_vector(15 downto 0) := x"0000";
-    signal three_qu_frame_height    : std_ulogic_vector(15 downto 0) := x"0000";
-    signal scanlines                : scanlines_type := (others => x"0000");
-    signal scanline                 : std_ulogic_vector(15 downto 0) := x"0000";
+    signal qu_frame_height          : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal half_frame_height        : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal three_qu_frame_height    : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal scanlines                : scanlines_type := (others => (others => '0'));
+    signal scanline                 : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     signal buf      : buf_type := (others => x"0000");
-    signal buf_do   : std_ulogic_vector(15 downto 0) := x"0000";
+    signal buf_do   : std_ulogic_vector(DIM_BITS-1 downto 0) := x"0000";
     
     -- configuration registers
     signal threshold    : std_ulogic_vector(7 downto 0) := x"00";
-    signal scan_width   : std_ulogic_vector(15 downto 0) := x"0000";
-    signal frame_width  : std_ulogic_vector(15 downto 0) := x"0000";
-    signal frame_height : std_ulogic_vector(15 downto 0) := x"0000";
+    signal scan_width   : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal frame_width  : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal frame_height : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     function is_black(
         pixel       : std_ulogic_vector(RGB_BITS-1 downto 0),
@@ -107,8 +108,8 @@ begin
     BORDER_VALID    <= cur_reg.border_valid;
     BORDER_SIZE     <= stdulv(cur_reg.border_size);
     
-    qu_frame_height         <= "00" & frame_height(15 downto 2);
-    half_frame_height       <= "0" & frame_height(15 downto 1);
+    qu_frame_height         <= "00" & frame_height(DIM_BITS-1 downto 2);
+    half_frame_height       <= "0" & frame_height(DIM_BITS-1 downto 1);
     three_qu_frame_height   <= half_frame_height+qu_frame_height;
     
     scanlines(0)        <= qu_frame_height;
@@ -121,13 +122,13 @@ begin
         if rising_edge(CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
-                    when "0001" => threshold                    <= CFG_DATA;
-                    when "0101" => scan_width  (15 downto 8)    <= CFG_DATA;
-                    when "0110" => scan_width  ( 7 downto 0)    <= CFG_DATA;
-                    when "1001" => frame_width (15 downto 8)    <= CFG_DATA;
-                    when "1010" => frame_width ( 7 downto 0)    <= CFG_DATA;
-                    when "1011" => frame_height(15 downto 8)    <= CFG_DATA;
-                    when "1100" => frame_height( 7 downto 0)    <= CFG_DATA;
+                    when "0001" => threshold                            <= CFG_DATA;
+                    when "0101" => scan_width  (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "0110" => scan_width  (         7 downto 0)    <= CFG_DATA;
+                    when "1001" => frame_width (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "1010" => frame_width (         7 downto 0)    <= CFG_DATA;
+                    when "1011" => frame_height(DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "1100" => frame_height(         7 downto 0)    <= CFG_DATA;
                     when others => null;
                 end case;
             end if;

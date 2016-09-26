@@ -32,9 +32,10 @@ use work.help_funcs.all;
 
 entity BLACK_BORDER_DETECTOR is
     generic (
-        R_BITS  : positive range 5 to 12;
-        G_BITS  : positive range 6 to 12;
-        B_BITS  : positive range 5 to 12
+        R_BITS      : positive range 5 to 12;
+        G_BITS      : positive range 6 to 12;
+        B_BITS      : positive range 5 to 12;
+        DIM_BITS    : positive range 9 to 16
     );
     port (
         CLK : std_ulogic;
@@ -49,8 +50,8 @@ entity BLACK_BORDER_DETECTOR is
         FRAME_RGB       : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
         BORDER_VALID    : out std_ulogic := '0';
-        HOR_BORDER_SIZE : out std_ulogic_vector(15 downto 0) := x"0000";
-        VER_BORDER_SIZE : out std_ulogic_vector(15 downto 0) := x"0000"
+        HOR_BORDER_SIZE : out std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+        VER_BORDER_SIZE : out std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0')
     );
 end BLACK_BORDER_DETECTOR;
 
@@ -68,8 +69,8 @@ architecture rtl of BLACK_BORDER_DETECTOR is
         state                       : state_type;
         bordered_frame_counter      : unsigned(8 downto 0);
         unbordered_frame_counter    : unsigned(8 downto 0);
-        border_width                : unsigned(15 downto 0);
-        border_height               : unsigned(15 downto 0);
+        border_width                : unsigned(DIM_BITS-1 downto 0);
+        border_height               : unsigned(DIM_BITS-1 downto 0);
         border_type                 : std_ulogic;
     end record;
     
@@ -77,8 +78,8 @@ architecture rtl of BLACK_BORDER_DETECTOR is
         state                       => WAITING_FOR_ENABLE,
         bordered_frame_counter      => (others => '0'),
         unbordered_frame_counter    => (others => '0'),
-        border_width                => x"0000",
-        border_height               => x"0000",
+        border_width                => (others => '0'),
+        border_height               => (others => '0'),
         border_type                 => '0'
     );
     
@@ -91,10 +92,10 @@ architecture rtl of BLACK_BORDER_DETECTOR is
     signal bordered_frames      : std_ulogic_vector(7 downto 0) := x"00";
     signal unbordered_frames    : std_ulogic_vector(7 downto 0) := x"00";
     signal remove_bias          : std_ulogic_vector(7 downto 0) := x"00";
-    signal scan_width           : std_ulogic_vector(15 downto 0) := x"0000";
-    signal scan_height          : std_ulogic_vector(15 downto 0) := x"0000";
-    signal frame_width          : std_ulogic_vector(15 downto 0) := x"0000";
-    signal frame_height         : std_ulogic_vector(15 downto 0) := x"0000";
+    signal scan_width           : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal scan_height          : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal frame_width          : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
+    signal frame_height         : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
 begin
     
@@ -103,19 +104,19 @@ begin
         if rising_edge(CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
-                    when "0000" => enable                       <= CFG_DATA(0);
-                    when "0001" => threshold                    <= CFG_DATA;
-                    when "0010" => bordered_frames              <= CFG_DATA;
-                    when "0011" => unbordered_frames            <= CFG_DATA;
-                    when "0100" => remove_bias                  <= CFG_DATA;
-                    when "0101" => scan_width  (15 downto 8)    <= CFG_DATA;
-                    when "0110" => scan_width  ( 7 downto 0)    <= CFG_DATA;
-                    when "0111" => scan_height (15 downto 8)    <= CFG_DATA;
-                    when "1000" => scan_height ( 7 downto 0)    <= CFG_DATA;
-                    when "1001" => frame_width (15 downto 8)    <= CFG_DATA;
-                    when "1010" => frame_width ( 7 downto 0)    <= CFG_DATA;
-                    when "1011" => frame_height(15 downto 8)    <= CFG_DATA;
-                    when "1100" => frame_height( 7 downto 0)    <= CFG_DATA;
+                    when "0000" => enable                               <= CFG_DATA(0);
+                    when "0001" => threshold                            <= CFG_DATA;
+                    when "0010" => bordered_frames                      <= CFG_DATA;
+                    when "0011" => unbordered_frames                    <= CFG_DATA;
+                    when "0100" => remove_bias                          <= CFG_DATA;
+                    when "0101" => scan_width  (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "0110" => scan_width  (         7 downto 0)    <= CFG_DATA;
+                    when "0111" => scan_height (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "1000" => scan_height (         7 downto 0)    <= CFG_DATA;
+                    when "1001" => frame_width (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "1010" => frame_width (         7 downto 0)    <= CFG_DATA;
+                    when "1011" => frame_height(DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
+                    when "1100" => frame_height(         7 downto 0)    <= CFG_DATA;
                     when others => null;
                 end case;
             end if;
