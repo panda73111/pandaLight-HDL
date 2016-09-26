@@ -98,7 +98,7 @@ architecture rtl of BLACK_BORDER_DETECTOR is
     signal borders_size     : borders_size_type := (others => (others => '0'));
     
     -- configuration registers
-    signal enable               : std_ulogic;
+    signal enable               : std_ulogic := '0';
     signal threshold            : std_ulogic_vector(7 downto 0) := x"00";
     signal consistent_frames    : std_ulogic_vector(7 downto 0) := x"00";
     signal inconsistent_frames  : std_ulogic_vector(7 downto 0) := x"00";
