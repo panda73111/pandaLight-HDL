@@ -57,40 +57,49 @@ end BLACK_BORDER_DETECTOR;
 
 architecture rtl of BLACK_BORDER_DETECTOR is
     
-    constant RGB_BITS   : natural := R_BITS+G_BITS+B_BITS;
-    constant HOR        : std_ulogic := '0'
+    constant HOR    : natural := 0;
+    constant VER    : natural := 1;
     
     type state_type is (
         WAITING_FOR_ENABLE,
         WAITING_FOR_FRAME_START
     );
     
+    type borders_size_type is
+        array(0 to 1) of
+        std_ulogic_vector(DIM_BITS-1 downto 0);
+    
     type reg_type is record
-        state                       : state_type;
-        bordered_frame_counter      : unsigned(8 downto 0);
-        unbordered_frame_counter    : unsigned(8 downto 0);
-        border_width                : unsigned(DIM_BITS-1 downto 0);
-        border_height               : unsigned(DIM_BITS-1 downto 0);
-        border_type                 : std_ulogic;
+        state                   : state_type;
+        consistent_counter      : natural range 0 to 255;
+        inconsistent_counter    : natural range 0 to 255;
+        got_border_sizes        : std_ulogic_vector(0 to 1);
+        border_sizes            : borders_size_type;
+        current_border_sizes    : borders_size_type;
+        border_valid            : std_ulogic;
     end record;
     
     constant reg_type_def   : reg_type := (
-        state                       => WAITING_FOR_ENABLE,
-        bordered_frame_counter      => (others => '0'),
-        unbordered_frame_counter    => (others => '0'),
-        border_width                => (others => '0'),
-        border_height               => (others => '0'),
-        border_type                 => '0'
+        state                   => WAITING_FOR_ENABLE,
+        consistent_counter      => 0,
+        inconsistent_counter    => 0,
+        got_border_sizes        => "00",
+        current_border_sizes    => (others => (others => '0')),
+        prev_border_sizes       => (others => (others => '0')),
+        border_valid            => '0'
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal frame_x, frame_y     : unsigned(15 downto 0) := (others => '0');
     
+    signal borders_valid    : std_ulogic_vector(0 to 1) := "00";
+    signal borders_size     : borders_size_type := (others => (others => '0'));
+    
     -- configuration registers
     signal enable               : std_ulogic;
     signal threshold            : std_ulogic_vector(7 downto 0) := x"00";
-    signal bordered_frames      : std_ulogic_vector(7 downto 0) := x"00";
-    signal unbordered_frames    : std_ulogic_vector(7 downto 0) := x"00";
+    signal consistent_frames    : std_ulogic_vector(7 downto 0) := x"00";
+    signal inconsistent_frames  : std_ulogic_vector(7 downto 0) := x"00";
     signal remove_bias          : std_ulogic_vector(7 downto 0) := x"00";
     signal scan_width           : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     signal scan_height          : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
@@ -99,6 +108,10 @@ architecture rtl of BLACK_BORDER_DETECTOR is
     
 begin
     
+    BORDER_VALID    <= cur_reg.border_valid;
+    HOR_BORDER_SIZE <= cur_reg.current_border_sizes(HOR);
+    VER_BORDER_SIZE <= cur_reg.current_border_sizes(VER);
+    
     cfg_proc : process(CLK)
     begin
         if rising_edge(CLK) then
@@ -106,8 +119,8 @@ begin
                 case CFG_ADDR is
                     when "0000" => enable                               <= CFG_DATA(0);
                     when "0001" => threshold                            <= CFG_DATA;
-                    when "0010" => bordered_frames                      <= CFG_DATA;
-                    when "0011" => unbordered_frames                    <= CFG_DATA;
+                    when "0010" => consistent_frames                    <= CFG_DATA;
+                    when "0011" => inconsistent_frames                  <= CFG_DATA;
                     when "0100" => remove_bias                          <= CFG_DATA;
                     when "0101" => scan_width  (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
                     when "0110" => scan_width  (         7 downto 0)    <= CFG_DATA;
@@ -143,7 +156,59 @@ begin
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, enable, FRAME_VSYNC, FRAME_RGB_WR_EN)
+    HOR_DETECTOR_inst : entity work.HOR_DETECTOR
+        generic map (
+            R_BITS      => R_BITS,
+            G_BITS      => G_BITS,
+            B_BITS      => B_BITS,
+            DIM_BITS    => DIM_BITS
+        )
+        port map (
+            RST => RST,
+            CLK => CLK,
+            
+            CFG_ADDR    => CFG_ADDR,
+            CFG_WR_EN   => CFG_WR_EN,
+            CFG_DATA    => CFG_DATA,
+            
+            FRAME_VSYNC     => FRAME_VSYNC,
+            FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
+            FRAME_RGB       => FRAME_RGB,
+            
+            FRAME_X => stdulv(frame_x),
+            FRAME_Y => stdulv(frame_y),
+            
+            BORDER_VALID    => borders_valid(HOR),
+            BORDER_SIZE     => borders_size(HOR)
+        )
+    
+    VER_DETECTOR_inst : entity work.VER_DETECTOR
+        generic map (
+            R_BITS      => R_BITS,
+            G_BITS      => G_BITS,
+            B_BITS      => B_BITS,
+            DIM_BITS    => DIM_BITS
+        )
+        port map (
+            RST => RST,
+            CLK => CLK,
+            
+            CFG_ADDR    => CFG_ADDR,
+            CFG_WR_EN   => CFG_WR_EN,
+            CFG_DATA    => CFG_DATA,
+            
+            FRAME_VSYNC     => FRAME_VSYNC,
+            FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
+            FRAME_RGB       => FRAME_RGB,
+            
+            FRAME_X => stdulv(frame_x),
+            FRAME_Y => stdulv(frame_y),
+            
+            BORDER_VALID    => borders_valid(VER),
+            BORDER_SIZE     => borders_size(VER)
+        )
+    
+    stm_proc : process(RST, cur_reg, enable, borders_valid, borders_size)
         alias cr    : reg_type is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
@@ -151,9 +216,48 @@ begin
         
         case cur_reg.state is
             
-            when WAITING_FOR_FRAME_START =>
-                if FRAME_VSYNC='0' then
-                    r.state := COUNTING
+            when WAITING_FOR_BORDER_SIZES =>
+                r.got_border_sizes  := cr.got_border_sizes or borders_valid;
+                
+                for dim in HOR to VER loop
+                    if borders_valid(dim)='1' then
+                        r.border_sizes(dim) := borders_size(dim);
+                    end if;
+                end loop;
+                
+                if cr.got_border_sizes="11" then
+                    r.state := COMPARING_BORDER_SIZES;
+                end if;
+            
+            when COMPARING_BORDER_SIZES =>
+                r.got_border_sizes  := "00";
+                
+                if cr.border_sizes=cr.current_border_sizes then
+                    r.state := INCREMENTING_CONSISTENT_COUNTER;
+                else
+                    r.state := INCREMENTING_INCONSISTENT_COUNTER;
+                end if;
+            
+            when INCREMENTING_CONSISTENT_COUNTER =>
+                r.consistent_counter    := cr.consistent_counter+1;
+                r.inconsistent_counter  := 0;
+                r.state                 := WAITING_FOR_BORDER_SIZES;
+                
+                if cr.consistent_counter=consistent_frames-1 then
+                    -- the current border sizes are stable enough
+                    r.border_valid  := '1';
+                end if;
+            
+            when INCREMENTING_INCONSISTENT_COUNTER =>
+                r.consistent_counter    := 0;
+                r.inconsistent_counter  := cr.inconsistent_counter+1;
+                r.state                 := WAITING_FOR_BORDER_SIZES;
+                
+                if cr.inconsistent_counter=inconsistent_frames-1 then
+                    -- the current border sizes are not valid anymore,
+                    -- wait until the new ones are
+                    r.border_valid          := '0';
+                    r.current_border_sizes  := cr.border_sizes;
                 end if;
             
         end case;
