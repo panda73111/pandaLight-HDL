@@ -107,7 +107,8 @@ BEGIN
             CLK_IN_PERIOD           => G_CLK_PERIOD_REAL,
             CLK_IN_TO_CLK10_MULT    => CLK_IN_TO_CLK10_MULT,
             CLK_IN_TO_CLK10_DIV     => CLK_IN_TO_CLK10_DIV,
-            DIM_BITS                => DIM_BITS
+            DIM_BITS                => DIM_BITS,
+            MOCK_CLK_MAN            => true
         )
         port map (
             CLK_IN  => g_clk,
@@ -123,6 +124,56 @@ BEGIN
             RGB_X       => x,
             RGB_Y       => y
         );
+    
+    frame_gen_proc : process
+        variable frame_i    : natural := 0;
+    begin
+        wait until RST='0';
+        wait until rising_edge(CLK) and pix_clk_locked='1';
+        
+        loop
+            wait until rising_edge(pix_clk) and vsync='0';
+            FRAME_VSYNC <= '0';
+            
+            case frame_i is
+                
+                when 0 to 5 =>
+                    report "Frame " & natural'image(frame_i) & ": black";
+                
+                when 6 to 10 =>
+                    report "Frame " & natural'image(frame_i) & ": white";
+                
+                when others =>
+                    null;
+                
+            end case;
+            
+            while vsync='0' loop
+                
+                case frame_i is
+                    
+                    when 0 to 5 =>
+                        FRAME_RGB   <= x"00_00_00";
+                    
+                    when 6 to 10 =>
+                        FRAME_RGB   <= x"FF_FF_FF";
+                    
+                    when others =>
+                        FRAME_RGB   <= x"00_00_00";
+                    
+                end case;
+                
+                FRAME_RGB_WR_EN <= rgb_enable;
+                wait until rising_edge(pix_clk);
+                
+            end loop;
+            
+            wait until rising_edge(pix_clk) and vsync='1';
+            FRAME_VSYNC <= '1';
+            
+            frame_i := frame_i+1;
+        end loop;
+    end process;
     
     -- Stimulus process
     stim_proc: process
@@ -168,24 +219,25 @@ BEGIN
             RST         <= '0';
         end procedure;
         
-    begin
-        FRAME_VSYNC     <= '1';
-        FRAME_RGB_WR_EN <= '0';
+        procedure wait_frames(count : positive) is
+        begin
+            for frame_i in 1 to count loop
+                wait until rising_edge(CLK) and FRAME_VSYNC='0';
+                wait until rising_edge(CLK) and FRAME_VSYNC='1';
+            end loop;
+        end procedure;
         
+    begin
         -- hold reset state for 100 ns.
         g_rst   <= '1';
-        RST     <= '1';
         wait for 100 ns;
-        g_rst   <= '0';
-        RST     <= '0';
-        wait for G_CLK_PERIOD*10;
         wait until rising_edge(CLK) and pix_clk_locked='1';
         
         cfg := (
             enable              => '1',
-            threshold           => stdulv( 50,  8),
-            consistent_frames   => stdulv( 10,  8),
-            inconsistent_frames => stdulv(  5,  8),
+            threshold           => stdulv( 20,  8),
+            consistent_frames   => stdulv(  2,  8),
+            inconsistent_frames => stdulv(  1,  8),
             remove_bias         => stdulv(  2,  8),
             scan_width          => stdulv(100, 16),
             scan_height         => stdulv( 80, 16),
@@ -194,59 +246,59 @@ BEGIN
         );
         write_config(cfg);
         
-        -- Test 1: White frames
+        g_rst   <= '0';
         
-        FRAME_RGB   <= x"FF_FF_FF";
+        -- Test 1: Black frames
         
-        if vsync='0' then
-            wait until rising_edge(CLK) and vsync='1';
-        end if;
+        report "Starting test 1: Black frames";
         
-        for frame_i in 1 to 20 loop
+        -- after first frame: change from size 0|0 to size 100|80
+        wait_frames(3);
         
-            wait until rising_edge(CLK) and vsync='0';
-            FRAME_VSYNC <= '0';
-            
-            while vsync='0' loop
-                FRAME_RGB_WR_EN <= rgb_enable;
-                wait until rising_edge(CLK);
-            end loop;
-            
-            wait until rising_edge(CLK) and vsync='1';
-            FRAME_VSYNC <= '1';
-            
-        end loop;
+        assert BORDER_VALID='0'
+            report "Border was detected too early"
+            severity FAILURE;
+        
+        wait_frames(1);
+        
+        assert BORDER_VALID='1'
+            report "Border was not detected"
+            severity FAILURE;
+        
+        assert HOR_BORDER_SIZE=stdulv(100, DIM_BITS)
+            report "Wrong HOR_BORDER_SIZE"
+            severity FAILURE;
+        assert VER_BORDER_SIZE=stdulv(80, DIM_BITS)
+            report "Wrong VER_BORDER_SIZE"
+            severity FAILURE;
         
         wait for 10 us;
         wait until rising_edge(CLK);
         
         -- Test 1 finished
         
-        -- Test 2: Black frames
+        -- Test 2: White frames
         
-        FRAME_RGB   <= x"00_00_00";
+        report "Starting test 2: White frames";
         
-        if vsync='0' then
-            wait until rising_edge(CLK) and vsync='1';
-        end if;
+        wait_frames(3);
         
-        for frame_i in 1 to 20 loop
+        assert BORDER_VALID='0'
+            report "Border is valid too long"
+            severity FAILURE;
         
-            wait until rising_edge(CLK) and vsync='0';
-            FRAME_VSYNC <= '0';
-            
-            while vsync='0' loop
-                FRAME_RGB_WR_EN <= rgb_enable;
-                wait until rising_edge(CLK);
-            end loop;
-            
-            wait until rising_edge(CLK) and vsync='1';
-            FRAME_VSYNC <= '1';
-            
-        end loop;
+        wait_frames(2);
         
-        wait for 10 us;
-        wait until rising_edge(CLK);
+        assert BORDER_VALID='1'
+            report "Border was not detected"
+            severity FAILURE;
+        
+        assert HOR_BORDER_SIZE=stdulv(0, DIM_BITS)
+            report "Wrong HOR_BORDER_SIZE"
+            severity FAILURE;
+        assert VER_BORDER_SIZE=stdulv(0, DIM_BITS)
+            report "Wrong VER_BORDER_SIZE"
+            severity FAILURE;
         
         -- Test 2 finished
         
