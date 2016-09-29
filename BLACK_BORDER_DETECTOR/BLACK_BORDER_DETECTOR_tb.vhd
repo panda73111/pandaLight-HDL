@@ -41,6 +41,7 @@ ARCHITECTURE behavior OF BLACK_BORDER_DETECTOR_tb IS
     signal CFG_DATA     : std_ulogic_vector(7 downto 0) := (others => '0');
     
     signal FRAME_VSYNC      : std_ulogic := '0';
+    signal FRAME_HSYNC      : std_ulogic := '0';
     signal FRAME_RGB_WR_EN  : std_ulogic := '0';
     signal FRAME_RGB        : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
     
@@ -60,6 +61,7 @@ ARCHITECTURE behavior OF BLACK_BORDER_DETECTOR_tb IS
     signal pix_clk          : std_ulogic := '0';
     signal pix_clk_locked   : std_ulogic := '0';
     signal vsync            : std_ulogic := '0';
+    signal hsync            : std_ulogic := '0';
     signal rgb_enable       : std_ulogic := '0';
     signal x, y             : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
@@ -94,6 +96,7 @@ BEGIN
             CFG_DATA    => CFG_DATA,
             
             FRAME_VSYNC     => FRAME_VSYNC,
+            FRAME_HSYNC     => FRAME_HSYNC,
             FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
             FRAME_RGB       => FRAME_RGB,
             
@@ -120,6 +123,7 @@ BEGIN
             CLK_OUT_LOCKED  => pix_clk_locked,
             
             POS_VSYNC   => vsync,
+            POS_HSYNC   => hsync,
             RGB_ENABLE  => rgb_enable,
             RGB_X       => x,
             RGB_Y       => y
@@ -164,6 +168,7 @@ BEGIN
                 end case;
                 
                 FRAME_RGB_WR_EN <= rgb_enable;
+                FRAME_HSYNC     <= hsync;
                 wait until rising_edge(pix_clk);
                 
             end loop;

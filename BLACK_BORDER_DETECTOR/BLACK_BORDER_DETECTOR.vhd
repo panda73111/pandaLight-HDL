@@ -46,6 +46,7 @@ entity BLACK_BORDER_DETECTOR is
         CFG_DATA    : in std_ulogic_vector(7 downto 0);
         
         FRAME_VSYNC     : in std_ulogic;
+        FRAME_HSYNC     : in std_ulogic;
         FRAME_RGB_WR_EN : in std_ulogic;
         FRAME_RGB       : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
@@ -92,7 +93,10 @@ architecture rtl of BLACK_BORDER_DETECTOR is
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal frame_x, frame_y     : unsigned(DIM_BITS-1 downto 0) := (others => '0');
+    signal frame_x              : unsigned(DIM_BITS-1 downto 0) := (others => '1');
+    signal frame_y              : unsigned(DIM_BITS-1 downto 0) := (others => '0');
+    signal frame_valid_line     : boolean := false;
+    signal frame_vsync_q        : std_ulogic := '1';
     
     signal borders_valid    : std_ulogic_vector(0 to 1) := "00";
     signal borders_size     : borders_size_type := (others => (others => '0'));
@@ -141,19 +145,29 @@ begin
     pixel_cnt_proc : process(RST, CLK)
     begin
         if RST='1' then
-            frame_x <= (others => '0');
-            frame_y <= (others => '0');
+            frame_x             <= (others => '1');
+            frame_y             <= (others => '0');
+            frame_vsync_q       <= '1';
+            frame_valid_line    <= false;
         elsif rising_edge(CLK) then
-            if FRAME_VSYNC='1' then
-                frame_x <= (others => '0');
-                frame_y <= (others => '0');
-            end if;
+            frame_vsync_q   <= FRAME_VSYNC;
+            
             if FRAME_RGB_WR_EN='1' then
-                frame_x <= frame_x+1;
-                if frame_x=frame_width-1 then
-                    frame_x <= (others => '0');
+                frame_x             <= frame_x+1;
+                frame_valid_line    <= true;
+            end if;
+            
+            if FRAME_HSYNC='1' then
+                frame_x             <= (others => '1');
+                frame_valid_line    <= false;
+                if frame_valid_line then
                     frame_y <= frame_y+1;
                 end if;
+            end if;
+            
+            if FRAME_VSYNC='1' then
+                frame_x <= (others => '1');
+                frame_y <= (others => '0');
             end if;
         end if;
     end process;
@@ -173,7 +187,7 @@ begin
             CFG_WR_EN   => CFG_WR_EN,
             CFG_DATA    => CFG_DATA,
             
-            FRAME_VSYNC     => FRAME_VSYNC,
+            FRAME_VSYNC     => frame_vsync_q,
             FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
             FRAME_RGB       => FRAME_RGB,
             
