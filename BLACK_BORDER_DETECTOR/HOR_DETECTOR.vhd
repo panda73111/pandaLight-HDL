@@ -170,19 +170,19 @@ begin
                 if
                     FRAME_RGB_WR_EN='1' and
                     FRAME_X=frame_width-1 and
-                    FRAME_Y=scanline-1
+                    FRAME_Y=scanline-2
                 then
                     r.state := SCANNING_LEFT;
                 end if;
             
             when SCANNING_LEFT =>
-                r.buf_di    := FRAME_X+1;
+                r.buf_di    := FRAME_X;
                 
                 if FRAME_RGB_WR_EN='1' then
                     r.buf_wr_en := '1';
                     
                     if
-                        FRAME_X=scan_width-1 or
+                        FRAME_X=scan_width or
                         not is_black(FRAME_RGB, threshold)
                     then
                         r.state := WAITING_FOR_RIGHT_SCAN;
@@ -195,6 +195,10 @@ begin
                     FRAME_X=frame_width-buf_do-1
                 then
                     r.state := SCANNING_RIGHT;
+                end if;
+                if buf_do=0 then
+                    -- no border
+                    r.state := COMPARING_BORDER_SIZES;
                 end if;
             
             when SCANNING_RIGHT =>
