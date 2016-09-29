@@ -73,6 +73,19 @@ ARCHITECTURE behavior OF BLACK_BORDER_DETECTOR_tb IS
     constant FRAME_WIDTH    : std_ulogic_vector(15 downto 0) := stdulv(VP.width, 16);
     constant FRAME_HEIGHT   : std_ulogic_vector(15 downto 0) := stdulv(VP.height, 16);
     
+    type frame_type_type is (
+        FULL_BLACK,
+        FULL_WHITE,
+        TOP_BLACK,
+        BOTTOM_BLACK,
+        LEFT_BLACK,
+        RIGHT_BLACK,
+        LETTERBOX_16_9,
+        LETTERBOX_21_9
+    );
+    
+    signal frame_type   : frame_type_type := FULL_BLACK;
+    
 BEGIN
     
     -- clock generation
@@ -130,7 +143,9 @@ BEGIN
         );
     
     frame_gen_proc : process
-        variable frame_i    : natural := 0;
+        constant side_ratio : real := 1.0/3.0;
+        variable x_frac : real;
+        variable y_frac : real;
     begin
         wait until RST='0';
         wait until rising_edge(CLK) and pix_clk_locked='1';
@@ -139,31 +154,49 @@ BEGIN
             wait until rising_edge(pix_clk) and vsync='0';
             FRAME_VSYNC <= '0';
             
-            case frame_i is
-                
-                when 0 to 5 =>
-                    report "Frame " & natural'image(frame_i) & ": black";
-                
-                when 6 to 10 =>
-                    report "Frame " & natural'image(frame_i) & ": white";
-                
-                when others =>
-                    null;
-                
-            end case;
-            
             while vsync='0' loop
                 
-                case frame_i is
+                x_frac      := real(int(x))/real(int(FRAME_WIDTH));
+                y_frac      := real(int(y))/real(int(FRAME_HEIGHT));
+                FRAME_RGB   <= x"00_00_00";
+                
+                case frame_type is
                     
-                    when 0 to 5 =>
-                        FRAME_RGB   <= x"00_00_00";
+                    when FULL_BLACK =>
+                        null;
                     
-                    when 6 to 10 =>
+                    when FULL_WHITE =>
                         FRAME_RGB   <= x"FF_FF_FF";
                     
-                    when others =>
-                        FRAME_RGB   <= x"00_00_00";
+                    when TOP_BLACK =>
+                        if y_frac>side_ratio then
+                            FRAME_RGB   <= x"FF_FF_FF";
+                        end if;
+                    
+                    when BOTTOM_BLACK =>
+                        if y_frac<(1.0-side_ratio) then
+                            FRAME_RGB   <= x"FF_FF_FF";
+                        end if;
+                    
+                    when LEFT_BLACK =>
+                        if x_frac>side_ratio then
+                            FRAME_RGB   <= x"FF_FF_FF";
+                        end if;
+                    
+                    when RIGHT_BLACK =>
+                        if x_frac<(1.0-side_ratio) then
+                            FRAME_RGB   <= x"FF_FF_FF";
+                        end if;
+                    
+                    when LETTERBOX_16_9 =>
+                        if y_frac>0.125 and y_frac<0.875 then
+                            FRAME_RGB   <= x"FF_FF_FF";
+                        end if;
+                    
+                    when LETTERBOX_21_9 =>
+                        if y_frac>1.5/7.0 and y_frac<1.0-1.5/7.0 then
+                            FRAME_RGB   <= x"FF_FF_FF";
+                        end if;
                     
                 end case;
                 
@@ -173,10 +206,8 @@ BEGIN
                 
             end loop;
             
-            wait until rising_edge(pix_clk) and vsync='1';
             FRAME_VSYNC <= '1';
             
-            frame_i := frame_i+1;
         end loop;
     end process;
     
@@ -232,6 +263,50 @@ BEGIN
             end loop;
         end procedure;
         
+        procedure test(
+            ft          : frame_type_type;
+            test_i      : natural;
+            test_title  : string;
+            hor_size    : natural;
+            ver_size    : natural
+        ) is
+            constant expect_change  :
+                boolean :=
+                int(HOR_BORDER_SIZE)/=hor_size or
+                int(VER_BORDER_SIZE)/=ver_size;
+        begin
+            report "Starting test " & natural'image(test_i) & ": " & test_title;
+            frame_type  <= ft;
+            
+            wait_frames(1);
+            
+            if expect_change then
+                assert BORDER_VALID='0'
+                    report "Border is valid too long"
+                    severity FAILURE;
+            end if;
+            
+            wait_frames(2);
+            
+            assert BORDER_VALID='1'
+                report "Border was not detected"
+                severity FAILURE;
+            
+            assert int(HOR_BORDER_SIZE)=hor_size
+                report "Wrong HOR_BORDER_SIZE, expected: " &
+                    natural'image(hor_size) & ", got " &
+                    natural'image(int(HOR_BORDER_SIZE))
+                severity FAILURE;
+            assert int(VER_BORDER_SIZE)=ver_size
+                report "Wrong VER_BORDER_SIZE" &
+                    natural'image(ver_size) & ", got " &
+                    natural'image(int(VER_BORDER_SIZE))
+                severity FAILURE;
+            
+            wait for 10 us;
+            wait until rising_edge(CLK);
+        end procedure;
+        
     begin
         -- hold reset state for 100 ns.
         g_rst   <= '1';
@@ -244,8 +319,8 @@ BEGIN
             consistent_frames   => stdulv(  2,  8),
             inconsistent_frames => stdulv(  1,  8),
             remove_bias         => stdulv(  2,  8),
-            scan_width          => stdulv(100, 16),
-            scan_height         => stdulv( 80, 16),
+            scan_width          => stdulv(120, 16),
+            scan_height         => stdulv(120, 16),
             frame_width         => FRAME_WIDTH,
             frame_height        => FRAME_HEIGHT
         );
@@ -253,59 +328,16 @@ BEGIN
         
         g_rst   <= '0';
         
-        -- Test 1: Black frames
+        wait until rising_edge(CLK) and FRAME_VSYNC='1';
         
-        report "Starting test 1: Black frames";
-        
-        -- after first frame: change from size 0|0 to size 100|80
-        wait_frames(3);
-        
-        assert BORDER_VALID='0'
-            report "Border was detected too early"
-            severity FAILURE;
-        
-        wait_frames(1);
-        
-        assert BORDER_VALID='1'
-            report "Border was not detected"
-            severity FAILURE;
-        
-        assert HOR_BORDER_SIZE=stdulv(100, DIM_BITS)
-            report "Wrong HOR_BORDER_SIZE"
-            severity FAILURE;
-        assert VER_BORDER_SIZE=stdulv(80, DIM_BITS)
-            report "Wrong VER_BORDER_SIZE"
-            severity FAILURE;
-        
-        wait for 10 us;
-        wait until rising_edge(CLK);
-        
-        -- Test 1 finished
-        
-        -- Test 2: White frames
-        
-        report "Starting test 2: White frames";
-        
-        wait_frames(3);
-        
-        assert BORDER_VALID='0'
-            report "Border is valid too long"
-            severity FAILURE;
-        
-        wait_frames(2);
-        
-        assert BORDER_VALID='1'
-            report "Border was not detected"
-            severity FAILURE;
-        
-        assert HOR_BORDER_SIZE=stdulv(0, DIM_BITS)
-            report "Wrong HOR_BORDER_SIZE"
-            severity FAILURE;
-        assert VER_BORDER_SIZE=stdulv(0, DIM_BITS)
-            report "Wrong VER_BORDER_SIZE"
-            severity FAILURE;
-        
-        -- Test 2 finished
+        test(    FULL_BLACK, 0,        "Black frames", 120, 120);
+        test(    FULL_WHITE, 1,        "White frames",   0,   0);
+        test(     TOP_BLACK, 2,    "Top black frames",   0,   0);
+        test(  BOTTOM_BLACK, 3, "Bottom black frames",   0,   0);
+        test(    LEFT_BLACK, 4,   "Left black frames",   0,   0);
+        test(   RIGHT_BLACK, 5,  "Right black frames",   0,   0);
+        test(LETTERBOX_16_9, 6,         "16:9 frames",   0, int(0.125*real(int(FRAME_HEIGHT))));
+        test(LETTERBOX_21_9, 7,         "21:9 frames",   0, int(1.5/7.0*real(int(FRAME_HEIGHT))));
         
         report "NONE. All tests successful, quitting"
             severity FAILURE;
