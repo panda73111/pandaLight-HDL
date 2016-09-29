@@ -215,32 +215,25 @@ begin
                 r.buf_wr_p  := cr.buf_rd_p;
                 r.buf_di    := frame_height-FRAME_Y-1;
                 
-                if FRAME_RGB_WR_EN='1' then
+                if
+                    FRAME_RGB_WR_EN='1' and
+                    FRAME_X=scancolumn-1
+                then
                     
-                    if FRAME_X=scancolumn-1 then
+                    if
+                        not is_black(FRAME_RGB, threshold) and
+                        frame_height-FRAME_Y-1<buf_do
+                    then
+                        r.buf_wr_en := '1';
+                    end if;
+                    
+                    r.buf_rd_p  := cr.buf_rd_p+1;
+                    if cr.buf_rd_p=2 then
+                        r.buf_rd_p  := 0;
                         
-                        if not is_black(FRAME_RGB, threshold) then
-                        
-                            r.got_non_black(cr.buf_rd_p)    := true;
-                        
-                            if
-                                not cr.got_non_black(cr.buf_rd_p) or
-                                frame_height-FRAME_X-1<buf_do
-                            then
-                                r.buf_wr_en := '1';
-                            end if;
-                            
+                        if FRAME_Y=frame_height-1 then
+                            r.state := COMPARING_BORDER_SIZES;
                         end if;
-                        
-                        r.buf_rd_p  := cr.buf_rd_p+1;
-                        if cr.buf_rd_p=2 then
-                            r.buf_rd_p  := 0;
-                            
-                            if FRAME_Y=frame_height-1 then
-                                r.state := COMPARING_BORDER_SIZES;
-                            end if;
-                        end if;
-                        
                     end if;
                     
                 end if;
