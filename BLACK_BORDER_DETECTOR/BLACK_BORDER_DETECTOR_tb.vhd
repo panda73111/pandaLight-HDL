@@ -86,6 +86,9 @@ ARCHITECTURE behavior OF BLACK_BORDER_DETECTOR_tb IS
     
     signal frame_type   : frame_type_type := FULL_BLACK;
     
+    constant BORDER_HEIGHT_16_9 : natural := int(0.125*real(int(FRAME_HEIGHT)));
+    constant BORDER_HEIGHT_21_9 : natural := int(1.5*real(int(FRAME_HEIGHT))/7.0);
+    
 BEGIN
     
     -- clock generation
@@ -189,12 +192,12 @@ BEGIN
                         end if;
                     
                     when LETTERBOX_16_9 =>
-                        if y_frac>0.125 and y_frac<0.875 then
+                        if y>BORDER_HEIGHT_16_9 and y<BORDER_HEIGHT_16_9 then
                             FRAME_RGB   <= x"FF_FF_FF";
                         end if;
                     
                     when LETTERBOX_21_9 =>
-                        if y_frac>1.5/7.0 and y_frac<1.0-1.5/7.0 then
+                        if y>BORDER_HEIGHT_21_9 and y<BORDER_HEIGHT_21_9 then
                             FRAME_RGB   <= x"FF_FF_FF";
                         end if;
                     
@@ -336,8 +339,8 @@ BEGIN
         test(  BOTTOM_BLACK, 3, "Bottom black frames",   0,   0);
         test(    LEFT_BLACK, 4,   "Left black frames",   0,   0);
         test(   RIGHT_BLACK, 5,  "Right black frames",   0,   0);
-        test(LETTERBOX_16_9, 6,         "16:9 frames",   0, int(0.125*real(int(FRAME_HEIGHT))));
-        test(LETTERBOX_21_9, 7,         "21:9 frames",   0, int(1.5/7.0*real(int(FRAME_HEIGHT))));
+        test(LETTERBOX_16_9, 6,         "16:9 frames",   0, BORDER_HEIGHT_16_9);
+        test(LETTERBOX_21_9, 7,         "21:9 frames",   0, BORDER_HEIGHT_21_9);
         
         report "NONE. All tests successful, quitting"
             severity FAILURE;
