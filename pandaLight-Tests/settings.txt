@@ -26,16 +26,6 @@
     66 (0x042) |    1 |            RGB mode | mode index              [0-5] | LED strip channel order, 0=RGB 1=RBG 2=GRB 3=GBR 4=BRG 5=BGR
     67 (0x043) |    1 |      LED strip type | type index              [0-3] | 0=ws2801, 1=ws2811 fast mode (800 kHz), 2=ws2811 slow mode (400 kHz)
  --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
-               |      |   BLACKBORDER DET.  |                               |
- --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
-   128 (0x080) |    1 |              enable | enable flag             [0-1] | enables or disables black border detection
-   129 (0x081) |    1 |           threshold | blackness threshold   [0-255] | if all channels are below this value, this pixel is considered black
-   130 (0x082) |    1 |   consistent frames | number of frames      [0-255] | number of frames to occur in a row for new border sizes to be accepted
-   131 (0x083) |    1 | inconsistent frames | number of frames      [0-255] | number of frames to occur in a row for old border sizes to be reset
-   132 (0x084) |    1 |         remove bias | number of pixels      [0-255] | number of pixels to also remove from a frame, additional to the border
-   134 (0x086) |    2 |          scan width |                             * | pixels to scan in horizontal direction
-   135 (0x087) |    2 |         scan height |                             * | pixels to scan in vertical direction
- --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
                |      |   COLOR CORRECTION  |                               | not used for calculations, only saved for re-generating RGB lookup tables
  --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
     68 (0x044) |    2 |    gamma correction | 4 Bit + 12 Bit fixed point    |
@@ -45,6 +35,16 @@
     73 (0x049) |    1 |       maximum green | color channel value   [0-255] |
     74 (0x050) |    1 |       minimum  blue | color channel value   [0-255] |
     75 (0x051) |    1 |       maximum  blue | color channel value   [0-255] |
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+               |      |   BLACKBORDER DET.  |                               |
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+   128 (0x080) |    1 |              enable | enable flag             [0-1] | enables or disables black border detection
+   129 (0x081) |    1 |           threshold | blackness threshold   [0-255] | if all channels are below this value, this pixel is considered black
+   130 (0x082) |    1 |   consistent frames | number of frames      [0-255] | number of frames to occur in a row for new border sizes to be accepted
+   131 (0x083) |    1 | inconsistent frames | number of frames      [0-255] | number of frames to occur in a row for old border sizes to be reset
+   132 (0x084) |    1 |         remove bias | number of pixels      [0-255] | number of pixels to also remove from a frame, additional to the border
+   134 (0x086) |    2 |          scan width |                             * | pixels to scan in horizontal direction
+   135 (0x087) |    2 |         scan height |                             * | pixels to scan in vertical direction
  --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
    256 (0x100) |  768 |          RGB lookup | color channel values  [0-255] | 0x100 to 0x1FF : red, 0x200 to 0x2FF : green, 0x300 to 0x3FF : blue
 
