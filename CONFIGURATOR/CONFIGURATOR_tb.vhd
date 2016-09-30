@@ -29,6 +29,7 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     signal CALCULATE        : std_ulogic := '0';
     signal CONFIGURE_LEDEX  : std_ulogic := '0';
     signal CONFIGURE_LEDCOR : std_ulogic := '0';
+    signal CONFIGURE_BBD    : std_ulogic := '0';
     
     signal FRAME_WIDTH  : std_ulogic_vector(15 downto 0) := x"0000";
     signal FRAME_HEIGHT : std_ulogic_vector(15 downto 0) := x"0000";
@@ -41,6 +42,7 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     -- Outputs
     signal CFG_SEL_LEDEX    : std_ulogic;
     signal CFG_SEL_LEDCOR   : std_ulogic;
+    signal CFG_SEL_BBD      : std_ulogic;
     
     signal CFG_ADDR     : std_ulogic_vector(9 downto 0);
     signal CFG_WR_EN    : std_ulogic;
@@ -61,6 +63,7 @@ BEGIN
             CALCULATE           => CALCULATE,
             CONFIGURE_LEDEX     => CONFIGURE_LEDEX,
             CONFIGURE_LEDCOR    => CONFIGURE_LEDCOR,
+            CONFIGURE_BBD       => CONFIGURE_BBD,
             
             FRAME_WIDTH     => FRAME_WIDTH,
             FRAME_HEIGHT    => FRAME_HEIGHT,
@@ -72,6 +75,7 @@ BEGIN
             
             CFG_SEL_LEDEX   => CFG_SEL_LEDEX,
             CFG_SEL_LEDCOR  => CFG_SEL_LEDCOR,
+            CFG_SEL_BBD     => CFG_SEL_BBD,
             
             CFG_ADDR    => CFG_ADDR,
             CFG_WR_EN   => CFG_WR_EN,
@@ -91,14 +95,19 @@ BEGIN
             std_ulogic_vector(7 downto 0);
         
         type settings_type is record
-            HOR_LED_CNT                                                             : std_ulogic_vector(7 downto 0);
-            HOR_LED_WIDTH, HOR_LED_HEIGHT, HOR_LED_STEP, HOR_LED_PAD, HOR_LED_OFFS  : std_ulogic_vector(15 downto 0);
-            VER_LED_CNT                                                             : std_ulogic_vector(7 downto 0);
-            VER_LED_WIDTH, VER_LED_HEIGHT, VER_LED_STEP, VER_LED_PAD, VER_LED_OFFS  : std_ulogic_vector(15 downto 0);
-            START_LED_NUM, FRAME_DELAY, RGB_MODE, LED_CONTROL_MODE                  : std_ulogic_vector(7 downto 0);
-            GAMMA_CORRECTION                                                        : std_ulogic_vector(15 downto 0); -- 4 + 12 Bit fixed point
-            MIN_RED, MAX_RED, MIN_GREEN, MAX_GREEN, MIN_BLUE, MAX_BLUE              : std_ulogic_vector(7 downto 0);
-            R_LOOKUP_TABLE, G_LOOKUP_TABLE, B_LOOKUP_TABLE                          : channel_lookup_table_type;
+            hor_led_cnt                                                             : std_ulogic_vector(7 downto 0);
+            hor_led_width, hor_led_height, hor_led_step, hor_led_pad, hor_led_offs  : std_ulogic_vector(15 downto 0);
+            ver_led_cnt                                                             : std_ulogic_vector(7 downto 0);
+            ver_led_width, ver_led_height, ver_led_step, ver_led_pad, ver_led_offs  : std_ulogic_vector(15 downto 0);
+            start_led_num, frame_delay, rgb_mode, led_control_mode                  : std_ulogic_vector(7 downto 0);
+            gamma_correction                                                        : std_ulogic_vector(15 downto 0); -- 4 + 12 Bit fixed point
+            min_red, max_red, min_green, max_green, min_blue, max_blue              : std_ulogic_vector(7 downto 0);
+            bbd_enable                                                              : std_ulogic;
+            bbd_threshold,                                                          : std_ulogic_vector(7 downto 0);
+            bbd_consistent_frames, bbd_inconsistent_frames,                         : std_ulogic_vector(7 downto 0);
+            bbd_remove_bias,                                                        : std_ulogic_vector(7 downto 0);
+            bbd_scan_width, bbd_scan_height,                                        : std_ulogic_vector(15 downto 0);
+            r_lookup_table, g_lookup_table, b_lookup_table                          : channel_lookup_table_type;
         end record;
         variable settings1, settings2   : settings_type;
         
@@ -108,40 +117,49 @@ BEGIN
             for settings_i in 0 to 255 loop
                 SETTINGS_ADDR   <= stdulv(settings_i, 10);
                 case settings_i is
-                    when 0      =>  SETTINGS_DIN    <= s.HOR_LED_CNT;
-                    when 1      =>  SETTINGS_DIN    <= s.HOR_LED_WIDTH(15 downto 8);
-                    when 2      =>  SETTINGS_DIN    <= s.HOR_LED_WIDTH(7 downto 0);
-                    when 3      =>  SETTINGS_DIN    <= s.HOR_LED_HEIGHT(15 downto 8);
-                    when 4      =>  SETTINGS_DIN    <= s.HOR_LED_HEIGHT(7 downto 0);
-                    when 5      =>  SETTINGS_DIN    <= s.HOR_LED_STEP(15 downto 8);
-                    when 6      =>  SETTINGS_DIN    <= s.HOR_LED_STEP(7 downto 0);
-                    when 7      =>  SETTINGS_DIN    <= s.HOR_LED_PAD(15 downto 8);
-                    when 8      =>  SETTINGS_DIN    <= s.HOR_LED_PAD(7 downto 0);
-                    when 9      =>  SETTINGS_DIN    <= s.HOR_LED_OFFS(15 downto 8);
-                    when 10     =>  SETTINGS_DIN    <= s.HOR_LED_OFFS(7 downto 0);
-                    when 11     =>  SETTINGS_DIN    <= s.VER_LED_CNT;
-                    when 12     =>  SETTINGS_DIN    <= s.VER_LED_WIDTH(15 downto 8);
-                    when 13     =>  SETTINGS_DIN    <= s.VER_LED_WIDTH(7 downto 0);
-                    when 14     =>  SETTINGS_DIN    <= s.VER_LED_HEIGHT(15 downto 8);
-                    when 15     =>  SETTINGS_DIN    <= s.VER_LED_HEIGHT(7 downto 0);
-                    when 16     =>  SETTINGS_DIN    <= s.VER_LED_STEP(15 downto 8);
-                    when 17     =>  SETTINGS_DIN    <= s.VER_LED_STEP(7 downto 0);
-                    when 18     =>  SETTINGS_DIN    <= s.VER_LED_PAD(15 downto 8);
-                    when 19     =>  SETTINGS_DIN    <= s.VER_LED_PAD(7 downto 0);
-                    when 20     =>  SETTINGS_DIN    <= s.VER_LED_OFFS(15 downto 8);
-                    when 21     =>  SETTINGS_DIN    <= s.VER_LED_OFFS(7 downto 0);
-                    when 64     =>  SETTINGS_DIN    <= s.START_LED_NUM;
-                    when 65     =>  SETTINGS_DIN    <= s.FRAME_DELAY;
-                    when 66     =>  SETTINGS_DIN    <= s.RGB_MODE;
-                    when 67     =>  SETTINGS_DIN    <= s.LED_CONTROL_MODE;
-                    when 68     =>  SETTINGS_DIN    <= s.GAMMA_CORRECTION(15 downto 8);
-                    when 69     =>  SETTINGS_DIN    <= s.GAMMA_CORRECTION(7 downto 0);
-                    when 70     =>  SETTINGS_DIN    <= s.MIN_RED;
-                    when 71     =>  SETTINGS_DIN    <= s.MAX_RED;
-                    when 72     =>  SETTINGS_DIN    <= s.MIN_GREEN;
-                    when 73     =>  SETTINGS_DIN    <= s.MAX_GREEN;
-                    when 74     =>  SETTINGS_DIN    <= s.MIN_BLUE;
-                    when 75     =>  SETTINGS_DIN    <= s.MAX_BLUE;
+                    when   0    =>  SETTINGS_DIN    <= s.hor_led_cnt;
+                    when   1    =>  SETTINGS_DIN    <= s.hor_led_width(15 downto 8);
+                    when   2    =>  SETTINGS_DIN    <= s.hor_led_width(7 downto 0);
+                    when   3    =>  SETTINGS_DIN    <= s.hor_led_height(15 downto 8);
+                    when   4    =>  SETTINGS_DIN    <= s.hor_led_height(7 downto 0);
+                    when   5    =>  SETTINGS_DIN    <= s.hor_led_step(15 downto 8);
+                    when   6    =>  SETTINGS_DIN    <= s.hor_led_step(7 downto 0);
+                    when   7    =>  SETTINGS_DIN    <= s.hor_led_pad(15 downto 8);
+                    when   8    =>  SETTINGS_DIN    <= s.hor_led_pad(7 downto 0);
+                    when   9    =>  SETTINGS_DIN    <= s.hor_led_offs(15 downto 8);
+                    when  10    =>  SETTINGS_DIN    <= s.hor_led_offs(7 downto 0);
+                    when  11    =>  SETTINGS_DIN    <= s.ver_led_cnt;
+                    when  12    =>  SETTINGS_DIN    <= s.ver_led_width(15 downto 8);
+                    when  13    =>  SETTINGS_DIN    <= s.ver_led_width(7 downto 0);
+                    when  14    =>  SETTINGS_DIN    <= s.ver_led_height(15 downto 8);
+                    when  15    =>  SETTINGS_DIN    <= s.ver_led_height(7 downto 0);
+                    when  16    =>  SETTINGS_DIN    <= s.ver_led_step(15 downto 8);
+                    when  17    =>  SETTINGS_DIN    <= s.ver_led_step(7 downto 0);
+                    when  18    =>  SETTINGS_DIN    <= s.ver_led_pad(15 downto 8);
+                    when  19    =>  SETTINGS_DIN    <= s.ver_led_pad(7 downto 0);
+                    when  20    =>  SETTINGS_DIN    <= s.ver_led_offs(15 downto 8);
+                    when  21    =>  SETTINGS_DIN    <= s.ver_led_offs(7 downto 0);
+                    when  64    =>  SETTINGS_DIN    <= s.start_led_num;
+                    when  65    =>  SETTINGS_DIN    <= s.frame_delay;
+                    when  66    =>  SETTINGS_DIN    <= s.rgb_mode;
+                    when  67    =>  SETTINGS_DIN    <= s.led_control_mode;
+                    when  68    =>  SETTINGS_DIN    <= s.gamma_correction(15 downto 8);
+                    when  69    =>  SETTINGS_DIN    <= s.gamma_correction(7 downto 0);
+                    when  70    =>  SETTINGS_DIN    <= s.min_red;
+                    when  71    =>  SETTINGS_DIN    <= s.max_red;
+                    when  72    =>  SETTINGS_DIN    <= s.min_green;
+                    when  73    =>  SETTINGS_DIN    <= s.max_green;
+                    when  74    =>  SETTINGS_DIN    <= s.min_blue;
+                    when  75    =>  SETTINGS_DIN    <= s.max_blue;
+                    when 128    =>  SETTINGS_DIN(0) <= s.bbd_enable;
+                    when 129    =>  SETTINGS_DIN    <= s.bbd_threshold;
+                    when 130    =>  SETTINGS_DIN    <= s.bbd_consistent_frames;
+                    when 131    =>  SETTINGS_DIN    <= s.bbd_inconsistent_frames;
+                    when 132    =>  SETTINGS_DIN    <= s.bbd_remove_bias;
+                    when 133    =>  SETTINGS_DIN    <= s.bbd_scan_width(15 downto 8);
+                    when 134    =>  SETTINGS_DIN    <= s.bbd_scan_width(7 downto 0);
+                    when 135    =>  SETTINGS_DIN    <= s.bbd_scan_height(15 downto 8);
+                    when 136    =>  SETTINGS_DIN    <= s.bbd_scan_height(7 downto 0);
                     when others =>  SETTINGS_DIN    <= x"00";
                 end case;
                 wait until rising_edge(CLK);
@@ -177,6 +195,12 @@ BEGIN
             CONFIGURE_LEDEX <= '0';
             wait until BUSY='0';
             wait until rising_edge(CLK);
+            
+            CONFIGURE_BBD <= '1';
+            wait until rising_edge(CLK);
+            CONFIGURE_BBD <= '0';
+            wait until BUSY='0';
+            wait until rising_edge(CLK);
         end procedure;
     begin
         -- hold reset state for 100 ns.
@@ -186,61 +210,75 @@ BEGIN
         wait until rising_edge(CLK);
         
         settings1    := (
-            HOR_LED_CNT         => stdulv( 16, 8),
-            HOR_LED_WIDTH       => stdulv( 60 * DIMENSION_MAX / 1280, 16),
-            HOR_LED_HEIGHT      => stdulv( 80 * DIMENSION_MAX /  720, 16),
-            HOR_LED_STEP        => stdulv( 80 * DIMENSION_MAX / 1280, 16),
-            HOR_LED_PAD         => stdulv(  5 * DIMENSION_MAX /  720, 16),
-            HOR_LED_OFFS        => stdulv( 10 * DIMENSION_MAX / 1280, 16),
-            VER_LED_CNT         => stdulv(  9, 8),
-            VER_LED_WIDTH       => stdulv( 80 * DIMENSION_MAX / 1280, 16),
-            VER_LED_HEIGHT      => stdulv( 60 * DIMENSION_MAX /  720, 16),
-            VER_LED_STEP        => stdulv( 80 * DIMENSION_MAX /  720, 16),
-            VER_LED_PAD         => stdulv(  5 * DIMENSION_MAX / 1280, 16),
-            VER_LED_OFFS        => stdulv( 10 * DIMENSION_MAX /  720, 16),
-            START_LED_NUM       => stdulv( 10, 8),
-            FRAME_DELAY         => stdulv(120, 8),
-            RGB_MODE            => x"00",
-            LED_CONTROL_MODE    => x"00",
-            GAMMA_CORRECTION    => x"2000", -- 2.0
-            MIN_RED             => x"00",
-            MAX_RED             => x"FF",
-            MIN_GREEN           => x"00",
-            MAX_GREEN           => x"FF",
-            MIN_BLUE            => x"00",
-            MAX_BLUE            => x"FF",
-            R_LOOKUP_TABLE      => (others  => x"FF"),
-            G_LOOKUP_TABLE      => (others  => x"FF"),
-            B_LOOKUP_TABLE      => (others  => x"FF")
+            hor_led_cnt             => stdulv( 16, 8),
+            hor_led_width           => stdulv( 60 * DIMENSION_MAX / 1280, 16),
+            hor_led_height          => stdulv( 80 * DIMENSION_MAX /  720, 16),
+            hor_led_step            => stdulv( 80 * DIMENSION_MAX / 1280, 16),
+            hor_led_pad             => stdulv(  5 * DIMENSION_MAX /  720, 16),
+            hor_led_offs            => stdulv( 10 * DIMENSION_MAX / 1280, 16),
+            ver_led_cnt             => stdulv(  9, 8),
+            ver_led_width           => stdulv( 80 * DIMENSION_MAX / 1280, 16),
+            ver_led_height          => stdulv( 60 * DIMENSION_MAX /  720, 16),
+            ver_led_step            => stdulv( 80 * DIMENSION_MAX /  720, 16),
+            ver_led_pad             => stdulv(  5 * DIMENSION_MAX / 1280, 16),
+            ver_led_offs            => stdulv( 10 * DIMENSION_MAX /  720, 16),
+            start_led_num           => stdulv( 10, 8),
+            frame_delay             => stdulv(120, 8),
+            rgb_mode                => x"00",
+            led_control_mode        => x"00",
+            gamma_correction        => x"2000", -- 2.0
+            min_red                 => x"00",
+            max_red                 => x"FF",
+            min_green               => x"00",
+            max_green               => x"FF",
+            min_blue                => x"00",
+            max_blue                => x"FF",
+            bbd_enable              => '1',
+            bbd_threshold           => stdulv( 10,  8),
+            bbd_consistent_frames   => stdulv( 10,  8),
+            bbd_inconsistent_frames => stdulv( 10,  8),
+            bbd_remove_bias         => stdulv(  2,  8),
+            bbd_scan_width          => x"5555", -- 1/3 of the screen
+            bbd_scan_height         => x"5555",
+            r_lookup_table          => (others  => x"FF"),
+            g_lookup_table          => (others  => x"FF"),
+            b_lookup_table          => (others  => x"FF")
         );
         
         settings2    := (
-            HOR_LED_CNT         => x"10",
-            HOR_LED_WIDTH       => x"0000",
-            HOR_LED_HEIGHT      => x"0000",
-            HOR_LED_STEP        => x"0000",
-            HOR_LED_PAD         => x"0000",
-            HOR_LED_OFFS        => x"0000",
-            VER_LED_CNT         => x"09",
-            VER_LED_WIDTH       => x"0000",
-            VER_LED_HEIGHT      => x"0000",
-            VER_LED_STEP        => x"0000",
-            VER_LED_PAD         => x"0000",
-            VER_LED_OFFS        => x"0000",
-            START_LED_NUM       => x"00",
-            FRAME_DELAY         => x"00",
-            RGB_MODE            => x"00",
-            LED_CONTROL_MODE    => x"00",
-            GAMMA_CORRECTION    => x"0000",
-            MIN_RED             => x"00",
-            MAX_RED             => x"00",
-            MIN_GREEN           => x"00",
-            MAX_GREEN           => x"00",
-            MIN_BLUE            => x"00",
-            MAX_BLUE            => x"00",
-            R_LOOKUP_TABLE      => (others  => x"FF"),
-            G_LOOKUP_TABLE      => (others  => x"FF"),
-            B_LOOKUP_TABLE      => (others  => x"FF")
+            hor_led_cnt             => x"10",
+            hor_led_width           => x"0000",
+            hor_led_height          => x"0000",
+            hor_led_step            => x"0000",
+            hor_led_pad             => x"0000",
+            hor_led_offs            => x"0000",
+            ver_led_cnt             => x"09",
+            ver_led_width           => x"0000",
+            ver_led_height          => x"0000",
+            ver_led_step            => x"0000",
+            ver_led_pad             => x"0000",
+            ver_led_offs            => x"0000",
+            start_led_num           => x"00",
+            frame_delay             => x"00",
+            rgb_mode                => x"00",
+            led_control_mode        => x"00",
+            gamma_correction        => x"0000",
+            min_red                 => x"00",
+            max_red                 => x"00",
+            min_green               => x"00",
+            max_green               => x"00",
+            min_blue                => x"00",
+            max_blue                => x"00",
+            bbd_enable              => '0',
+            bbd_threshold           => x"00",
+            bbd_consistent_frames   => x"00",
+            bbd_inconsistent_frames => x"00",
+            bbd_remove_bias         => x"00",
+            bbd_scan_width          => x"0000",
+            bbd_scan_height         => x"0000",
+            r_lookup_table          => (others  => x"FF"),
+            g_lookup_table          => (others  => x"FF"),
+            b_lookup_table          => (others  => x"FF")
         );
         
         send_settings(settings1);
