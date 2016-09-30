@@ -98,6 +98,8 @@ architecture rtl of BLACK_BORDER_DETECTOR is
     signal frame_valid_line     : boolean := false;
     signal frame_vsync_q        : std_ulogic := '1';
     
+    signal is_black : std_ulogic := '0';
+    
     signal borders_valid    : std_ulogic_vector(0 to 1) := "00";
     signal borders_size     : borders_size_type := (others => (others => '0'));
     
@@ -117,6 +119,12 @@ begin
     BORDER_VALID    <= cur_reg.border_valid;
     HOR_BORDER_SIZE <= cur_reg.current_border_sizes(HOR);
     VER_BORDER_SIZE <= cur_reg.current_border_sizes(VER);
+    
+    is_black    <= '1' when
+            pixel(     RGB_BITS-1 downto G_BITS+B_BITS) < threshold and
+            pixel(G_BITS+B_BITS-1 downto        B_BITS) < threshold and
+            pixel(       B_BITS-1 downto             0) < threshold
+        else '0';
     
     cfg_proc : process(CLK)
     begin
@@ -189,10 +197,11 @@ begin
             
             FRAME_VSYNC     => frame_vsync_q,
             FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
-            FRAME_RGB       => FRAME_RGB,
             
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
+            
+            IS_BLACK    => is_black,
             
             BORDER_VALID    => borders_valid(HOR),
             BORDER_SIZE     => borders_size(HOR)
@@ -215,10 +224,11 @@ begin
             
             FRAME_VSYNC     => FRAME_VSYNC,
             FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
-            FRAME_RGB       => FRAME_RGB,
             
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
+            
+            IS_BLACK    => is_black,
             
             BORDER_VALID    => borders_valid(VER),
             BORDER_SIZE     => borders_size(VER)

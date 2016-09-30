@@ -32,10 +32,11 @@ entity HOR_DETECTOR is
         
         FRAME_VSYNC     : in std_ulogic;
         FRAME_RGB_WR_EN : in std_ulogic;
-        FRAME_RGB       : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
         FRAME_X : in std_ulogic_vector(DIM_BITS-1 downto 0);
         FRAME_Y : in std_ulogic_vector(DIM_BITS-1 downto 0);
+        
+        IS_BLACK    : in std_ulogic;
         
         BORDER_VALID    : out std_ulogic := '0';
         BORDER_SIZE     : out std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0')
@@ -43,8 +44,6 @@ entity HOR_DETECTOR is
 end HOR_DETECTOR;
 
 architecture rtl of HOR_DETECTOR is
-    
-    constant RGB_BITS   : natural := R_BITS+G_BITS+B_BITS;
     
     type state_type is (
         WAITING_FOR_SCANLINE,
@@ -88,21 +87,9 @@ architecture rtl of HOR_DETECTOR is
     signal buf_do   : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     -- configuration registers
-    signal threshold    : std_ulogic_vector(7 downto 0) := x"00";
     signal scan_width   : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     signal frame_width  : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     signal frame_height : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
-    
-    function is_black(
-        pixel       : std_ulogic_vector(RGB_BITS-1 downto 0);
-        threshold   : std_ulogic_vector
-    ) return boolean is
-    begin
-        return
-            pixel(     RGB_BITS-1 downto G_BITS+B_BITS) < threshold and
-            pixel(G_BITS+B_BITS-1 downto        B_BITS) < threshold and
-            pixel(       B_BITS-1 downto             0) < threshold;
-    end function;
     
 begin
     
@@ -123,7 +110,6 @@ begin
         if rising_edge(CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
-                    when "0001" => threshold                            <= CFG_DATA;
                     when "0101" => scan_width  (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
                     when "0110" => scan_width  (         7 downto 0)    <= CFG_DATA;
                     when "1001" => frame_width (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
@@ -152,8 +138,8 @@ begin
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN, FRAME_RGB,
-        FRAME_X, FRAME_Y, threshold, frame_width, scan_width, scanline, buf_do)
+    stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN, IS_BLACK,
+        FRAME_X, FRAME_Y, frame_width, scan_width, scanline, buf_do)
         alias cr    is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
@@ -183,7 +169,7 @@ begin
                     
                     if
                         FRAME_X=scan_width or
-                        not is_black(FRAME_RGB, threshold)
+                        IS_BLACK='0'
                     then
                         r.state := WAITING_FOR_RIGHT_SCAN;
                     end if;
@@ -206,7 +192,7 @@ begin
                 
                 if FRAME_RGB_WR_EN='1' then
                     
-                    if not is_black(FRAME_RGB, threshold) then
+                    if IS_BLACK='0' then
                         -- the right border is smaller than the left one
                         r.buf_wr_en := '1';
                     end if;
