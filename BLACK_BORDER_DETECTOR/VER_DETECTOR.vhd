@@ -94,6 +94,7 @@ architecture rtl of VER_DETECTOR is
     signal buf_do   : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     -- configuration registers
+    signal remove_bias  : std_ulogic_vector(7 downto 0) := x"00";
     signal scan_height  : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     signal frame_width  : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     signal frame_height : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
@@ -117,6 +118,7 @@ begin
         if rising_edge(CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
+                    when "0100" => remove_bias                          <= CFG_DATA;
                     when "0111" => scan_height (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
                     when "1000" => scan_height (         7 downto 0)    <= CFG_DATA;
                     when "1001" => frame_width (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
@@ -230,6 +232,9 @@ begin
                 -- search the smallest border of the three scancolumns
                 if buf_do<cr.border_size then
                     r.border_size   := uns(buf_do);
+                    if buf_do/=(DIM_BITS-1 downto 0 => '0') then
+                        r.border_size   := uns(buf_do)+remove_bias;
+                    end if;
                 end if;
                 
                 if cr.buf_rd_p=2 then

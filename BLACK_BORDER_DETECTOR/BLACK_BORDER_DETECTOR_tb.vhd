@@ -339,8 +339,8 @@ BEGIN
         test(  BOTTOM_BLACK, 3, "Bottom black frames",   0,   0);
         test(    LEFT_BLACK, 4,   "Left black frames",   0,   0);
         test(   RIGHT_BLACK, 5,  "Right black frames",   0,   0);
-        test(LETTERBOX_16_9, 6,         "16:9 frames",   0, BORDER_HEIGHT_16_9);
-        test(LETTERBOX_21_9, 7,         "21:9 frames",   0, BORDER_HEIGHT_21_9);
+        test(LETTERBOX_16_9, 6,         "16:9 frames",   0, BORDER_HEIGHT_16_9+2);
+        test(LETTERBOX_21_9, 7,         "21:9 frames",   0, BORDER_HEIGHT_21_9+2);
         
         report "NONE. All tests successful, quitting"
             severity FAILURE;
