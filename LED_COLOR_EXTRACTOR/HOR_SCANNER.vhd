@@ -40,10 +40,11 @@ entity HOR_SCANNER is
         FRAME_X : in std_ulogic_vector(DIM_BITS-1 downto 0);
         FRAME_Y : in std_ulogic_vector(DIM_BITS-1 downto 0);
         
-        LED_RGB_VALID   : out std_ulogic := '0';
-        LED_RGB         : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
-        LED_NUM         : out std_ulogic_vector(7 downto 0) := x"00";
-        LED_SIDE        : out std_ulogic := '0'
+        ACCU_VALID  : out std_ulogic := '0';
+        ACCU_R      : out std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
+        ACCU_G      : out std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
+        ACCU_B      : out std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
+        PIXEL_COUNT : out std_ulogic_vector(2*DIM_BITS-1 downto 0) := (others => '0')
     );
 end HOR_SCANNER;
 
@@ -71,14 +72,11 @@ architecture rtl of HOR_SCANNER is
     
 begin
     
-    LED_RGB_VALID   <= queue_led_rgb_valid;
-    LED_NUM         <= stdulv(int(led_counter), 8);
-    LED_SIDE        <= side;
-    
-    accu_valid  <= or_reduce(scanners_accu_valid);
-    accu_r      <= scanners_accu_r(0) when scanners_accu_valid(0)='1' else scanners_accu_r(1);
-    accu_g      <= scanners_accu_g(0) when scanners_accu_valid(0)='1' else scanners_accu_g(1);
-    accu_b      <= scanners_accu_b(0) when scanners_accu_valid(0)='1' else scanners_accu_b(1);
+    ACCU_VALID  <= or_reduce(scanners_accu_valid);
+    ACCU_R      <= scanners_accu_r(0) when scanners_accu_valid(0)='1' else scanners_accu_r(1);
+    ACCU_G      <= scanners_accu_g(0) when scanners_accu_valid(0)='1' else scanners_accu_g(1);
+    ACCU_B      <= scanners_accu_b(0) when scanners_accu_valid(0)='1' else scanners_accu_b(1);
+    PIXEL_COUNT <= scanners_pixel_count(0);
     
     cfg_proc : process(CLK)
     begin
@@ -88,29 +86,6 @@ begin
             end if;
         end if;
     end process;
-    
-    LED_OUT_QUEUE_inst : entity work.LED_OUT_QUEUE
-        generic map (
-            MAX_LED_COUNT   => MAX_LED_COUNT,
-            R_BITS          => R_BITS,
-            G_BITS          => G_BITS,
-            B_BITS          => B_BITS,
-            DIM_BITS        => DIM_BITS,
-            ACCU_BITS       => ACCU_BITS
-        )
-        port map (
-            CLK => CLK,
-            RST => RST,
-            
-            WR_EN       => accu_valid,
-            ACCU_R      => accu_r,
-            ACCU_G      => accu_g,
-            ACCU_B      => accu_b,
-            PIXEL_COUNT => scanners_pixel_count(0),
-            
-            LED_RGB_VALID   => queue_led_rgb_valid,
-            LED_RGB         => LED_RGB
-        );
     
     HALF_HOR_SCANNERs_gen : for odd in 0 to 1 generate
         

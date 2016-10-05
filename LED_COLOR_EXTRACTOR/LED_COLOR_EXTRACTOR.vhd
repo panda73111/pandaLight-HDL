@@ -113,25 +113,43 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     --- types ---
     -------------
     
-    type leds_num_type is
+    type led_num_2_type is
         array(0 to 1) of
         std_ulogic_vector(7 downto 0);
     
-    type leds_rgb_type is
+    type led_rgb_2_type is
         array(0 to 1) of
         std_ulogic_vector(RGB_BITS-1 downto 0);
+    
+    type accu_channel_2_type is
+        array(0 to 1) of
+        std_ulogic_vector(ACCU_BITS-1 downto 0);
+    
+    type pixel_count_2_type is
+        array(0 to 1) of
+        std_ulogic_vector(2*DIM_BITS-1 downto 0);
     
     
     ---------------
     --- signals ---
     ---------------
     
-    signal leds_num         : leds_num_type := (others => (others => '0'));
+    signal accu_r_2         : accu_channel_2_type := (others => (others => '0'));
+    signal accu_g_2         : accu_channel_2_type := (others => (others => '0'));
+    signal accu_b_2         : accu_channel_2_type := (others => (others => '0'));
+    signal pixel_count_2    : pixel_count_2_type := (others => (others => '0'));
+    
+    signal accu_wr_en   : std_ulogic := '0';
+    signal accu_r       : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
+    signal accu_g       : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
+    signal accu_b       : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
+    
+    signal led_num_2        : led_num_2_type := (others => (others => '0'));
     signal frame_x          : unsigned(DIM_BITS-1 downto 0) := (others => '0');
     signal frame_y          : unsigned(DIM_BITS-1 downto 0) := (others => '0');
-    signal leds_rgb_valid   : std_ulogic_vector(0 to 1) := (others => '0');
-    signal leds_side        : std_ulogic_vector(0 to 1) := (others => '0');
-    signal leds_rgb         : leds_rgb_type := (others => (others => '0'));
+    signal led_rgb_valid_2  : std_ulogic_vector(0 to 1) := (others => '0');
+    signal led_side_2       : std_ulogic_vector(0 to 1) := (others => '0');
+    signal led_rgb_2        : led_rgb_2_type := (others => (others => '0'));
     signal ver_queued       : boolean := false;
     
     signal
@@ -151,8 +169,8 @@ begin
     --- static routes ---
     ---------------------
     
-    rev_hor_led_num <= hor_led_cnt-leds_num(HOR)-1;
-    rev_ver_led_num <= ver_led_cnt-leds_num(VER)-1;
+    rev_hor_led_num <= hor_led_cnt-led_num_2(HOR)-1;
+    rev_ver_led_num <= ver_led_cnt-led_num_2(VER)-1;
     
     
     -----------------
@@ -194,6 +212,29 @@ begin
         end if;
     end process;
     
+    LED_OUT_QUEUE_inst : entity work.LED_OUT_QUEUE
+        generic map (
+            MAX_LED_COUNT   => MAX_LED_COUNT,
+            R_BITS          => R_BITS,
+            G_BITS          => G_BITS,
+            B_BITS          => B_BITS,
+            DIM_BITS        => DIM_BITS,
+            ACCU_BITS       => ACCU_BITS
+        )
+        port map (
+            CLK => CLK,
+            RST => RST,
+            
+            WR_EN       => accu_wr_en,
+            ACCU_R      => accu_r,
+            ACCU_G      => accu_g,
+            ACCU_B      => accu_b,
+            PIXEL_COUNT => pixel_count,
+            
+            LED_RGB_VALID   => queue_led_rgb_valid,
+            LED_RGB         => LED_RGB
+        );
+    
     HOR_SCANNER_inst : entity work.HOR_SCANNER
         generic map (
             MAX_LED_COUNT   => MAX_LED_COUNT,
@@ -218,10 +259,11 @@ begin
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
             
-            LED_RGB_VALID   => leds_rgb_valid(HOR),
-            LED_RGB         => leds_rgb(HOR),
-            LED_NUM         => leds_num(HOR),
-            LED_SIDE        => leds_side(HOR)
+            ACCU_VALID  => accus_valid(HOR),
+            ACCU_R      => accu_r_2(HOR),
+            ACCU_G      => accu_g_2(HOR),
+            ACCU_B      => accu_b_2(HOR),
+            PIXEL_COUNT => pixel_count_2(HOR)
         );
     
     VER_SCANNER_inst : entity work.VER_SCANNER
@@ -248,10 +290,11 @@ begin
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
             
-            LED_RGB_VALID   => leds_rgb_valid(VER),
-            LED_RGB         => leds_rgb(VER),
-            LED_NUM         => leds_num(VER),
-            LED_SIDE        => leds_side(VER)
+            ACCU_VALID  => accus_valid(VER),
+            ACCU_R      => accu_r_2(VER),
+            ACCU_G      => accu_g_2(VER),
+            ACCU_B      => accu_b_2(VER),
+            PIXEL_COUNT => pixel_count_2(VER)
         );
     
     led_output_proc : process(RST, CLK)
@@ -267,7 +310,7 @@ begin
             
             LED_RGB_VALID   <= '0';
             
-            if leds_rgb_valid(VER)='1' then
+            if led_rgb_valid_2(VER)='1' then
                 -- if two edge LEDs are completed at the same time,
                 -- queue the vertical one
                 ver_queued  <= true;
@@ -275,28 +318,28 @@ begin
             
             for dim in HOR to VER loop
                 
-                if leds_rgb_valid(dim)='1' or ver_queued then
+                if led_rgb_valid_2(dim)='1' or ver_queued then
                     
                     -- count the LEDs from top left clockwise
                     if dim=HOR then
-                        if leds_side(dim)='0' then
+                        if led_side_2(dim)='0' then
                             -- top LED
-                            LED_NUM <= leds_num(HOR);
+                            LED_NUM <= led_num_2(HOR);
                         else
                             -- bottom LED
                             LED_NUM  <= hor_led_cnt+ver_led_cnt+rev_hor_led_num;
                         end if;
                     else
-                        if leds_side(dim)='0' then
+                        if led_side_2(dim)='0' then
                             -- left LED
                             LED_NUM <= hor_led_cnt+ver_led_cnt+hor_led_cnt+rev_ver_led_num;
                         else
                             -- right LED
-                            LED_NUM <= hor_led_cnt+leds_num(VER);
+                            LED_NUM <= hor_led_cnt+led_num_2(VER);
                         end if;
                     end if;
                     
-                    LED_RGB         <= leds_rgb(dim)(RGB_BITS-1 downto 0);
+                    LED_RGB         <= led_rgb_2(dim)(RGB_BITS-1 downto 0);
                     LED_RGB_VALID   <= '1';
                     
                     if dim=VER then
@@ -310,7 +353,7 @@ begin
             
             if
                 FRAME_VSYNC='1' and
-                leds_rgb_valid="00" and
+                led_rgb_valid_2="00" and
                 not ver_queued
             then
                 LED_VSYNC   <= '1';
