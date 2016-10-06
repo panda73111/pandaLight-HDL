@@ -44,7 +44,10 @@ entity VER_SCANNER is
         ACCU_R      : out std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
         ACCU_G      : out std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
         ACCU_B      : out std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
-        PIXEL_COUNT : out std_ulogic_vector(2*DIM_BITS-1 downto 0) := (others => '0')
+        PIXEL_COUNT : out std_ulogic_vector(2*DIM_BITS-1 downto 0) := (others => '0');
+        
+        LED_NUM         : out std_ulogic_vector(7 downto 0) := (others => '0');
+        LED_SIDE        : out std_ulogic := '0'
     );
 end VER_SCANNER;
 
@@ -77,6 +80,9 @@ begin
     ACCU_G      <= scanners_accu_g(0) when scanners_accu_valid(0)='1' else scanners_accu_g(1);
     ACCU_B      <= scanners_accu_b(0) when scanners_accu_valid(0)='1' else scanners_accu_b(1);
     PIXEL_COUNT <= scanners_pixel_count(0);
+    
+    LED_NUM         <= stdulv(int(led_counter), 8);
+    LED_SIDE        <= side;
     
     cfg_proc : process(CLK)
     begin
@@ -129,7 +135,7 @@ begin
             led_counter <= (others => '0');
             side        <= '0';
         elsif rising_edge(CLK) then
-            if queue_led_rgb_valid='1' then
+            if scanners_accu_valid/="00" then
                 side    <= not side;
                 
                 if side='1' then

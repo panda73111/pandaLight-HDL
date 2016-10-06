@@ -35,8 +35,16 @@ entity LED_OUT_QUEUE is
         ACCU_B      : in std_ulogic_vector(ACCU_BITS-1 downto 0);
         PIXEL_COUNT : in std_ulogic_vector(2*DIM_BITS-1 downto 0);
         
+        LED_NUM_IN      : in std_ulogic_vector(7 downto 0);
+        DIMENSION_IN    : in std_ulogic;
+        SIDE_IN         : in std_ulogic;
+        
         LED_RGB_VALID   : out std_ulogic := '0';
-        LED_RGB         : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0')
+        LED_RGB         : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
+        
+        LED_NUM_OUT     : out std_ulogic_vector(7 downto 0) := x"00";
+        DIMENSION_OUT   : out std_ulogic := '0';
+        SIDE_OUT        : out std_ulogic := '0'
     );
 end LED_OUT_QUEUE;
 
@@ -55,8 +63,8 @@ architecture rtl of LED_OUT_QUEUE is
     signal fifo_rd_en   : std_ulogic := '0';
     signal fifo_empty   : std_ulogic := '0';
     signal fifo_valid   : std_ulogic := '0';
-    signal fifo_din     : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
-    signal fifo_dout    : std_ulogic_vector(3*ACCU_BITS-1 downto 0) := (others => '0');
+    signal fifo_din     : std_ulogic_vector(3*ACCU_BITS+8 downto 0) := (others => '0');
+    signal fifo_dout    : std_ulogic_vector(3*ACCU_BITS+8 downto 0) := (others => '0');
     
 begin
     
@@ -67,13 +75,17 @@ begin
         divs_quotient(1)(G_BITS-1 downto 0) &
         divs_quotient(2)(B_BITS-1 downto 0);
     
+    LED_NUM_OUT     <= fifo_dout(fifo_dout'high downto fifo_dout'high-7);
+    DIMENSION_OUT   <= fifo_dout(fifo_dout'high-8);
+    SIDE_OUT        <= fifo_dout(fifo_dout'high-9);
+    
     divisor <= stdulv(int(PIXEL_COUNT), ACCU_BITS);
     
-    fifo_din    <= ACCU_R & ACCU_G & ACCU_B;
+    fifo_din    <= LED_NUM_IN & DIMENSION_IN & SIDE & ACCU_R & ACCU_G & ACCU_B;
     
     ASYNC_FIFO_inst : entity work.ASYNC_FIFO
         generic map (
-            WIDTH   => 3*ACCU_BITS,
+            WIDTH   => 3*ACCU_BITS+10,
             DEPTH   => MAX_LED_COUNT
         )
         port map (
