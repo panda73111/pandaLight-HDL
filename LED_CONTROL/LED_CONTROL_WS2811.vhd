@@ -36,12 +36,17 @@ end LED_CONTROL_WS2811;
 architecture rtl of LED_CONTROL_WS2811 is
     
     -- ticks to the "logic high"/"logic low" time of a 1 Bit/0 Bit
-    constant ONE_BIT_HIGH_TICKS     : natural := int(600.0 / CLK_IN_PERIOD); -- 1.2 us in slow mode, 0.6 us in fast mode
-    constant ONE_BIT_LOW_TICKS      : natural := int(650.0 / CLK_IN_PERIOD); -- 1.3 us in slow mode, 0.65 us in fast mode
-    constant ZERO_BIT_HIGH_TICKS    : natural := int(250.0 / CLK_IN_PERIOD); -- 0.5 us in slow mode, 0.25 us in fast mode
-    constant ZERO_BIT_LOW_TICKS     : natural := int(1000.0 / CLK_IN_PERIOD); -- 2.0 us in slow mode, 1.0 us in fast mode
+    constant FAST_ONE_BIT_HIGH_TICKS    : natural := int(600.0 / CLK_IN_PERIOD);  -- 0.6  us in fast mode
+    constant FAST_ONE_BIT_LOW_TICKS     : natural := int(650.0 / CLK_IN_PERIOD);  -- 0.65 us in fast mode
+    constant FAST_ZERO_BIT_HIGH_TICKS   : natural := int(250.0 / CLK_IN_PERIOD);  -- 0.25 us in fast mode
+    constant FAST_ZERO_BIT_LOW_TICKS    : natural := int(1000.0 / CLK_IN_PERIOD); -- 1.0  us in fast mode
     
-    constant TICK_BITS  : positive := log2(ZERO_BIT_LOW_TICKS);
+    constant SLOW_ONE_BIT_HIGH_TICKS    : natural := FAST_ONE_BIT_HIGH_TICKS*2;   -- 1.2 us in slow mode
+    constant SLOW_ONE_BIT_LOW_TICKS     : natural := FAST_ONE_BIT_LOW_TICKS*2;    -- 1.3 us in slow mode
+    constant SLOW_ZERO_BIT_HIGH_TICKS   : natural := FAST_ZERO_BIT_HIGH_TICKS*2;  -- 0.5 us in slow mode
+    constant SLOW_ZERO_BIT_LOW_TICKS    : natural := FAST_ZERO_BIT_LOW_TICKS*2;   -- 2.0 us in slow mode
+    
+    constant TICK_BITS  : positive := log2(SLOW_ZERO_BIT_LOW_TICKS)+1;
     
     type state_type is (
         WAITING_FOR_START,
@@ -61,7 +66,7 @@ architecture rtl of LED_CONTROL_WS2811 is
     type reg_type is record
         state   : state_type;
         bit_i       : unsigned(5 downto 0);
-        tick_cnt    : unsigned(TICK_BITS+1 downto 0);
+        tick_cnt    : unsigned(TICK_BITS-1 downto 0);
         leds_data   : std_ulogic;
         rgb_rd_en   : std_ulogic;
     end record;
@@ -114,46 +119,46 @@ begin
                 end if;
             
             when SLOW_EVALUATING_RGB_BIT =>
-                r.tick_cnt  := uns(ZERO_BIT_HIGH_TICKS/2, TICK_BITS);
+                r.tick_cnt  := uns(SLOW_ZERO_BIT_HIGH_TICKS-2, TICK_BITS);
                 r.state     := SLOW_ZERO_BIT_SETTING_HIGH;
                 if RGB(int(cr.bit_i))='1' then
-                    r.tick_cnt  := uns(ONE_BIT_HIGH_TICKS/2, TICK_BITS);
+                    r.tick_cnt  := uns(SLOW_ONE_BIT_HIGH_TICKS-2, TICK_BITS);
                     r.state     := SLOW_ONE_BIT_SETTING_HIGH;
                 end if;
             
             when FAST_EVALUATING_RGB_BIT =>
-                r.tick_cnt  := uns(ZERO_BIT_HIGH_TICKS, TICK_BITS);
+                r.tick_cnt  := uns(FAST_ZERO_BIT_HIGH_TICKS-2, TICK_BITS);
                 r.state     := FAST_ZERO_BIT_SETTING_HIGH;
                 if RGB(int(cr.bit_i))='1' then
-                    r.tick_cnt  := uns(ONE_BIT_HIGH_TICKS, TICK_BITS);
+                    r.tick_cnt  := uns(FAST_ONE_BIT_HIGH_TICKS-2, TICK_BITS);
                     r.state     := FAST_ONE_BIT_SETTING_HIGH;
                 end if;
             
             when SLOW_ZERO_BIT_SETTING_HIGH =>
                 r.leds_data := '1';
                 if switch then
-                    r.tick_cnt  := uns(ZERO_BIT_LOW_TICKS/2, TICK_BITS);
+                    r.tick_cnt  := uns(SLOW_ZERO_BIT_LOW_TICKS-2-3, TICK_BITS);
                     r.state     := SETTING_LOW;
                 end if;
             
             when SLOW_ONE_BIT_SETTING_HIGH =>
                 r.leds_data := '1';
                 if switch then
-                    r.tick_cnt  := uns(ONE_BIT_LOW_TICKS/2, TICK_BITS);
+                    r.tick_cnt  := uns(SLOW_ONE_BIT_LOW_TICKS-2-3, TICK_BITS);
                     r.state     := SETTING_LOW;
                 end if;
             
             when FAST_ZERO_BIT_SETTING_HIGH =>
                 r.leds_data := '1';
                 if switch then
-                    r.tick_cnt  := uns(ZERO_BIT_LOW_TICKS, TICK_BITS);
+                    r.tick_cnt  := uns(FAST_ZERO_BIT_LOW_TICKS-2-3, TICK_BITS);
                     r.state     := SETTING_LOW;
                 end if;
             
             when FAST_ONE_BIT_SETTING_HIGH =>
                 r.leds_data := '1';
                 if switch then
-                    r.tick_cnt  := uns(ONE_BIT_LOW_TICKS, TICK_BITS);
+                    r.tick_cnt  := uns(FAST_ONE_BIT_LOW_TICKS-2-3, TICK_BITS);
                     r.state     := SETTING_LOW;
                 end if;
             

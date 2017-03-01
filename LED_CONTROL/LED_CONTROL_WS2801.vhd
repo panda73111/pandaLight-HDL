@@ -150,7 +150,7 @@ begin
         end case;
         
         if switch then
-            r.tick_cnt  := uns(LEDS_CLK_TICKS, cur_reg.tick_cnt'length);
+            r.tick_cnt  := uns(LEDS_CLK_TICKS-2, cur_reg.tick_cnt'length);
         end if;
         
         if RST='1' then

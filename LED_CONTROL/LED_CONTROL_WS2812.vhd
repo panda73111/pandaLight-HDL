@@ -40,7 +40,7 @@ architecture rtl of LED_CONTROL_WS2812 is
     constant ZERO_BIT_HIGH_TICKS    : natural := int(400.0 / CLK_IN_PERIOD); -- 0.4 us
     constant ZERO_BIT_LOW_TICKS     : natural := int(850.0 / CLK_IN_PERIOD); -- 0.85 us
     
-    constant TICK_BITS  : positive := log2(ZERO_BIT_LOW_TICKS);
+    constant TICK_BITS  : positive := log2(ZERO_BIT_LOW_TICKS)+1;
     
     type state_type is (
         WAITING_FOR_START,
@@ -57,7 +57,7 @@ architecture rtl of LED_CONTROL_WS2812 is
     type reg_type is record
         state   : state_type;
         bit_i       : unsigned(5 downto 0);
-        tick_cnt    : unsigned(TICK_BITS+1 downto 0);
+        tick_cnt    : unsigned(TICK_BITS-1 downto 0);
         leds_data   : std_ulogic;
         rgb_rd_en   : std_ulogic;
     end record;
@@ -107,24 +107,24 @@ begin
                 r.state := EVALUATING_RGB_BIT;
             
             when EVALUATING_RGB_BIT =>
-                r.tick_cnt  := uns(ZERO_BIT_HIGH_TICKS, TICK_BITS);
+                r.tick_cnt  := uns(ZERO_BIT_HIGH_TICKS-2, TICK_BITS);
                 r.state     := ZERO_BIT_SETTING_HIGH;
                 if RGB(int(cr.bit_i))='1' then
-                    r.tick_cnt  := uns(ONE_BIT_HIGH_TICKS, TICK_BITS);
+                    r.tick_cnt  := uns(ONE_BIT_HIGH_TICKS-2, TICK_BITS);
                     r.state     := ONE_BIT_SETTING_HIGH;
                 end if;
             
             when ZERO_BIT_SETTING_HIGH =>
                 r.leds_data := '1';
                 if switch then
-                    r.tick_cnt  := uns(ZERO_BIT_LOW_TICKS, TICK_BITS);
+                    r.tick_cnt  := uns(ZERO_BIT_LOW_TICKS-2-3, TICK_BITS);
                     r.state     := SETTING_LOW;
                 end if;
             
             when ONE_BIT_SETTING_HIGH =>
                 r.leds_data := '1';
                 if switch then
-                    r.tick_cnt  := uns(ONE_BIT_LOW_TICKS, TICK_BITS);
+                    r.tick_cnt  := uns(ONE_BIT_LOW_TICKS-2-3, TICK_BITS);
                     r.state     := SETTING_LOW;
                 end if;
             
