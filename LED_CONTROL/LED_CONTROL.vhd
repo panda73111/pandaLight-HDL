@@ -9,9 +9,10 @@
 --
 -- Additional Comments: 
 --   Modes (to be extended):
---    [0] = ws2801
---    [1] = ws2811, fast mode (800 kHz)
---    [2] = ws2811, slow mode (400 kHz)
+--    [0] = WS2801
+--    [1] = WS2811, fast mode (800 kHz)
+--    [2] = WS2811, slow mode (400 kHz)
+--    [3] = WS2812/WS2812B
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -57,6 +58,11 @@ architecture rtl of LED_CONTROL is
     signal ws2811_leds_data : std_ulogic := '0';
     signal ws2811_rgb_rd_en : std_ulogic := '0';
     
+    signal ws2812_rst       : std_ulogic := '0';
+    signal ws2812_start     : std_ulogic := '0';
+    signal ws2812_leds_data : std_ulogic := '0';
+    signal ws2812_rgb_rd_en : std_ulogic := '0';
+    
     signal fifo_rd_en   : std_ulogic := '0';
     signal fifo_dout    : std_ulogic_vector(23 downto 0) := x"000000";
     signal fifo_empty   : std_ulogic := '0';
@@ -67,17 +73,21 @@ begin
     
     with MODE select LEDS_DATA <=
         ws2801_leds_data when "00",
-        ws2811_leds_data when others;
+        ws2811_leds_data when "01",
+        ws2811_leds_data when "10",
+        ws2812_leds_data when others;
     
     ws2801_rst  <= '1' when MODE/="00" else '0';
     ws2811_rst  <= '1' when MODE/="01" and MODE/="10" else '0';
+    ws2812_rst  <= '1' when MODE/="11" else '0';
     
     ws2801_start    <= '1' when frame_end='1' and MODE="00" else '0';
     ws2811_start    <= '1' when frame_end='1' and (MODE="01" or MODE="10") else '0';
+    ws2812_start    <= '1' when frame_end='1' and MODE="11" else '0';
     
     ws2811_slow_mode    <= '1' when MODE="10" else '0';
     frame_end           <= led_vsync_q and not led_vsync_qq;
-    fifo_rd_en          <= ws2801_rgb_rd_en or ws2811_rgb_rd_en;
+    fifo_rd_en          <= ws2801_rgb_rd_en or ws2811_rgb_rd_en or ws2812_rgb_rd_en;
     
     FIFO_inst : entity work.ASYNC_FIFO
         generic map (
@@ -99,8 +109,7 @@ begin
     LED_CONTROL_WS2801_inst : entity work.LED_CONTROL_WS2801
         generic map (
             CLK_IN_PERIOD   => CLK_IN_PERIOD,
-            LEDS_CLK_PERIOD => WS2801_LEDS_CLK_PERIOD,
-            MAX_LED_CNT     => MAX_LED_CNT
+            LEDS_CLK_PERIOD => WS2801_LEDS_CLK_PERIOD
         )
         port map (
             CLK => CLK,
@@ -117,8 +126,7 @@ begin
     
     LED_CONTROL_WS2811_inst : entity work.LED_CONTROL_WS2811
         generic map (
-            CLK_IN_PERIOD   => CLK_IN_PERIOD,
-            MAX_LED_CNT     => MAX_LED_CNT
+            CLK_IN_PERIOD   => CLK_IN_PERIOD
         )
         port map (
             CLK => CLK,
@@ -131,6 +139,22 @@ begin
             
             RGB_RD_EN   => ws2811_rgb_rd_en,
             LEDS_DATA   => ws2811_leds_data
+        );
+    
+    LED_CONTROL_WS2812_inst : entity work.LED_CONTROL_WS2812
+        generic map (
+            CLK_IN_PERIOD   => CLK_IN_PERIOD
+        )
+        port map (
+            CLK => CLK,
+            RST => ws2811_rst,
+            
+            START       => ws2812_start,
+            STOP        => fifo_empty,
+            RGB         => fifo_dout,
+            
+            RGB_RD_EN   => ws2812_rgb_rd_en,
+            LEDS_DATA   => ws2812_leds_data
         );
     
     process(CLK)

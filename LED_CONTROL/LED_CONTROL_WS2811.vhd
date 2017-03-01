@@ -17,8 +17,7 @@ use work.help_funcs.all;
 
 entity LED_CONTROL_WS2811 is
     generic (
-        CLK_IN_PERIOD   : real;
-        MAX_LED_CNT     : natural := 100
+        CLK_IN_PERIOD   : real
     );
     port (
         CLK : in std_ulogic;
