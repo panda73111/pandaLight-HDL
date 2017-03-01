@@ -38,19 +38,19 @@ end LED_CONTROL_WS2801;
 architecture rtl of LED_CONTROL_WS2801 is
     
     -- tick at one fourth of LEDS_CLK_PERIOD
-    constant LEDS_CLK_TICKS : natural := natural(LEDS_CLK_PERIOD / CLK_IN_PERIOD) / 4;
+    constant LEDS_CLK_TICKS : natural := int(LEDS_CLK_PERIOD / CLK_IN_PERIOD) / 4;
     
     type state_type is (
-        WAIT_FOR_START,
-        GET_NEXT_RGB,
-        WAIT_FOR_DATA_SWITCH,
-        SET_DATA,
-        DEC_BIT_I,
-        WAIT_FOR_CLK_SWITCH,
-        SET_CLK,
-        CHECK_BIT_I,
-        WAIT_FOR_LAST_SWITCH,
-        SET_LAST_CLK_LOW
+        WAITING_FOR_START,
+        GETTING_NEXT_RGB,
+        WAITING_FOR_DATA_SWITCH,
+        SETTING_DATA,
+        DECREMENTING_BIT_I,
+        WAITING_FOR_CLK_SWITCH,
+        SETTING_CLK,
+        CHECKING_BIT_I,
+        WAITING_FOR_LAST_SWITCH,
+        SETTING_LAST_CLK_LOW
         );
     
     type reg_type is record
@@ -63,7 +63,7 @@ architecture rtl of LED_CONTROL_WS2801 is
     end record;
     
     constant reg_type_def   : reg_type := (
-        state       => WAIT_FOR_START,
+        state       => WAITING_FOR_START,
         bit_i       => "000000",
         tick_cnt    => (others => '0'),
         leds_clk    => '0',
@@ -92,61 +92,61 @@ begin
         
         case cr.state is
             
-            when WAIT_FOR_START =>
+            when WAITING_FOR_START =>
                 r.tick_cnt  := uns(LEDS_CLK_TICKS, cur_reg.tick_cnt'length);
                 if START='1' then
-                    r.state := GET_NEXT_RGB;
+                    r.state := GETTING_NEXT_RGB;
                 end if;
             
-            when GET_NEXT_RGB =>
+            when GETTING_NEXT_RGB =>
                 r.bit_i := uns(23, 6);
-                r.state := WAIT_FOR_LAST_SWITCH;
+                r.state := WAITING_FOR_LAST_SWITCH;
                 if STOP='0' then
                     r.rgb_rd_en := '1';
-                    r.state     := WAIT_FOR_DATA_SWITCH;
+                    r.state     := WAITING_FOR_DATA_SWITCH;
                 end if;
             
-            when WAIT_FOR_DATA_SWITCH =>
+            when WAITING_FOR_DATA_SWITCH =>
                 if switch then
-                    r.state     := SET_DATA;
+                    r.state     := SETTING_DATA;
                 end if;
             
-            when SET_DATA =>
+            when SETTING_DATA =>
                 r.leds_clk  := '0';
                 r.leds_data := RGB(int(cr.bit_i));
                 if switch then
-                    r.state := DEC_BIT_I;
+                    r.state := DECREMENTING_BIT_I;
                 end if;
             
-            when DEC_BIT_I =>
+            when DECREMENTING_BIT_I =>
                 r.bit_i := cr.bit_i-1;
-                r.state := WAIT_FOR_CLK_SWITCH;
+                r.state := WAITING_FOR_CLK_SWITCH;
             
-            when WAIT_FOR_CLK_SWITCH =>
+            when WAITING_FOR_CLK_SWITCH =>
                 if switch then
-                    r.state := SET_CLK;
+                    r.state := SETTING_CLK;
                 end if;
             
-            when SET_CLK =>
+            when SETTING_CLK =>
                 r.leds_clk  := '1';
                 if switch then
-                    r.state := CHECK_BIT_I;
+                    r.state := CHECKING_BIT_I;
                 end if;
             
-            when CHECK_BIT_I =>
-                r.state := WAIT_FOR_DATA_SWITCH;
+            when CHECKING_BIT_I =>
+                r.state := WAITING_FOR_DATA_SWITCH;
                 if cr.bit_i(5)='1' then
-                    r.state := GET_NEXT_RGB;
+                    r.state := GETTING_NEXT_RGB;
                 end if;
             
-            when WAIT_FOR_LAST_SWITCH =>
+            when WAITING_FOR_LAST_SWITCH =>
                 if switch then
-                    r.state := SET_LAST_CLK_LOW;
+                    r.state := SETTING_LAST_CLK_LOW;
                 end if;
                 
-            when SET_LAST_CLK_LOW =>
+            when SETTING_LAST_CLK_LOW =>
                 r.leds_clk  := '0';
-                r.state     := WAIT_FOR_START;
+                r.state     := WAITING_FOR_START;
             
         end case;
         
