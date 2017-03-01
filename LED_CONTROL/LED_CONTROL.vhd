@@ -147,7 +147,7 @@ begin
         )
         port map (
             CLK => CLK,
-            RST => ws2811_rst,
+            RST => ws2812_rst,
             
             START       => ws2812_start,
             STOP        => fifo_empty,

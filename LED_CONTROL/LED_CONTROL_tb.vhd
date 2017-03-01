@@ -82,7 +82,7 @@ BEGIN
 
         -- set 100 test colors
         
-        for mode_i in 0 to 2 loop
+        for mode_i in 0 to 3 loop
             
             MODE        <= stdulv(mode_i, 2);
             LED_VSYNC   <= '0';
