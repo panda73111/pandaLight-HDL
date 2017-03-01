@@ -56,7 +56,7 @@ architecture rtl of LED_CONTROL_WS2801 is
     type reg_type is record
         state       : state_type;
         bit_i       : unsigned(5 downto 0);
-        tick_cnt    : natural range 0 to LEDS_CLK_TICKS-1;
+        tick_cnt    : unsigned(log2(LEDS_CLK_TICKS)+1 downto 0);
         leds_clk    : std_ulogic;
         leds_data   : std_ulogic;
         rgb_rd_en   : std_ulogic;
@@ -65,14 +65,14 @@ architecture rtl of LED_CONTROL_WS2801 is
     constant reg_type_def   : reg_type := (
         state       => WAIT_FOR_START,
         bit_i       => "000000",
-        tick_cnt    => 0,
+        tick_cnt    => (others => '0'),
         leds_clk    => '0',
         leds_data   => '0',
         rgb_rd_en   => '0'
         );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal switch               : std_ulogic := '0';
+    signal switch               : boolean := false;
     
 begin
     
@@ -80,20 +80,20 @@ begin
     LEDS_CLK    <= cur_reg.leds_clk;
     LEDS_DATA   <= cur_reg.leds_data;
     
-    switch  <= '1' when cur_reg.tick_cnt=LEDS_CLK_TICKS-1 else '0';
+    switch  <= cur_reg.tick_cnt(cur_reg.tick_cnt'high)='1';
     
     process(RST, cur_reg, START, STOP, RGB, switch)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
         r           := cr;
-        r.tick_cnt  := cr.tick_cnt+1;
+        r.tick_cnt  := cr.tick_cnt-1;
         r.rgb_rd_en := '0';
         
         case cr.state is
             
             when WAIT_FOR_START =>
-                r.tick_cnt  := 0;
+                r.tick_cnt  := uns(LEDS_CLK_TICKS, cur_reg.tick_cnt'length);
                 if START='1' then
                     r.state := GET_NEXT_RGB;
                 end if;
@@ -107,14 +107,14 @@ begin
                 end if;
             
             when WAIT_FOR_DATA_SWITCH =>
-                if switch='1' then
+                if switch then
                     r.state     := SET_DATA;
                 end if;
             
             when SET_DATA =>
                 r.leds_clk  := '0';
                 r.leds_data := RGB(int(cr.bit_i));
-                if switch='1' then
+                if switch then
                     r.state := DEC_BIT_I;
                 end if;
             
@@ -123,13 +123,13 @@ begin
                 r.state := WAIT_FOR_CLK_SWITCH;
             
             when WAIT_FOR_CLK_SWITCH =>
-                if switch='1' then
+                if switch then
                     r.state := SET_CLK;
                 end if;
             
             when SET_CLK =>
                 r.leds_clk  := '1';
-                if switch='1' then
+                if switch then
                     r.state := CHECK_BIT_I;
                 end if;
             
@@ -140,7 +140,7 @@ begin
                 end if;
             
             when WAIT_FOR_LAST_SWITCH =>
-                if switch='1' then
+                if switch then
                     r.state := SET_LAST_CLK_LOW;
                 end if;
                 
@@ -150,8 +150,8 @@ begin
             
         end case;
         
-        if switch='1' then
-            r.tick_cnt  := 0;
+        if switch then
+            r.tick_cnt  := uns(LEDS_CLK_TICKS, cur_reg.tick_cnt'length);
         end if;
         
         if RST='1' then
