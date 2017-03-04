@@ -1334,7 +1334,7 @@ begin
         );
         
         signal state    : state_type := INIT;
-        signal counter  : unsigned(23 downto 0) := uns(1022, 24);
+        signal counter  : unsigned(23 downto 0) := uns(1023, 24);
         
         signal bitfile_address  : std_ulogic_vector(23 downto 0) := x"000000";
     begin
@@ -1360,7 +1360,7 @@ begin
                         state   <= READING_DATA;
                     
                     when IDLE =>
-                        counter     <= uns(1022, counter'length);
+                        counter     <= uns(1023, counter'length);
                         fctrl_addr  <= SETTINGS_FLASH_ADDR;
                         
                         next_state  := state;
