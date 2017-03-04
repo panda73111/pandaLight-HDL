@@ -198,7 +198,7 @@ begin
         );
     
     LED_CONTROL_TEST_gen : if LED_CONTROL_TEST generate
-        constant LED_COUNT      : natural := 50;
+        constant LED_COUNT      : natural := 210;
         constant PAUSE_CYCLES   : natural := 416_666-LED_COUNT; -- 120 Hz
         
         constant LED_BITS       : natural := log2(LED_COUNT)+1;
@@ -206,12 +206,16 @@ begin
         
         type state_type is (
             WRITING_LEDS,
-            PAUSING
+            PAUSING,
+            CHANGING_FRAME
         );
         signal state        : state_type := WRITING_LEDS;
         signal leds_left    : unsigned(LED_BITS-1 downto 0) := uns(LED_COUNT-2, LED_BITS);
         signal pause_left   : unsigned(PAUSE_BITS-1 downto 0) := uns(PAUSE_CYCLES-2, PAUSE_BITS);
-        signal start_color  : std_ulogic_vector(23 downto 0) := x"000000";
+        
+        signal colored_led_index    : natural range 0 to LED_COUNT := 0;
+        signal led_index            : natural range 0 to LED_COUNT := 0;
+        signal led_color            : std_ulogic_vector(23 downto 0) := x"0000FF";
     begin
         
         LCTRL_MODE  <= "11";
@@ -225,7 +229,8 @@ begin
                 LCTRL_LED_RGB_WR_EN <= '0';
                 leds_left           <= uns(LED_COUNT-2, LED_BITS);
                 pause_left          <= uns(PAUSE_CYCLES-2, PAUSE_BITS);
-                start_color         <= x"000000";
+                colored_led_index   <= 0;
+                led_color           <= x"0000FF";
             elsif rising_edge(g_clk) then
                 LCTRL_LED_VSYNC     <= '0';
                 LCTRL_LED_RGB_WR_EN <= '0';
@@ -233,23 +238,34 @@ begin
                 case state is
                     
                     when WRITING_LEDS =>
-                        LCTRL_LED_RGB       <= LCTRL_LED_RGB+5;
+                        LCTRL_LED_RGB   <= x"000000";
+                        if led_index=colored_led_index then
+                            LCTRL_LED_RGB   <= led_color;
+                        end if;
                         LCTRL_LED_RGB_WR_EN <= '1';
+                        led_index           <= led_index+1;
                         leds_left           <= leds_left-1;
-                        pause_left          <= uns(PAUSE_CYCLES-2, PAUSE_BITS);
+                        pause_left          <= uns(PAUSE_CYCLES-3, PAUSE_BITS);
                         if leds_left(leds_left'high)='1' then
                             state   <= PAUSING;
                         end if;
                     
                     when PAUSING =>
                         LCTRL_LED_VSYNC <= '1';
-                        LCTRL_LED_RGB   <= start_color;
                         pause_left      <= pause_left-1;
                         leds_left       <= uns(LED_COUNT-2, LED_BITS);
                         if pause_left(pause_left'high)='1' then
-                            start_color <= start_color+(LED_COUNT*5);
-                            state       <= WRITING_LEDS;
+                            state   <= CHANGING_FRAME;
                         end if;
+                    
+                    when CHANGING_FRAME =>
+                        led_index           <= 0;
+                        colored_led_index   <= colored_led_index+1;
+                        if colored_led_index=LED_COUNT-1 then
+                            colored_led_index   <= 0;
+                            led_color           <= led_color(15 downto 0) & led_color(23 downto 16);
+                        end if;
+                        state   <= WRITING_LEDS;
                     
                 end case;
             end if;
