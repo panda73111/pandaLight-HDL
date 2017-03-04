@@ -18,8 +18,6 @@ LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
 USE ieee.math_real.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
 ENTITY LED_CONTROL_tb IS
@@ -84,7 +82,7 @@ BEGIN
 
         -- set 100 test colors
         
-        for mode_i in 0 to 2 loop
+        for mode_i in 0 to 3 loop
             
             MODE        <= stdulv(mode_i, 2);
             LED_VSYNC   <= '0';

@@ -22,7 +22,7 @@
     64 (0x040) |    1 |  start LED number | zero based LED index  [0-255] |            index of the LED in the chain which is placed at the top left corner
     65 (0x041) |    1 |       frame delay |     number of frames  [0-255] |                                                       number of buffered frames
     66 (0x042) |    1 |          RGB mode |             mode index  [0-5] |                    LED strip channel order, 0=RGB 1=RBG 2=GRB 3=GBR 4=BRG 5=BGR
-    67 (0x043) |    1 |    LED strip type |             type index  [0-3] |            0=ws2801, 1=ws2811 fast mode (800 kHz), 2=ws2811 slow mode (400 kHz)
+    67 (0x043) |    1 |    LED strip type |             type index  [0-3] |      0=WS2801, 1=WS2811 fast mode (800 kHz), 2=slow mode (400 kHz), 3=WS2812(B)
  --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
                |      | LOOKUP RECREATION |                               |           not used for calculations, only saved for re-generation of RGB lookup
  --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
