@@ -782,7 +782,8 @@ begin
     LED_CONTROL_inst : entity work.LED_CONTROL
         generic map (
             CLK_IN_PERIOD           => G_CLK_PERIOD,
-            WS2801_LEDS_CLK_PERIOD  => 1000.0 -- 1 MHz
+            WS2801_LEDS_CLK_PERIOD  => 1000.0, -- 1 MHz
+            MAX_LED_COUNT           => MAX_LED_COUNT
         )
         port map (
             CLK => lctrl_clk,
