@@ -13,6 +13,8 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
+library UNISIM;
+use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
 entity PANDA_LIGHT is
@@ -25,12 +27,56 @@ entity PANDA_LIGHT is
     port (
         CLK20   : in std_ulogic;
         
+        -- HDMI
+        RX_CHANNELS_IN_P    : in std_ulogic_vector(7 downto 0);
+        RX_CHANNELS_IN_N    : in std_ulogic_vector(7 downto 0);
+        RX_SDA              : inout std_ulogic_vector(1 downto 0) := "ZZ";
+        RX_SCL              : inout std_ulogic_vector(1 downto 0) := "ZZ";
+        RX_CEC              : inout std_ulogic_vector(1 downto 0) := "ZZ";
+        RX_DET              : in std_ulogic_vector(1 downto 0);
+        RX_EN               : out std_ulogic_vector(1 downto 0) := "00";
+        
+        TX_CHANNELS_OUT_P   : out std_ulogic_vector(3 downto 0) := "1111";
+        TX_CHANNELS_OUT_N   : out std_ulogic_vector(3 downto 0) := "1111";
+        TX_SDA              : inout std_ulogic := 'Z';
+        TX_SCL              : inout std_ulogic := 'Z';
+        TX_CEC              : inout std_ulogic := 'Z';
+        TX_DET              : in std_ulogic := '0';
+        TX_EN               : out std_ulogic := '0';
+        
+        -- USB UART
+        USB_RXD     : in std_ulogic;
+        USB_TXD     : out std_ulogic := '1';
+        USB_CTSN    : in std_ulogic;
+        USB_RTSN    : out std_ulogic := '0';
+        USB_DSRN    : in std_ulogic;
+        USB_DTRN    : out std_ulogic := '0';
+        USB_DCDN    : out std_ulogic := '0';
+        USB_RIN     : out std_ulogic := '0';
+        
+        -- ESP32 UART
+        ESP_CTS : in std_ulogic;
+        ESP_RTS : out std_ulogic := '0';
+        ESP_RXD : in std_ulogic;
+        ESP_TXD : out std_ulogic := '1';
+        ESP_IO0 : out std_ulogic := '0';
+        ESP_EN  : out std_ulogic := '0';
+        
+        -- SPI Flash
+        FLASH_MISO  : in std_ulogic;
+        FLASH_MOSI  : out std_ulogic := '0';
+        FLASH_CS    : out std_ulogic := '1';
+        FLASH_SCK   : out std_ulogic := '0';
+        
         -- LEDs
         LEDS_CLK    : out std_ulogic_vector(1 downto 0) := "00";
         LEDS_DATA   : out std_ulogic_vector(1 downto 0) := "00";
         
         -- PMOD
-        PMOD0   : out std_ulogic_vector(3 downto 0) := "0000"
+        PMOD0   : out std_ulogic_vector(3 downto 0) := x"0";
+        PMOD1   : out std_ulogic_vector(3 downto 0) := x"0";
+        PMOD2   : in std_ulogic_vector(3 downto 0);
+        PMOD3   : out std_ulogic_vector(3 downto 0) := x"0"
     );
 end PANDA_LIGHT;
 
@@ -41,7 +87,7 @@ architecture rtl of PANDA_LIGHT is
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
     
-    signal g_clk_stopped    : std_ulogic := '0';
+    signal g_clk_locked : std_ulogic := '0';
     
     
     -------------------
@@ -75,9 +121,9 @@ begin
         port map (
             RST => '0',
             
-            CLK_IN          => CLK20,
-            CLK_OUT         => g_clk,
-            CLK_OUT_STOPPED => g_clk_stopped
+            CLK_IN  => CLK20,
+            CLK_OUT => g_clk,
+            LOCKED  => g_clk_locked
         );
     
     
@@ -85,7 +131,7 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    g_rst   <= g_clk_stopped;
+    g_rst   <= not g_clk_locked;
     
     LEDS_CLK    <= LCTRL_LEDS_CLK & LCTRL_LEDS_CLK;
     LEDS_DATA   <= LCTRL_LEDS_DATA & LCTRL_LEDS_DATA;
@@ -94,6 +140,34 @@ begin
     PMOD0(1)    <= '0';
     PMOD0(2)    <= '0';
     PMOD0(3)    <= '0';
+    
+    
+    ------------------------------------
+    ------ HDMI signal management ------
+    ------------------------------------
+    
+    diff_IBUFDS_gen : for i in 0 to 7 generate
+        
+        rx_channel_IBUFDS_inst : IBUFDS
+            generic map (DIFF_TERM  => false)
+            port map (
+                I   => RX_CHANNELS_IN_P(i),
+                IB  => RX_CHANNELS_IN_N(i),
+                O   => open
+            );
+        
+    end generate;
+    
+    diff_OBUFDS_gen : for i in 0 to 3 generate
+        
+        tx_channel_OBUFDS_inst : OBUFDS
+            port map (
+                I   => '1',
+                O   => TX_CHANNELS_OUT_P(i),
+                OB  => TX_CHANNELS_OUT_N(i)
+            );
+        
+    end generate;
     
     
     ------------------

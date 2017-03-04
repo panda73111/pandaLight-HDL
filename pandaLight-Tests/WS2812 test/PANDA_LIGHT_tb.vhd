@@ -39,7 +39,10 @@ begin
         wait for 200 ns;
         g_rst   <= '0';
         
-        wait;
+        wait for 1.5 ms;
+        
+        report "NONE. All tests completed."
+            severity FAILURE;
     end process;
     
 end;
