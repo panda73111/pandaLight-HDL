@@ -21,6 +21,7 @@ use work.help_funcs.all;
 
 entity PANDA_LIGHT is
     generic (
+        MAX_LED_CNT         : natural := 512;
         PANDALIGHT_MAGIC    : string := "PANDALIGHT";
         VERSION_MAJOR       : natural range 0 to 255 := 0;
         VERSION_MINOR       : natural range 0 to 255 := 1;
@@ -356,7 +357,8 @@ begin
     LED_CONTROL_inst : entity work.LED_CONTROL
         generic map (
             CLK_IN_PERIOD           => G_CLK_PERIOD,
-            WS2801_LEDS_CLK_PERIOD  => 1000.0 -- 1 MHz
+            WS2801_LEDS_CLK_PERIOD  => 1000.0, -- 1 MHz
+            MAX_LED_CNT             => MAX_LED_CNT
         )
         port map (
             CLK => lctrl_clk,
