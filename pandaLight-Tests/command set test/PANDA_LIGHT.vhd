@@ -67,13 +67,13 @@ entity PANDA_LIGHT is
         USB_DCDN    : out std_ulogic := '0';
         USB_RIN     : out std_ulogic := '0';
         
-        -- BT UART
-        BT_CTSN : in std_ulogic;
-        BT_RTSN : out std_ulogic := '0';
-        BT_RXD  : in std_ulogic;
-        BT_TXD  : out std_ulogic := '1';
-        BT_WAKE : out std_ulogic := '0';
-        BT_RSTN : out std_ulogic := '0';
+        -- ESP32 UART
+        ESP_CTS : in std_ulogic;
+        ESP_RTS : out std_ulogic := '0';
+        ESP_RXD : in std_ulogic;
+        ESP_TXD : out std_ulogic := '1';
+        ESP_IO0 : out std_ulogic := '0';
+        ESP_EN  : out std_ulogic := '0';
         
         -- SPI Flash
         FLASH_MISO  : in std_ulogic;
@@ -86,10 +86,10 @@ entity PANDA_LIGHT is
         LEDS_DATA   : out std_ulogic_vector(1 downto 0) := "00";
         
         -- PMOD
-        PMOD0   : inout std_logic_vector(3 downto 0) := "ZZZZ";
-        PMOD1   : inout std_logic_vector(3 downto 0) := "ZZZZ";
-        PMOD2   : inout std_logic_vector(3 downto 0) := "ZZZZ";
-        PMOD3   : inout std_logic_vector(3 downto 0) := "ZZZZ"
+        PMOD0   : in std_ulogic_vector(3 downto 0);
+        PMOD1   : out std_ulogic_vector(3 downto 0) := x"0";
+        PMOD2   : in std_ulogic_vector(3 downto 0);
+        PMOD3   : out std_ulogic_vector(3 downto 0) := x"0"
     );
 end PANDA_LIGHT;
 

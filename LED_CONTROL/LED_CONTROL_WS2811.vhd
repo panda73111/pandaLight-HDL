@@ -13,14 +13,11 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
-library UNISIM;
-use UNISIM.VComponents.all;
 use work.help_funcs.all;
 
 entity LED_CONTROL_WS2811 is
     generic (
-        CLK_IN_PERIOD   : real;
-        MAX_LED_CNT     : natural := 100
+        CLK_IN_PERIOD   : real
     );
     port (
         CLK : in std_ulogic;
@@ -38,119 +35,150 @@ end LED_CONTROL_WS2811;
 
 architecture rtl of LED_CONTROL_WS2811 is
     
-    -- ticks in one 800 kHz clock cycle
-    constant TICKS  : natural := natural(1250.0 / CLK_IN_PERIOD);
+    -- ticks to the "logic high"/"logic low" time of a 1 Bit/0 Bit
+    constant FAST_ONE_BIT_HIGH_TICKS    : natural := int(600.0 / CLK_IN_PERIOD);  -- 0.6  us in fast mode
+    constant FAST_ONE_BIT_LOW_TICKS     : natural := int(650.0 / CLK_IN_PERIOD);  -- 0.65 us in fast mode
+    constant FAST_ZERO_BIT_HIGH_TICKS   : natural := int(250.0 / CLK_IN_PERIOD);  -- 0.25 us in fast mode
+    constant FAST_ZERO_BIT_LOW_TICKS    : natural := int(1000.0 / CLK_IN_PERIOD); -- 1.0  us in fast mode
     
-    -- in tens of a nanoseconds
-    constant HIGH_BIT_TICKS : natural := 60; -- 1.2 us, 0.6 us in fast mode
-    constant LOW_BIT_TICKS  : natural := 25; -- 0.5 us, 0.25 us in fast mode
+    constant SLOW_ONE_BIT_HIGH_TICKS    : natural := FAST_ONE_BIT_HIGH_TICKS*2;   -- 1.2 us in slow mode
+    constant SLOW_ONE_BIT_LOW_TICKS     : natural := FAST_ONE_BIT_LOW_TICKS*2;    -- 1.3 us in slow mode
+    constant SLOW_ZERO_BIT_HIGH_TICKS   : natural := FAST_ZERO_BIT_HIGH_TICKS*2;  -- 0.5 us in slow mode
+    constant SLOW_ZERO_BIT_LOW_TICKS    : natural := FAST_ZERO_BIT_LOW_TICKS*2;   -- 2.0 us in slow mode
+    
+    constant TICK_BITS  : positive := log2(SLOW_ZERO_BIT_LOW_TICKS)+1;
     
     type state_type is (
-        WAIT_FOR_START,
-        GET_NEXT_RGB,
-        WAIT_FOR_RGB,
-        EVAL_RGB_BIT,
-        HIGH_BIT_SET_HIGH,
-        LOW_BIT_SET_HIGH,
-        SET_LOW,
-        DEC_BIT_I,
-        CHECK_BIT_I
+        WAITING_FOR_START,
+        GETTING_NEXT_RGB,
+        WAITING_FOR_RGB,
+        SLOW_EVALUATING_RGB_BIT,
+        FAST_EVALUATING_RGB_BIT,
+        SLOW_ONE_BIT_SETTING_HIGH,
+        SLOW_ZERO_BIT_SETTING_HIGH,
+        FAST_ONE_BIT_SETTING_HIGH,
+        FAST_ZERO_BIT_SETTING_HIGH,
+        SETTING_LOW,
+        DECREMENTING_BIT_I,
+        CHECKING_BIT_I
         );
     
     type reg_type is record
         state   : state_type;
         bit_i       : unsigned(5 downto 0);
-        tick_cnt    : natural range 0 to 2*TICKS-1;
+        tick_cnt    : unsigned(TICK_BITS-1 downto 0);
         leds_data   : std_ulogic;
         rgb_rd_en   : std_ulogic;
     end record;
     
     constant reg_type_def   : reg_type := (
-        state       => WAIT_FOR_START,
+        state       => WAITING_FOR_START,
         bit_i       => "000000",
-        tick_cnt    => 0,
+        tick_cnt    => (others => '0'),
         leds_data   => '0',
         rgb_rd_en   => '0'
         );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal tick_cnt             : natural range 0 to TICKS-1 := 0;
+    signal switch               : boolean := false;
     
 begin
     
     RGB_RD_EN   <= cur_reg.rgb_rd_en;
     LEDS_DATA   <= cur_reg.leds_data;
+    switch      <= cur_reg.tick_cnt(cur_reg.tick_cnt'high)='1';
     
-    -- in slow mode, count half as fast
-    tick_cnt    <=
-        cur_reg.tick_cnt when SLOW_MODE='0' else
-        cur_reg.tick_cnt/2;
-    
-    process(RST, cur_reg, START, STOP, RGB, tick_cnt)
+    process(RST, cur_reg, START, STOP, RGB, switch)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
         r           := cr;
-        r.tick_cnt  := cr.tick_cnt+1;
+        r.tick_cnt  := cr.tick_cnt-1;
         r.rgb_rd_en := '0';
-        
-        if tick_cnt=TICKS-1 then
-            r.tick_cnt  := 0;
-        end if;
         
         case cr.state is
             
-            when WAIT_FOR_START =>
-                r.tick_cnt  := 0;
+            when WAITING_FOR_START =>
+                r.tick_cnt  := (others => '0');
                 if START='1' then
-                    r.state := GET_NEXT_RGB;
+                    r.state := GETTING_NEXT_RGB;
                 end if;
             
-            when GET_NEXT_RGB =>
+            when GETTING_NEXT_RGB =>
                 r.bit_i := uns(23, 6);
-                r.state := WAIT_FOR_START;
+                r.state := WAITING_FOR_START;
                 if STOP='0' then
                     r.rgb_rd_en := '1';
-                    r.state     := WAIT_FOR_RGB;
+                    r.state     := WAITING_FOR_RGB;
                 end if;
             
-            when WAIT_FOR_RGB =>
-                r.state := EVAL_RGB_BIT;
+            when WAITING_FOR_RGB =>
+                r.state := SLOW_EVALUATING_RGB_BIT;
+                if SLOW_MODE='0' then
+                    r.state := FAST_EVALUATING_RGB_BIT;
+                end if;
             
-            when EVAL_RGB_BIT =>
-                r.tick_cnt  := 0;
-                r.state     := LOW_BIT_SET_HIGH;
+            when SLOW_EVALUATING_RGB_BIT =>
+                r.tick_cnt  := uns(SLOW_ZERO_BIT_HIGH_TICKS-2, TICK_BITS);
+                r.state     := SLOW_ZERO_BIT_SETTING_HIGH;
                 if RGB(int(cr.bit_i))='1' then
-                    r.state     := HIGH_BIT_SET_HIGH;
+                    r.tick_cnt  := uns(SLOW_ONE_BIT_HIGH_TICKS-2, TICK_BITS);
+                    r.state     := SLOW_ONE_BIT_SETTING_HIGH;
                 end if;
             
-            when LOW_BIT_SET_HIGH =>
+            when FAST_EVALUATING_RGB_BIT =>
+                r.tick_cnt  := uns(FAST_ZERO_BIT_HIGH_TICKS-2, TICK_BITS);
+                r.state     := FAST_ZERO_BIT_SETTING_HIGH;
+                if RGB(int(cr.bit_i))='1' then
+                    r.tick_cnt  := uns(FAST_ONE_BIT_HIGH_TICKS-2, TICK_BITS);
+                    r.state     := FAST_ONE_BIT_SETTING_HIGH;
+                end if;
+            
+            when SLOW_ZERO_BIT_SETTING_HIGH =>
                 r.leds_data := '1';
-                if tick_cnt=LOW_BIT_TICKS-1 then
-                    r.state     := SET_LOW;
+                if switch then
+                    r.tick_cnt  := uns(SLOW_ZERO_BIT_LOW_TICKS-2-3, TICK_BITS);
+                    r.state     := SETTING_LOW;
                 end if;
             
-            when HIGH_BIT_SET_HIGH =>
+            when SLOW_ONE_BIT_SETTING_HIGH =>
                 r.leds_data := '1';
-                if tick_cnt=HIGH_BIT_TICKS-1 then
-                    r.state     := SET_LOW;
+                if switch then
+                    r.tick_cnt  := uns(SLOW_ONE_BIT_LOW_TICKS-2-3, TICK_BITS);
+                    r.state     := SETTING_LOW;
                 end if;
             
-            when SET_LOW =>
+            when FAST_ZERO_BIT_SETTING_HIGH =>
+                r.leds_data := '1';
+                if switch then
+                    r.tick_cnt  := uns(FAST_ZERO_BIT_LOW_TICKS-2-3, TICK_BITS);
+                    r.state     := SETTING_LOW;
+                end if;
+            
+            when FAST_ONE_BIT_SETTING_HIGH =>
+                r.leds_data := '1';
+                if switch then
+                    r.tick_cnt  := uns(FAST_ONE_BIT_LOW_TICKS-2-3, TICK_BITS);
+                    r.state     := SETTING_LOW;
+                end if;
+            
+            when SETTING_LOW =>
                 r.leds_data := '0';
-                if tick_cnt=TICKS-4 then
-                    -- compensate tick loss due to state machine
-                    r.state := DEC_BIT_I;
+                if switch then
+                    r.state := DECREMENTING_BIT_I;
                 end if;
             
-            when DEC_BIT_I =>
+            when DECREMENTING_BIT_I =>
                 r.bit_i := cr.bit_i-1;
-                r.state := CHECK_BIT_I;
+                r.state := CHECKING_BIT_I;
             
-            when CHECK_BIT_I =>
-                r.state := EVAL_RGB_BIT;
+            when CHECKING_BIT_I =>
+                r.state := SLOW_EVALUATING_RGB_BIT;
+                if SLOW_MODE='0' then
+                    r.state := FAST_EVALUATING_RGB_BIT;
+                end if;
                 if cr.bit_i(5)='1' then
-                    r.state := GET_NEXT_RGB;
+                    r.state := GETTING_NEXT_RGB;
                 end if;
             
         end case;
