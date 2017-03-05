@@ -53,7 +53,12 @@ values = [
     *fractionToShort(VER_LED_SCALED_HEIGHT),
     *fractionToShort(VER_LED_SCALED_STEP),
     *fractionToShort(VER_LED_SCALED_PAD),
-    *fractionToShort(VER_LED_SCALED_OFFS),
+    *fractionToShort(VER_LED_SCALED_OFFS)
+    ]
+
+values += [0] * (64-len(values))
+
+values += [
     START_LED_NUM,
     FRAME_DELAY,
     RGB_MODE,
