@@ -51,7 +51,7 @@ architecture behavior of testbench is
     
     constant G_CLK20_PERIOD : time := 50 ns;
     
-    constant UART_CLK_PERIOD    : time := 1 sec / 115_200;
+    constant UART_CLK_PERIOD    : time := 1 sec / 921_600;
     
     signal rxd, txd : std_ulogic := '0';
     

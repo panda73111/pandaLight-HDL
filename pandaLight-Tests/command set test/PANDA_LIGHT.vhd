@@ -35,7 +35,8 @@ entity PANDA_LIGHT is
         R_BITS              : positive range 5 to 12 := 8;
         G_BITS              : positive range 5 to 12 := 8;
         B_BITS              : positive range 5 to 12 := 8;
-        DIM_BITS            : positive range 8 to 16 := 11 -- resolutions up to 2047x2047
+        DIM_BITS            : positive range 8 to 16 := 11; -- resolutions up to 2047x2047
+        UART_BAUD_RATE      : positive := 921_600
     );
     port (
         CLK20   : in std_ulogic;
@@ -467,7 +468,8 @@ begin
     UART_CONTROL_inst : entity work.UART_CONTROL
         generic map (
             CLK_IN_PERIOD   => G_CLK_PERIOD,
-            BUFFER_SIZE     => 2048
+            BUFFER_SIZE     => 2048,
+            BAUD_RATE       => UART_BAUD_RATE
         )
         port map (
             CLK => usbctrl_clk,
