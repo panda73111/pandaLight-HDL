@@ -518,13 +518,16 @@ begin
         
         signal cmd_counter_expired  : boolean := false;
         signal data_counter_expired : boolean := false;
+        
+        signal three_din    : unsigned(9 downto 0) := (others => '0');
     begin
         
         cmd_counter_expired     <= cmd_eval_counter(cmd_eval_counter'high)='1';
         data_counter_expired    <= data_handling_counter(data_handling_counter'high)='1';
         
+        three_din   <= uns('0' & uart_din & '0') + uns(uart_din);
+        
         uart_evaluation_proc : process(uart_rst, uart_clk)
-            variable three_din  : natural range 0 to 2**10-1;
         begin
             if uart_rst='1' then
                 cmd_eval_state                  <= WAITING_FOR_COMMAND;
@@ -601,8 +604,8 @@ begin
                         end if;
                     
                     when RECEIVING_LED_COUNT_FROM_UART =>
-                        three_din   := int((uart_din(6 downto 0) & '0') + uart_din);
-                        cmd_eval_counter    <= uns(three_din-2, cmd_eval_counter'length);
+                        cmd_eval_counter                <= (others => '0');
+                        cmd_eval_counter(9 downto 0)    <= three_din-2;
                         if uart_din_valid='1' then
                             uart_led_count              <= uns(uart_din);
                             start_led_read_from_uart    <= true;
