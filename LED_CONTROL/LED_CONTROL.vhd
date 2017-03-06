@@ -35,6 +35,8 @@ entity LED_CONTROL is
         LED_RGB         : in std_ulogic_vector(23 downto 0);
         LED_RGB_WR_EN   : in std_ulogic;
         
+        BUSY    : out std_ulogic := '0';
+        
         LEDS_CLK    : out std_ulogic := '0';
         LEDS_DATA   : out std_ulogic := '0'
     );
@@ -81,9 +83,9 @@ begin
     ws2811_rst  <= '1' when MODE/="01" and MODE/="10" else '0';
     ws2812_rst  <= '1' when MODE/="11" else '0';
     
-    ws2801_start    <= '1' when frame_end='1' and MODE="00" else '0';
-    ws2811_start    <= '1' when frame_end='1' and (MODE="01" or MODE="10") else '0';
-    ws2812_start    <= '1' when frame_end='1' and MODE="11" else '0';
+    ws2801_start    <= frame_end;
+    ws2811_start    <= frame_end;
+    ws2812_start    <= frame_end;
     
     ws2811_slow_mode    <= '1' when MODE="10" else '0';
     frame_end           <= led_vsync_q and not led_vsync_qq;
