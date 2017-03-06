@@ -357,8 +357,8 @@ begin
     
     LED_CONTROL_inst : entity work.LED_CONTROL
         generic map (
-            CLK_IN_PERIOD           => G_CLK_PERIOD,
-            MAX_LED_CNT             => MAX_LED_CNT
+            CLK_IN_PERIOD   => G_CLK_PERIOD,
+            MAX_LED_COUNT   => MAX_LED_CNT
         )
         port map (
             CLK => lctrl_clk,
