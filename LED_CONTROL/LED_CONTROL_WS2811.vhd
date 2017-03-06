@@ -29,7 +29,7 @@ entity LED_CONTROL_WS2811 is
         RGB         : in std_ulogic_vector(23 downto 0);
         
         BUSY    : out std_ulogic := '0';
-        PAUSING : out std_ulogic := '0';
+        VSYNC   : out std_ulogic := '0';
         
         RGB_RD_EN   : out std_ulogic;
         LEDS_DATA   : out std_ulogic := '0'
@@ -92,7 +92,7 @@ architecture rtl of LED_CONTROL_WS2811 is
 begin
     
     BUSY    <= '1' when cur_reg.state/=WAITING_FOR_START else '0';
-    PAUSING <= '1' when cur_reg.state=PAUSING else '0';
+    VSYNC   <= '1' when cur_reg.state=PAUSING else '0';
     
     RGB_RD_EN       <= cur_reg.rgb_rd_en;
     LEDS_DATA       <= cur_reg.leds_data;

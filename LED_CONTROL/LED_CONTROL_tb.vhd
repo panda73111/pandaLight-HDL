@@ -106,7 +106,7 @@ BEGIN
             end loop;
             
             LED_VSYNC   <= '1';
-            wait for 100*24*2.5 us + 100*CLK_PERIOD;
+            wait for 100*24*2.5 us + 1 ms;
             wait until rising_edge(CLK);
         
         end loop;

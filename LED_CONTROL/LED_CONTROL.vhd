@@ -22,7 +22,7 @@ use work.help_funcs.all;
 entity LED_CONTROL is
     generic (
         CLK_IN_PERIOD           : real;
-        WS2801_LEDS_CLK_PERIOD  : real := 1000.0, -- 1 MHz;
+        WS2801_LEDS_CLK_PERIOD  : real := 1000.0; -- 1 MHz;
         MAX_LED_COUNT           : natural := 128
     );
     port (
@@ -46,9 +46,10 @@ architecture rtl of LED_CONTROL is
     
     type state_type is (
         GETTING_FRAME,
-        WAITING_FOR_IDLE,
+        WAITING_FOR_LED_START_IDLE,
         STARTING,
-        WAITING_FOR_FRAME_PAUSE
+        WAITING_FOR_LED_END_IDLE,
+        WAITING_FOR_FRAME_START
     );
     
     type reg_type is record
@@ -67,11 +68,13 @@ architecture rtl of LED_CONTROL is
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     
+    signal led_vsync_q  : std_ulogic := '0';
+    
     signal ws2801_rst       : std_ulogic := '0';
     signal ws2801_start     : std_ulogic := '0';
     signal ws2801_stop      : std_ulogic := '0';
     signal ws2801_busy      : std_ulogic := '0';
-    signal ws2801_pausing   : std_ulogic := '0';
+    signal ws2801_vsync     : std_ulogic := '0';
     signal ws2801_leds_clk  : std_ulogic := '0';
     signal ws2801_leds_data : std_ulogic := '0';
     signal ws2801_rgb_rd_en : std_ulogic := '0';
@@ -80,7 +83,7 @@ architecture rtl of LED_CONTROL is
     signal ws2811_start     : std_ulogic := '0';
     signal ws2811_stop      : std_ulogic := '0';
     signal ws2811_busy      : std_ulogic := '0';
-    signal ws2811_pausing   : std_ulogic := '0';
+    signal ws2811_vsync     : std_ulogic := '0';
     signal ws2811_slow_mode : std_ulogic := '0';
     signal ws2811_leds_data : std_ulogic := '0';
     signal ws2811_rgb_rd_en : std_ulogic := '0';
@@ -89,12 +92,13 @@ architecture rtl of LED_CONTROL is
     signal ws2812_start     : std_ulogic := '0';
     signal ws2812_stop      : std_ulogic := '0';
     signal ws2812_busy      : std_ulogic := '0';
-    signal ws2812_pausing   : std_ulogic := '0';
+    signal ws2812_vsync     : std_ulogic := '0';
     signal ws2812_leds_data : std_ulogic := '0';
     signal ws2812_rgb_rd_en : std_ulogic := '0';
     
     signal fifo_rd_en   : std_ulogic := '0';
     signal fifo_dout    : std_ulogic_vector(23 downto 0) := x"000000";
+    signal fifo_empty   : std_ulogic := '0';
     
 begin
 
@@ -153,7 +157,7 @@ begin
             RGB         => fifo_dout,
             
             BUSY    => ws2801_busy,
-            PAUSING => ws2801_pausing,
+            VSYNC   => ws2801_vsync,
             
             RGB_RD_EN   => ws2801_rgb_rd_en,
             LEDS_CLK    => ws2801_leds_clk,
@@ -174,7 +178,7 @@ begin
             RGB         => fifo_dout,
             
             BUSY    => ws2811_busy,
-            PAUSING => ws2811_pausing,
+            VSYNC   => ws2811_vsync,
             
             RGB_RD_EN   => ws2811_rgb_rd_en,
             LEDS_DATA   => ws2811_leds_data
@@ -193,55 +197,58 @@ begin
             RGB         => fifo_dout,
             
             BUSY    => ws2812_busy,
-            BUSY    => ws2812_busy,
-            PAUSING => ws2812_pausing,
+            VSYNC   => ws2812_vsync,
             
             RGB_RD_EN   => ws2812_rgb_rd_en,
             LEDS_DATA   => ws2812_leds_data
         );
     
-    stm_proc : process(cur_reg, LED_RGB_WR_EN, LED_RGB, LED_VSYNC, ws2801_busy, ws2811_busy, ws2812_busy, fifo_rd_en)
+    stm_proc : process(cur_reg, LED_RGB_WR_EN, LED_RGB, LED_VSYNC,
+        ws2801_busy, ws2811_busy, ws2812_busy, fifo_rd_en, led_vsync_q)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
         
-        r   : cr;
+        r   := cr;
         
         r.fifo_wr_en    := '0';
         r.fifo_din      := LED_RGB;
         r.start         := '0';
         
-        -- buffer one frame, shift out the LEDS,
-        -- wait until the drivers are idle or at least pausing,
-        -- check if there is no frame currently incoming,
-        -- repeat
-        
         case cr.state is
             
             when GETTING_FRAME =>
-                r.fifo_wr_en    := LED_RGB_WR_EN;
-                if LED_VSYNC='1' then
+                r.fifo_wr_en    := not LED_VSYNC and LED_RGB_WR_EN;
+                if led_vsync_q='0' and LED_VSYNC='1' then
+                    r.state := WAITING_FOR_LED_START_IDLE;
+                end if;
+            
+            when WAITING_FOR_LED_START_IDLE =>
+                if (ws2801_busy or ws2811_busy or ws2812_busy)='0' then
                     r.state := STARTING;
                 end if;
             
             when STARTING =>
                 r.start := '1';
-                r.state := WAITING_FOR_IDLE;
-            
-            when WAITING_FOR_IDLE =>
-                if
-                    (
-                        (not ws2801_busy or ws2801_pausing) and
-                        (not ws2811_busy or ws2811_pausing) and
-                        (not ws2812_busy or ws2812_pausing)
-                    )='1'
-                then
-                    r.state := WAITING_FOR_FRAME_PAUSE;
+                if (ws2801_busy or ws2811_busy or ws2812_busy)='1' then
+                    r.state := WAITING_FOR_LED_END_IDLE;
                 end if;
             
-            when WAITING_FOR_FRAME_PAUSE =>
-                if LED_VSYNC='1' then
-                    r.state := GETTING_FRAME;
+            when WAITING_FOR_LED_END_IDLE =>
+                if
+                    (
+                        (not ws2801_busy or ws2801_vsync) and
+                        (not ws2811_busy or ws2811_vsync) and
+                        (not ws2812_busy or ws2812_vsync)
+                    )='1'
+                then
+                    r.state := WAITING_FOR_FRAME_START;
+                end if;
+            
+            when WAITING_FOR_FRAME_START =>
+                if led_vsync_q='1' and LED_VSYNC='0' then
+                    r.fifo_wr_en    := LED_RGB_WR_EN;
+                    r.state         := GETTING_FRAME;
                 end if;
             
         end case;
@@ -258,7 +265,8 @@ begin
         if RST='1' then
             cur_reg <= reg_type_def;
         elsif rising_edge(CLK) then
-            cur_reg <= next_reg;
+            cur_reg     <= next_reg;
+            led_vsync_q <= LED_VSYNC;
         end if;
     end process;
     
