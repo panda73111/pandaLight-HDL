@@ -22,7 +22,7 @@ use work.help_funcs.all;
 entity PANDA_LIGHT is
     generic (
         MAX_LED_CNT         : natural := 512;
-        PANDALIGHT_MAGIC    : string := "PANDALIGHT";
+        PANDALIGHT_MAGIC    : string := "PL";
         VERSION_MAJOR       : natural range 0 to 255 := 0;
         VERSION_MINOR       : natural range 0 to 255 := 1;
         G_CLK_MULT          : positive range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
