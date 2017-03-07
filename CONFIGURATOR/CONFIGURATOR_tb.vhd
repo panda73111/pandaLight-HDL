@@ -32,6 +32,7 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     signal CALCULATE        : std_ulogic := '0';
     signal CONFIGURE_LEDEX  : std_ulogic := '0';
     signal CONFIGURE_LEDCOR : std_ulogic := '0';
+    signal CONFIGURE_LEDCON : std_ulogic := '0';
     
     signal FRAME_WIDTH  : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     signal FRAME_HEIGHT : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
@@ -44,6 +45,7 @@ ARCHITECTURE behavior OF CONFIGURATOR_tb IS
     -- Outputs
     signal CFG_SEL_LEDEX    : std_ulogic;
     signal CFG_SEL_LEDCOR   : std_ulogic;
+    signal CFG_SEL_LEDCON   : std_ulogic;
     
     signal CFG_ADDR     : std_ulogic_vector(9 downto 0);
     signal CFG_WR_EN    : std_ulogic;
@@ -67,6 +69,7 @@ BEGIN
             CALCULATE           => CALCULATE,
             CONFIGURE_LEDEX     => CONFIGURE_LEDEX,
             CONFIGURE_LEDCOR    => CONFIGURE_LEDCOR,
+            CONFIGURE_LEDCON    => CONFIGURE_LEDCON,
             
             FRAME_WIDTH     => FRAME_WIDTH,
             FRAME_HEIGHT    => FRAME_HEIGHT,
@@ -78,6 +81,7 @@ BEGIN
             
             CFG_SEL_LEDEX   => CFG_SEL_LEDEX,
             CFG_SEL_LEDCOR  => CFG_SEL_LEDCOR,
+            CFG_SEL_LEDCON  => CFG_SEL_LEDCON,
             
             CFG_ADDR    => CFG_ADDR,
             CFG_WR_EN   => CFG_WR_EN,
@@ -172,15 +176,21 @@ BEGIN
         
         procedure configure is
         begin
+            CONFIGURE_LEDEX <= '1';
+            wait until rising_edge(CLK);
+            CONFIGURE_LEDEX <= '0';
+            wait until BUSY='0';
+            wait until rising_edge(CLK);
+            
             CONFIGURE_LEDCOR    <= '1';
             wait until rising_edge(CLK);
             CONFIGURE_LEDCOR    <= '0';
             wait until BUSY='0';
             wait until rising_edge(CLK);
             
-            CONFIGURE_LEDEX <= '1';
+            CONFIGURE_LEDCON <= '1';
             wait until rising_edge(CLK);
-            CONFIGURE_LEDEX <= '0';
+            CONFIGURE_LEDCON <= '0';
             wait until BUSY='0';
             wait until rising_edge(CLK);
         end procedure;
@@ -207,7 +217,7 @@ BEGIN
             START_LED_NUM       => stdulv( 10, 8),
             FRAME_DELAY         => stdulv(120, 8),
             RGB_MODE            => x"00",
-            LED_CONTROL_MODE    => x"00",
+            LED_CONTROL_MODE    => x"03",
             GAMMA_CORRECTION    => x"2000", -- 2.0
             MIN_RED             => x"00",
             MAX_RED             => x"FF",

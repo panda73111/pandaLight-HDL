@@ -16,7 +16,7 @@ architecture behavior of testbench is
     signal g_rst    : std_ulogic := '0';
     
     -- USB UART
-    signal USB_RXD  : std_ulogic := '1';
+    signal USB_RXD  : std_ulogic := '0';
     signal USB_TXD  : std_ulogic := '1';
     signal USB_CTSN : std_ulogic := '0';
     signal USB_RTSN : std_ulogic := '0';
@@ -25,29 +25,33 @@ architecture behavior of testbench is
     signal USB_DCDN : std_ulogic := '0';
     signal USB_RIN  : std_ulogic := '0';
     
-    -- BT UART
-    signal BT_CTSN  : std_ulogic := '0';
-    signal BT_RTSN  : std_ulogic := '0';
-    signal BT_RXD   : std_ulogic := '0';
-    signal BT_TXD   : std_ulogic := '1';
-    signal BT_WAKE  : std_ulogic := '0';
-    signal BT_RSTN  : std_ulogic := '0';
+    -- ESP32 UART
+    signal ESP_CTS : std_ulogic := '0';
+    signal ESP_RTS : std_ulogic := '0';
+    signal ESP_RXD : std_ulogic := '0';
+    signal ESP_TXD : std_ulogic := '1';
+    signal ESP_IO0 : std_ulogic := '0';
+    signal ESP_EN  : std_ulogic := '0';
     
     -- SPI Flash
     signal FLASH_MISO   : std_ulogic := '0';
-    signal FLASH_MOSI   : std_ulogic;
-    signal FLASH_CS     : std_ulogic;
-    signal FLASH_SCK    : std_ulogic;
+    signal FLASH_MOSI   : std_ulogic := '0';
+    signal FLASH_CS     : std_ulogic := '1';
+    signal FLASH_SCK    : std_ulogic := '0';
+    
+    -- LEDs
+    signal LEDS_CLK     : std_ulogic_vector(1 downto 0) := "00";
+    signal LEDS_DATA    : std_ulogic_vector(1 downto 0) := "00";
     
     -- PMOD
-    signal PMOD0    : std_logic_vector(3 downto 0) := "ZZZZ";
-    signal PMOD1    : std_logic_vector(3 downto 0) := "ZZZZ";
-    signal PMOD2    : std_logic_vector(3 downto 0) := "ZZZZ";
-    signal PMOD3    : std_logic_vector(3 downto 0) := "ZZZZ";
+    signal PMOD0    : std_ulogic_vector(3 downto 0) := x"0";
+    signal PMOD1    : std_ulogic_vector(3 downto 0) := x"0";
+    signal PMOD2    : std_ulogic_vector(3 downto 0) := x"0";
+    signal PMOD3    : std_ulogic_vector(3 downto 0) := x"0";
     
     constant G_CLK20_PERIOD : time := 50 ns;
     
-    constant UART_CLK_PERIOD    : time := 1 sec / 115_200;
+    constant UART_CLK_PERIOD    : time := 1 sec / 921_600;
     
     signal rxd, txd : std_ulogic := '0';
     
@@ -101,12 +105,12 @@ begin
         USB_RIN     => USB_RIN,
         
         -- BT UART
-        BT_CTSN => BT_CTSN,
-        BT_RTSN => BT_RTSN,
-        BT_RXD  => BT_RXD,
-        BT_TXD  => BT_TXD,
-        BT_WAKE => BT_WAKE,
-        BT_RSTN => BT_RSTN,
+        ESP_CTS => ESP_CTS,
+        ESP_RTS => ESP_RTS,
+        ESP_RXD => ESP_RXD,
+        ESP_TXD => ESP_TXD,
+        ESP_IO0 => ESP_IO0,
+        ESP_EN  => ESP_EN,
         
         -- SPI Flash
         FLASH_MISO  => FLASH_MISO,
@@ -115,8 +119,8 @@ begin
         FLASH_CS    => FLASH_CS,
         
         -- LEDs
-        LEDS_CLK    => open,
-        LEDS_DATA   => open,
+        LEDS_CLK    => LEDS_CLK,
+        LEDS_DATA   => LEDS_DATA,
         
         PMOD0   => PMOD0,
         PMOD1   => PMOD1,
@@ -178,13 +182,13 @@ begin
     end process;
     
     stim_proc : process
-        constant SERVICE_UUID   : string(1 to 32) := "56F46190A07D11E4BCD80800200C9A66";
-        constant TEST_SETTINGS  : std_ulogic_vector(1024*8-1 downto 0) :=
+        constant PANDALIGHT_MAGIC   : string := "PL";
+        constant TEST_SETTINGS      : std_ulogic_vector(1024*8-1 downto 0) :=
             x"10_0B_FF_1C_71_0F_FF_01_C7_01_FF_09_0F_FF_15_55" &
-            x"1C_71_00_FF_03_8E_00_00_00_00_20_00_00_FF_00_FF" &
-            x"00_FF_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"1C_71_00_FF_03_8E_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"00_00_00_03_20_00_00_FF_00_FF_00_FF_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
@@ -245,7 +249,7 @@ begin
             x"C4_C6_C8_CA_CB_CD_CF_D1_D3_D4_D6_D8_DA_DC_DE_E0" &
             x"E1_E3_E5_E7_E9_EB_ED_EF_F1_F3_F5_F7_F9_FB_FD_FF";
         
-        procedure send_bytes_to_b(v : std_ulogic_vector) is
+        procedure send_bytes(v : std_ulogic_vector) is
             constant BYTE_COUNT : positive := v'length/8;
             variable u  : std_ulogic_vector(v'length-1 downto 0);
             variable r  : std_ulogic_vector(v'reverse_range);
@@ -272,6 +276,18 @@ begin
                 
             end loop;
         end procedure;
+        
+        procedure send_string(s : string) is
+        begin
+            for i in s'range loop
+                send_bytes(stdulv(character'pos(s(i)), 8));
+            end loop;
+        end procedure;
+        
+        procedure send_magic is
+        begin
+            send_string(PANDALIGHT_MAGIC);
+        end procedure;
     begin
         g_rst   <= '1';
         wait for 200 ns;
@@ -279,54 +295,71 @@ begin
         wait for 200 ns;
         
         main_loop : loop
+                
+            -- send a wrong magic string to the module
+            report "Sending a wrong magic string";
+            send_string("TEST");
+            wait for 2 ms;
 
-             -- send "send system information via UART" request to the module (device B)
-             report "Sending 'send system information via UART' request";
-             send_bytes_to_b(x"00");
-             wait for 2 ms;
+            -- send "send system information via UART" request to the module
+            report "Sending 'send system information via UART' request";
+            send_magic;
+            send_bytes(x"00");
+            wait for 2 ms;
 
-             -- send "load settings from flash" request to the module (device B)
-             report "Sending 'load settings from flash' request";
-             send_bytes_to_b(x"20");
-             wait for 2 ms;
+            -- send "load settings from flash" request to the module
+            report "Sending 'load settings from flash' request";
+            send_magic;
+            send_bytes(x"20");
+            wait for 2 ms;
 
-             -- send "save settings to flash" request to the module (device B)
-             report "Sending 'save settings to flash' request";
-             send_bytes_to_b(x"21");
-             wait for 2 ms;
+            -- send "save settings to flash" request to the module
+            report "Sending 'save settings to flash' request";
+            send_magic;
+            send_bytes(x"21");
+            wait for 2 ms;
 
-             -- send "receive settings from UART" request to the module (device B)
-             report "Sending 'receive settings from UART' request";
-             send_bytes_to_b(x"22");
-             for block_i in 4 downto 1 loop
-                 send_bytes_to_b(TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8));
-             end loop;
-             wait for 2 ms;
-
-             -- send "send settings to UART" request to the module (device B)
-             report "Sending 'send settings to UART' request";
-             send_bytes_to_b(x"23");
-             wait for 2 ms;
-
-            -- send "receive bitfile from UART" (RX0 bitfile) request to the module (device B)
-            report "Sending 'receive bitfile from UART' request";
-            send_bytes_to_b(x"40");
-            send_bytes_to_b(x"00"); -- bitfile index
-            send_bytes_to_b(x"000400"); -- bitfile size (1 kB)
-            for i in 0 to 1023 loop
-                send_bytes_to_b(stdulv(i mod 256, 8));
+            -- send "receive settings from UART" request to the module
+            report "Sending 'receive settings from UART' request";
+            send_magic;
+            send_bytes(x"22");
+            for block_i in 4 downto 1 loop
+                send_bytes(TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8));
             end loop;
             wait for 2 ms;
 
-            -- send "receive LED colors from UART" request to the module (device B)
-            report "Sending 'receive LED colors from UART' request";
-            send_bytes_to_b(x"60");
-            send_bytes_to_b(stdulv(50, 8)); -- LED count
-            for i in 1 to 50 loop
-                send_bytes_to_b(stdulv(i, 8));
-                send_bytes_to_b(stdulv(128+i, 8));
-                send_bytes_to_b(stdulv(255-i, 8));
+            -- send "send settings to UART" request to the module
+            report "Sending 'send settings to UART' request";
+            send_magic;
+            send_bytes(x"23");
+            wait for 2 ms;
+
+            -- send "receive bitfile from UART" (RX0 bitfile) request to the module
+            report "Sending 'receive bitfile from UART' request";
+            send_magic;
+            send_bytes(x"40");
+            send_bytes(x"00"); -- bitfile index
+            send_bytes(x"000400"); -- bitfile size (1 kB)
+            for i in 0 to 1023 loop
+                send_bytes(stdulv(i mod 256, 8));
             end loop;
+            wait for 2 ms;
+            
+            for frame_i in 1 to 100 loop
+            
+                -- send "receive LED colors from UART" request to the module
+                report "Sending 'receive LED colors from UART' request";
+                send_magic;
+                send_bytes(x"60");
+                send_bytes(stdulv(200, 8)); -- LED count
+                for i in 1 to 200 loop
+                    send_bytes(stdulv(i, 8));
+                    send_bytes(stdulv((128+i) mod 255, 8));
+                    send_bytes(stdulv(255-i, 8));
+                end loop;
+            
+            end loop;
+            
             wait for 2 ms;
 
             report "NONE. All tests completed."
