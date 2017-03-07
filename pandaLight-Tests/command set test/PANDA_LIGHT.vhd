@@ -505,6 +505,7 @@ begin
             RECEIVING_BITFILE_SIZE_FROM_UART_BYTE_2,
             RECEIVING_BITFILE_SIZE_FROM_UART_BYTE_3,
             RECEIVING_LED_COUNT_FROM_UART,
+            WAITING_FOR_BUSY,
             WAITING_FOR_IDLE
         );
         
@@ -512,7 +513,6 @@ begin
         signal recv_magic_index     : natural range 1 to PANDALIGHT_MAGIC'length+1 := 1;
         signal char_counter         : unsigned(log2(PANDALIGHT_MAGIC'length)+1 downto 0) := (others => '0');
         signal char_counter_expired : boolean := false;
-        signal three_din            : unsigned(9 downto 0) := (others => '0');
         
         type data_handling_state_type is (
             WAITING_FOR_COMMAND,
@@ -531,15 +531,14 @@ begin
     begin
         
         uart_response_idle      <= data_handling_state=WAITING_FOR_COMMAND;
-        three_din               <= uns('0' & uart_din & '0') + uns(uart_din);
         char_counter_expired    <= char_counter(char_counter'high)='1';
         data_counter_expired    <= data_handling_counter(data_handling_counter'high)='1';
         
         uart_evaluation_proc : process(uart_rst, uart_clk)
         begin
             if uart_rst='1' then
-                cmd_eval_state                  <= WAITING_FOR_COMMAND;
-                recv_magic_index                <= 0;
+                cmd_eval_state                  <= INITIALIZING;
+                recv_magic_index                <= 1;
                 char_counter                    <= (others => '0');
                 start_sysinfo_to_uart           <= false;
                 start_settings_read_from_flash  <= false;
@@ -577,7 +576,7 @@ begin
                         end if;
                     
                     when EVALUATING_COMMAND =>
-                        if data_handling_state=WAITING_FOR_COMMAND and uart_din_valid='1' then
+                        if uart_din_valid='1' then
                             case uart_din is
                                 when x"00" => -- send system information via UART
                                     start_sysinfo_to_uart           <= true;
@@ -589,7 +588,7 @@ begin
                                     start_settings_write_to_flash   <= true;
                                 when x"22" => -- receive settings from UART
                                     start_settings_read_from_uart   <= true;
-                                    cmd_eval_state  <= WAITING_FOR_IDLE;
+                                    cmd_eval_state  <= WAITING_FOR_BUSY;
                                 when x"23" => -- send settings to UART
                                     start_settings_write_to_uart    <= true;
                                 when x"40" => -- receive bitfile from UART
@@ -623,16 +622,24 @@ begin
                         if uart_din_valid='1' then
                             bitfile_size(7 downto 0)        <= uns(uart_din);
                             start_bitfile_read_from_uart    <= true;
-                            cmd_eval_state                  <= WAITING_FOR_IDLE;
+                            cmd_eval_state                  <= WAITING_FOR_BUSY;
                         end if;
                     
                     when RECEIVING_LED_COUNT_FROM_UART =>
-                        cmd_eval_counter                <= (others => '0');
-                        cmd_eval_counter(9 downto 0)    <= three_din-2;
                         if uart_din_valid='1' then
                             uart_led_count              <= uns(uart_din);
                             start_led_read_from_uart    <= true;
-                            cmd_eval_state              <= WAITING_FOR_IDLE;
+                            cmd_eval_state              <= WAITING_FOR_BUSY;
+                        end if;
+                    
+                    when WAITING_FOR_BUSY =>
+                        if not (
+                            uart_response_idle and
+                            configurator_idle and
+                            flash_control_idle and
+                            led_control_idle
+                        ) then
+                            cmd_eval_state  <= WAITING_FOR_IDLE;
                         end if;
                     
                     when WAITING_FOR_IDLE =>

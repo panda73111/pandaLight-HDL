@@ -182,8 +182,8 @@ begin
     end process;
     
     stim_proc : process
-        constant SERVICE_UUID   : string(1 to 32) := "56F46190A07D11E4BCD80800200C9A66";
-        constant TEST_SETTINGS  : std_ulogic_vector(1024*8-1 downto 0) :=
+        constant PANDALIGHT_MAGIC   : string := "PL";
+        constant TEST_SETTINGS      : std_ulogic_vector(1024*8-1 downto 0) :=
             x"10_0B_FF_1C_71_0F_FF_01_C7_01_FF_09_0F_FF_15_55" &
             x"1C_71_00_FF_03_8E_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
@@ -249,7 +249,7 @@ begin
             x"C4_C6_C8_CA_CB_CD_CF_D1_D3_D4_D6_D8_DA_DC_DE_E0" &
             x"E1_E3_E5_E7_E9_EB_ED_EF_F1_F3_F5_F7_F9_FB_FD_FF";
         
-        procedure send_bytes_to_b(v : std_ulogic_vector) is
+        procedure send_bytes(v : std_ulogic_vector) is
             constant BYTE_COUNT : positive := v'length/8;
             variable u  : std_ulogic_vector(v'length-1 downto 0);
             variable r  : std_ulogic_vector(v'reverse_range);
@@ -276,6 +276,18 @@ begin
                 
             end loop;
         end procedure;
+        
+        procedure send_string(s : string) is
+        begin
+            for i in s'range loop
+                send_bytes(stdulv(character'pos(s(i)), 8));
+            end loop;
+        end procedure;
+        
+        procedure send_magic is
+        begin
+            send_string(PANDALIGHT_MAGIC);
+        end procedure;
     begin
         g_rst   <= '1';
         wait for 200 ns;
@@ -283,55 +295,67 @@ begin
         wait for 200 ns;
         
         main_loop : loop
+                
+            -- send a wrong magic string to the module
+            report "Sending a wrong magic string";
+            send_string("TEST");
+            wait for 2 ms;
 
---             -- send "send system information via UART" request to the module (device B)
---             report "Sending 'send system information via UART' request";
---             send_bytes_to_b(x"00");
---             wait for 2 ms;
---
---             -- send "load settings from flash" request to the module (device B)
---             report "Sending 'load settings from flash' request";
---             send_bytes_to_b(x"20");
---             wait for 2 ms;
---
---             -- send "save settings to flash" request to the module (device B)
---             report "Sending 'save settings to flash' request";
---             send_bytes_to_b(x"21");
---             wait for 2 ms;
---
---             -- send "receive settings from UART" request to the module (device B)
---             report "Sending 'receive settings from UART' request";
---             send_bytes_to_b(x"22");
---             for block_i in 4 downto 1 loop
---                 send_bytes_to_b(TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8));
---             end loop;
---             wait for 2 ms;
---
---             -- send "send settings to UART" request to the module (device B)
---             report "Sending 'send settings to UART' request";
---             send_bytes_to_b(x"23");
---             wait for 2 ms;
---
---            -- send "receive bitfile from UART" (RX0 bitfile) request to the module (device B)
---            report "Sending 'receive bitfile from UART' request";
---            send_bytes_to_b(x"40");
---            send_bytes_to_b(x"00"); -- bitfile index
---            send_bytes_to_b(x"000400"); -- bitfile size (1 kB)
---            for i in 0 to 1023 loop
---                send_bytes_to_b(stdulv(i mod 256, 8));
---            end loop;
---            wait for 2 ms;
+            -- send "send system information via UART" request to the module
+            report "Sending 'send system information via UART' request";
+            send_magic;
+            send_bytes(x"00");
+            wait for 2 ms;
+
+            -- send "load settings from flash" request to the module
+            report "Sending 'load settings from flash' request";
+            send_magic;
+            send_bytes(x"20");
+            wait for 2 ms;
+
+            -- send "save settings to flash" request to the module
+            report "Sending 'save settings to flash' request";
+            send_magic;
+            send_bytes(x"21");
+            wait for 2 ms;
+
+            -- send "receive settings from UART" request to the module
+            report "Sending 'receive settings from UART' request";
+            send_magic;
+            send_bytes(x"22");
+            for block_i in 4 downto 1 loop
+                send_bytes(TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8));
+            end loop;
+            wait for 2 ms;
+
+            -- send "send settings to UART" request to the module
+            report "Sending 'send settings to UART' request";
+            send_magic;
+            send_bytes(x"23");
+            wait for 2 ms;
+
+            -- send "receive bitfile from UART" (RX0 bitfile) request to the module
+            report "Sending 'receive bitfile from UART' request";
+            send_magic;
+            send_bytes(x"40");
+            send_bytes(x"00"); -- bitfile index
+            send_bytes(x"000400"); -- bitfile size (1 kB)
+            for i in 0 to 1023 loop
+                send_bytes(stdulv(i mod 256, 8));
+            end loop;
+            wait for 2 ms;
             
             for frame_i in 1 to 100 loop
             
-                -- send "receive LED colors from UART" request to the module (device B)
+                -- send "receive LED colors from UART" request to the module
                 report "Sending 'receive LED colors from UART' request";
-                send_bytes_to_b(x"60");
-                send_bytes_to_b(stdulv(200, 8)); -- LED count
+                send_magic;
+                send_bytes(x"60");
+                send_bytes(stdulv(200, 8)); -- LED count
                 for i in 1 to 200 loop
-                    send_bytes_to_b(stdulv(i, 8));
-                    send_bytes_to_b(stdulv(128+i, 8));
-                    send_bytes_to_b(stdulv(255-i, 8));
+                    send_bytes(stdulv(i, 8));
+                    send_bytes(stdulv((128+i) mod 255, 8));
+                    send_bytes(stdulv(255-i, 8));
                 end loop;
             
             end loop;
