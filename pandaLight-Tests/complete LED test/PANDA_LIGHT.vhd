@@ -1,13 +1,13 @@
 ----------------------------------------------------------------------------------
 -- Engineer: Sebastian Huether
--- 
--- Create Date:    21:49:35 07/28/2014 
--- Module Name:    PANDA_LIGHT - rtl 
+--
+-- Create Date:    21:49:35 07/28/2014
+-- Module Name:    PANDA_LIGHT - rtl
 -- Project Name:   PANDA_LIGHT
 -- Tool versions:  Xilinx ISE 14.7
--- Description: 
+-- Description:
 --
--- Additional Comments: 
+-- Additional Comments:
 --
 ----------------------------------------------------------------------------------
 library IEEE;
@@ -123,7 +123,6 @@ architecture rtl of PANDA_LIGHT is
     signal usb_dsrn_deb_q       : std_ulogic := '0';
     signal usb_connected        : boolean := false;
     
-    signal uart_clk         : std_ulogic := '0';
     signal uart_rst         : std_ulogic := '0';
     signal uart_connected   : boolean := false;
     signal uart_din         : std_ulogic_vector(7 downto 0) := x"00";
@@ -445,7 +444,6 @@ begin
     
     usb_connected   <= usb_dsrn_deb='0';
     
-    uart_clk        <= g_clk;
     uart_rst        <= '1' when g_rst='1' or not uart_connected else '0';
     uart_connected  <= usb_connected or btctrl_connected='1';
     uart_din        <= btctrl_dout when btctrl_dout_valid='1' else usbctrl_dout;
@@ -873,7 +871,7 @@ begin
     ------------------------
     
     usbctrl_clk <= g_clk;
-    usbctrl_rst <= g_rst;
+    usbctrl_rst <= uart_rst;
     
     usbctrl_cts <= not USB_CTSN;
     usbctrl_rxd <= USB_RXD;
@@ -948,9 +946,9 @@ begin
         cmd_counter_expired     <= cmd_eval_counter(cmd_eval_counter'high)='1';
         data_counter_expired    <= data_handling_counter(data_handling_counter'high)='1';
         
-        uart_evaluation_proc : process(uart_rst, uart_clk)
+        uart_evaluation_proc : process(usbctrl_rst, usbctrl_clk)
         begin
-            if uart_rst='1' then
+            if usbctrl_rst='1' then
                 cmd_eval_state                  <= WAITING_FOR_COMMAND;
                 cmd_eval_counter                <= uns(1023, cmd_eval_counter'length);
                 start_sysinfo_to_uart           <= false;
@@ -959,7 +957,7 @@ begin
                 start_settings_read_from_uart   <= false;
                 start_settings_write_to_uart    <= false;
                 start_bitfile_read_from_uart    <= false;
-            elsif rising_edge(uart_clk) then
+            elsif rising_edge(usbctrl_clk) then
                 start_sysinfo_to_uart           <= false;
                 start_settings_read_from_flash  <= false;
                 start_settings_write_to_flash   <= false;
@@ -1024,15 +1022,15 @@ begin
             end if;
         end process;
         
-        uart_stim_proc : process(uart_rst, uart_clk)
+        uart_stim_proc : process(usbctrl_rst, usbctrl_clk)
         begin
-            if uart_rst='1' then
+            if usbctrl_rst='1' then
                 data_handling_state     <= WAITING_FOR_COMMAND;
                 data_handling_counter   <= uns(1022, data_handling_counter'length);
                 magic_char_index        <= uns(1, magic_char_index'length);
                 uart_dout_wr_en         <= '0';
                 uart_dout_send          <= '0';
-            elsif rising_edge(uart_clk) then
+            elsif rising_edge(usbctrl_clk) then
                 uart_dout_wr_en <= '0';
                 uart_dout_send  <= '0';
                 
@@ -1147,18 +1145,19 @@ begin
             SENDING_SETTINGS_TO_UART
         );
         
-        signal state            : state_type := INIT;
-        signal counter          : unsigned(10 downto 0) := uns(1023, 11);
-        signal settings_addr    : std_ulogic_vector(9 downto 0) := (others => '0');
+        signal state                : state_type := INIT;
+        signal counter              : unsigned(10 downto 0) := uns(1023, 11);
+        signal settings_addr        : std_ulogic_vector(9 downto 0) := (others => '0');
+        signal init_read_finished   : boolean := false;
         
         signal counter_expired  : boolean := false;
     begin
         
         counter_expired <= counter(counter'high)='1';
         
-        configurator_stim_proc : process(g_clk, g_rst)
+        configurator_stim_proc : process(conf_rst, conf_clk)
         begin
-            if g_rst='1' then
+            if conf_rst='1' then
                 conf_settings_wr_en     <= '0';
                 conf_settings_din       <= x"00";
                 conf_calculate          <= '0';
@@ -1167,7 +1166,7 @@ begin
                 counter                 <= uns(1023, 11);
                 settings_addr           <= (others => '0');
                 conf_settings_addr      <= (others => '0');
-            elsif rising_edge(g_clk) then
+            elsif rising_edge(conf_clk) then
                 conf_settings_wr_en     <= '0';
                 conf_calculate          <= '0';
                 conf_configure_ledex    <= '0';
@@ -1179,6 +1178,9 @@ begin
                         counter         <= uns(1023, counter'length);
                         settings_addr   <= (others => '0');
                         state           <= READING_SETTINGS_FROM_FLASH;
+                        if init_read_finished then
+                            state   <= CALCULATING;
+                        end if;
                     
                     when READING_SETTINGS_FROM_FLASH =>
                         conf_settings_addr  <= settings_addr;
@@ -1190,7 +1192,8 @@ begin
                         end if;
                         if counter_expired then
                             -- read 1k bytes
-                            state   <= CALCULATING;
+                            init_read_finished  <= true;
+                            state               <= CALCULATING;
                         end if;
                     
                     when CALCULATING =>
@@ -1341,15 +1344,15 @@ begin
         
         bitfile_address <= RX0_BITFILE_ADDR when bitfile_index=0 else RX1_BITFILE_ADDR;
         
-        spi_flash_control_stim_proc : process(g_clk, g_rst)
+        spi_flash_control_stim_proc : process(fctrl_rst, fctrl_clk)
             variable next_state : state_type := INIT;
         begin
-            if g_rst='1' then
+            if fctrl_rst='1' then
                 state           <= INIT;
                 fctrl_rd_en     <= '0';
                 fctrl_wr_en     <= '0';
                 fctrl_end_wr    <= '0';
-            elsif rising_edge(g_clk) then
+            elsif rising_edge(fctrl_clk) then
                 fctrl_rd_en     <= '0';
                 fctrl_wr_en     <= '0';
                 fctrl_end_wr    <= '0';
