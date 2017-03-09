@@ -177,6 +177,7 @@ begin
     SETTINGS_DOUT   <= buf_do;
     CFG_SEL_LEDEX   <= cur_reg.cfg_sel_ledex;
     CFG_SEL_LEDCOR  <= cur_reg.cfg_sel_ledcor;
+    CFG_SEL_BBD     <= cur_reg.cfg_sel_bbd;
     CFG_ADDR        <= cur_reg.cfg_addr;
     CFG_WR_EN       <= cur_reg.cfg_wr_en;
     CFG_DATA        <= cur_reg.cfg_data;
