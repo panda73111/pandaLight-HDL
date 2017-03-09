@@ -405,11 +405,11 @@ begin
                 r.cfg_data      := buf_do;
                 r.buf_rd_p      := cr.buf_rd_p+1;
                 case r.cfg_addr(3 downto 0) is
-                    when "1000" =>  r.cfg_data  := FRAME_WIDTH(15 downto 8);
-                    when "1001" =>  r.cfg_data  := FRAME_WIDTH(7 downto 0);
-                    when "1010" =>  r.cfg_data  := FRAME_HEIGHT(15 downto 8);
-                    when "1011" =>  r.cfg_data  := FRAME_HEIGHT(7 downto 0);
-                                    r.state     := WAITING_FOR_START;
+                    when "1000" =>  r.cfg_data(DIM_BITS-9 downto 0) := FRAME_WIDTH(DIM_BITS-1 downto 8);
+                    when "1001" =>  r.cfg_data                      := FRAME_WIDTH(7 downto 0);
+                    when "1010" =>  r.cfg_data(DIM_BITS-9 downto 0) := FRAME_HEIGHT(DIM_BITS-1 downto 8);
+                    when "1011" =>  r.cfg_data                      := FRAME_HEIGHT(7 downto 0);
+                                    r.state := WAITING_FOR_START;
                     when others =>  null;
                 end case;
             
