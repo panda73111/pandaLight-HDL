@@ -109,10 +109,10 @@ BEGIN
             gamma_correction                                                        : std_ulogic_vector(15 downto 0); -- 4 + 12 Bit fixed point
             min_red, max_red, min_green, max_green, min_blue, max_blue              : std_ulogic_vector(7 downto 0);
             bbd_enable                                                              : std_ulogic;
-            bbd_threshold,                                                          : std_ulogic_vector(7 downto 0);
-            bbd_consistent_frames, bbd_inconsistent_frames,                         : std_ulogic_vector(7 downto 0);
-            bbd_remove_bias,                                                        : std_ulogic_vector(7 downto 0);
-            bbd_scan_width, bbd_scan_height,                                        : std_ulogic_vector(15 downto 0);
+            bbd_threshold                                                           : std_ulogic_vector(7 downto 0);
+            bbd_consistent_frames, bbd_inconsistent_frames                          : std_ulogic_vector(7 downto 0);
+            bbd_remove_bias                                                         : std_ulogic_vector(7 downto 0);
+            bbd_scan_width, bbd_scan_height                                         : std_ulogic_vector(15 downto 0);
             r_lookup_table, g_lookup_table, b_lookup_table                          : channel_lookup_table_type;
         end record;
         variable settings1, settings2   : settings_type;
@@ -194,18 +194,21 @@ BEGIN
             wait until rising_edge(CLK);
             CONFIGURE_LEDCOR    <= '0';
             wait until BUSY='0';
+            wait for 2 ms;
             wait until rising_edge(CLK);
             
             CONFIGURE_LEDEX <= '1';
             wait until rising_edge(CLK);
             CONFIGURE_LEDEX <= '0';
             wait until BUSY='0';
+            wait for 2 ms;
             wait until rising_edge(CLK);
             
             CONFIGURE_BBD <= '1';
             wait until rising_edge(CLK);
             CONFIGURE_BBD <= '0';
             wait until BUSY='0';
+            wait for 2 ms;
             wait until rising_edge(CLK);
         end procedure;
     begin
@@ -244,8 +247,8 @@ BEGIN
             bbd_consistent_frames   => stdulv( 10,  8),
             bbd_inconsistent_frames => stdulv( 10,  8),
             bbd_remove_bias         => stdulv(  2,  8),
-            bbd_scan_width          => x"5555", -- 1/3 of the screen
-            bbd_scan_height         => x"5555",
+            bbd_scan_width          => stdulv(400 * DIMENSION_MAX / 1280, 16),
+            bbd_scan_height         => stdulv(400 * DIMENSION_MAX /  720, 16),
             r_lookup_table          => (others  => x"FF"),
             g_lookup_table          => (others  => x"FF"),
             b_lookup_table          => (others  => x"FF")
