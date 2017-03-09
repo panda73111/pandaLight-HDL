@@ -58,8 +58,9 @@ end BLACK_BORDER_DETECTOR;
 
 architecture rtl of BLACK_BORDER_DETECTOR is
     
-    constant HOR    : natural := 0;
-    constant VER    : natural := 1;
+    constant RGB_BITS   : positive := R_BITS+G_BITS+B_BITS;
+    constant HOR        : natural := 0;
+    constant VER        : natural := 1;
     
     type state_type is (
         WAITING_FOR_BORDER_SIZES,
