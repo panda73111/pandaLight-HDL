@@ -20,6 +20,7 @@ use work.txt_util.all;
 
 entity PANDA_LIGHT is
     generic (
+        RX_SEL              : natural range 0 to 1 := 1;
         MAX_LED_CNT         : natural := 512;
         PANDALIGHT_MAGIC    : string := "PL";
         VERSION_MAJOR       : natural range 0 to 255 := 0;
@@ -129,10 +130,14 @@ architecture rtl of PANDA_LIGHT is
     --- HDMI related signals ---
     ----------------------------
     
-    signal rx_det_sync      : std_ulogic := '0';
-    signal rx_det_stable    : std_ulogic := '0';
+    signal rx_det_sync      : std_ulogic_vector(1 downto 0) := "00";
+    signal rx_det_stable    : std_ulogic_vector(1 downto 0) := "00";
     
-    signal rx_channels_in   : std_ulogic_vector(3 downto 0) := x"0";
+    signal tx_det_sync      : std_ulogic := '0';
+    signal tx_det_stable    : std_ulogic := '0';
+    
+    signal rx_channels_in   : std_ulogic_vector(7 downto 0) := x"00";
+    signal tx_channels_out  : std_ulogic_vector(3 downto 0) := x"0";
     
     ----------------------------------
     --- HDMI ISerDes clock manager ---
@@ -194,6 +199,21 @@ architecture rtl of PANDA_LIGHT is
     signal analyzer_height          : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     signal analyzer_interlaced      : std_ulogic := '0';
     signal analyzer_valid           : std_ulogic := '0';
+    
+    
+    -----------------------------
+    --- RX to TX0 passthrough ---
+    -----------------------------
+    
+    -- Inputs
+    signal rxpt_pix_clk : std_ulogic := '0';
+    signal rxpt_rst     : std_ulogic := '0';
+    
+    -- Outputs
+    signal rxpt_rx_raw_data         : std_ulogic_vector(14 downto 0) := (others => '0');
+    signal rxpt_rx_raw_data_valid   : std_ulogic := '0';
+    
+    signal rxpt_tx_channels_out : std_ulogic_vector(3 downto 0) := "0000";
     
     
     ------------------------
@@ -393,28 +413,56 @@ begin
     ------ HDMI signal management ------
     ------------------------------------
     
-    RX_EN(0)    <= '1';
+    -- only enabled chips make 'DET' signals possible!
+    RX_EN(RX_SEL)   <= tx_det_stable;
+    RX_EN(1-RX_SEL) <= '0';
+    TX_EN           <= '1';
+    
+    tx_channels_out <= rxpt_tx_channels_out;
         
-    rx_det_SIGNAL_SYNC_inst : entity work.SIGNAL_SYNC
+    rx_SIGNAL_SYNC_and_DEBOUNCE_gen : for i in 0 to 1 generate
+        
+        rx_det_SIGNAL_SYNC_inst : entity work.SIGNAL_SYNC
+            port map (
+                CLK => g_clk,
+                
+                DIN     => RX_DET(i),
+                DOUT    => rx_det_sync(i)
+            );
+        
+        rx_det_DEBOUNCE_inst : entity work.DEBOUNCE
+            generic map (
+                CYCLE_COUNT => 1500
+            )
+            port map (
+                CLK => g_clk,
+                
+                I   => rx_det_sync(i),
+                O   => rx_det_stable(i)
+            );
+    
+    end generate;
+    
+    tx_det_SIGNAL_SYNC_inst : entity work.SIGNAL_SYNC
         port map (
             CLK => g_clk,
             
-            DIN     => RX_DET(0),
-            DOUT    => rx_det_sync
+            DIN     => tx_det,
+            DOUT    => tx_det_sync
         );
-    
-    rx_det_DEBOUNCE_inst : entity work.DEBOUNCE
+        
+    tx_det_DEBOUNCE_inst : entity work.DEBOUNCE
         generic map (
-            CYCLE_COUNT => 1500
+            CYCLE_COUNT => 1000
         )
         port map (
             CLK => g_clk,
             
-            I   => rx_det_sync,
-            O   => rx_det_stable
+            I   => tx_det_sync,
+            O   => tx_det_stable
         );
     
-    RX0_diff_IBUFDS_gen : for i in 0 to 3 generate
+    diff_IBUFDS_gen : for i in 0 to 7 generate
         
         rx_channel_IBUFDS_inst : IBUFDS
             generic map (DIFF_TERM  => false)
@@ -426,23 +474,11 @@ begin
         
     end generate;
     
-    RX1_diff_IBUFDS_gen : for i in 4 to 7 generate
-        
-        rx_channel_IBUFDS_inst : IBUFDS
-            generic map (DIFF_TERM  => false)
-            port map (
-                I   => RX_CHANNELS_IN_P(i),
-                IB  => RX_CHANNELS_IN_N(i),
-                O   => open
-            );
-        
-    end generate;
-    
     diff_OBUFDS_gen : for i in 0 to 3 generate
         
         tx_channel_OBUFDS_inst : OBUFDS
             port map (
-                I   => '1',
+                I   => tx_channels_out(i),
                 O   => TX_CHANNELS_OUT_P(i),
                 OB  => TX_CHANNELS_OUT_N(i)
             );
@@ -450,11 +486,42 @@ begin
     end generate;
     
     
+    ----------------------------
+    --- HDMI DDC passthrough ---
+    ----------------------------
+    
+    scl_BIDIR_REPEAT_BUFFER_inst : entity work.BIDIR_REPEAT_BUFFER
+        generic map (
+            PULL    => "UP"
+        )
+        port map (
+            CLK => g_clk,
+            
+            P0_IN   => RX_SCL(RX_SEL),
+            P0_OUT  => RX_SCL(RX_SEL),
+            P1_IN   => TX_SCL,
+            P1_OUT  => TX_SCL
+        );
+    
+    sda_BIDIR_REPEAT_BUFFER_inst : entity work.BIDIR_REPEAT_BUFFER
+        generic map (
+            PULL    => "UP"
+        )
+        port map (
+            CLK => g_clk,
+            
+            P0_IN   => RX_SDA(RX_SEL),
+            P0_OUT  => RX_SDA(RX_SEL),
+            P1_IN   => TX_SDA,
+            P1_OUT  => TX_SDA
+        );
+    
+    
     ----------------------------------
     --- HDMI ISerDes clock manager ---
     ----------------------------------
     
-    rxclk_clk_in    <= rx_channels_in(3);
+    rxclk_clk_in    <= rx_channels_in(RX_SEL*4 + 3);
 
     ISERDES2_CLK_MAN_inst : entity work.ISERDES2_CLK_MAN
         generic map (
@@ -483,7 +550,7 @@ begin
     rx_pix_clk          <= rxclk_clk_out2;
     rx_pix_clk_x2       <= rxclk_clk_out1;
     rx_pix_clk_x10      <= rxclk_ioclk_out;
-    rx_rst              <= g_rst or not rx_det_stable or not rxclk_ioclk_locked;
+    rx_rst              <= g_rst or not rx_det_stable(RX_SEL) or not rxclk_ioclk_locked;
     rx_serdesstrobe     <= rxclk_serdesstrobe;
     
     TMDS_DECODER_inst : entity work.TMDS_DECODER
@@ -495,7 +562,7 @@ begin
             
             SERDESSTROBE    => rx_serdesstrobe,
             
-            CHANNELS_IN => rx_channels_in(2 downto 0),
+            CHANNELS_IN => rx_channels_in(RX_SEL*4 + 2 downto RX_SEL*4),
             
             RAW_DATA        => rx_raw_data,
             RAW_DATA_VALID  => rx_raw_data_valid,
@@ -506,6 +573,28 @@ begin
             RGB_VALID   => rx_rgb_valid,
             AUX         => rx_aux,
             AUX_VALID   => rx_aux_valid
+        );
+    
+    
+    -----------------------------
+    --- RX to TX0 passthrough ---
+    -----------------------------
+    
+    rxpt_pix_clk    <= rx_pix_clk;
+    rxpt_rst        <= rx_rst;
+    
+    rxpt_rx_raw_data        <= rx_raw_data;
+    rxpt_rx_raw_data_valid  <= rx_raw_data_valid;
+    
+    TMDS_PASSTHROUGH_inst : entity work.TMDS_PASSTHROUGH
+        port map (
+            PIX_CLK => rxpt_pix_clk,
+            RST     => rxpt_rst,
+            
+            RX_RAW_DATA         => rxpt_rx_raw_data,
+            RX_RAW_DATA_VALID   => rxpt_rx_raw_data_valid,
+            
+            TX_CHANNELS_OUT => rxpt_tx_channels_out
         );
     
     
@@ -732,7 +821,7 @@ begin
                 state           <= IDLE;
                 dbg_wr_en       <= '0';
             elsif rising_edge(dbg_clk) then
-                rx_det_stable_q     <= rx_det_stable;
+                rx_det_stable_q     <= rx_det_stable(RX_SEL);
                 analyzer_valid_q    <= analyzer_valid;
                 bbd_border_valid_q  <= bbd_border_valid;
                 dbg_wr_en           <= '0';
@@ -740,7 +829,7 @@ begin
                 case state is
                     
                     when IDLE =>
-                        if rx_det_stable_q='0' and rx_det_stable='1' then
+                        if rx_det_stable_q='0' and rx_det_stable(RX_SEL)='1' then
                             state   <= PRINTING_RX_DET_EVENT;
                         end if;
                         if analyzer_valid_q='0' and analyzer_valid='1' then
