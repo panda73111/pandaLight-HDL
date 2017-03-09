@@ -414,7 +414,7 @@ begin
             O   => rx_det_stable
         );
     
-    diff_IBUFDS_gen : for i in 0 to 3 generate
+    RX0_diff_IBUFDS_gen : for i in 0 to 3 generate
         
         rx_channel_IBUFDS_inst : IBUFDS
             generic map (DIFF_TERM  => false)
@@ -422,6 +422,18 @@ begin
                 I   => RX_CHANNELS_IN_P(i),
                 IB  => RX_CHANNELS_IN_N(i),
                 O   => rx_channels_in(i)
+            );
+        
+    end generate;
+    
+    RX1_diff_IBUFDS_gen : for i in 4 to 7 generate
+        
+        rx_channel_IBUFDS_inst : IBUFDS
+            generic map (DIFF_TERM  => false)
+            port map (
+                I   => RX_CHANNELS_IN_P(i),
+                IB  => RX_CHANNELS_IN_N(i),
+                O   => open
             );
         
     end generate;
