@@ -109,10 +109,6 @@ architecture rtl of BLACK_BORDER_DETECTOR is
     signal threshold            : std_ulogic_vector(7 downto 0) := x"00";
     signal consistent_frames    : std_ulogic_vector(7 downto 0) := x"00";
     signal inconsistent_frames  : std_ulogic_vector(7 downto 0) := x"00";
-    signal scan_width           : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
-    signal scan_height          : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
-    signal frame_width          : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
-    signal frame_height         : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
 begin
     
@@ -135,14 +131,6 @@ begin
                     when "0001" => threshold                            <= CFG_DATA;
                     when "0010" => consistent_frames                    <= CFG_DATA;
                     when "0011" => inconsistent_frames                  <= CFG_DATA;
-                    when "0101" => scan_width  (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
-                    when "0110" => scan_width  (         7 downto 0)    <= CFG_DATA;
-                    when "0111" => scan_height (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
-                    when "1000" => scan_height (         7 downto 0)    <= CFG_DATA;
-                    when "1001" => frame_width (DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
-                    when "1010" => frame_width (         7 downto 0)    <= CFG_DATA;
-                    when "1011" => frame_height(DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
-                    when "1100" => frame_height(         7 downto 0)    <= CFG_DATA;
                     when others => null;
                 end case;
             end if;
