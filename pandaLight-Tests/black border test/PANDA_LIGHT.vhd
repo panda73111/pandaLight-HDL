@@ -361,9 +361,6 @@ begin
     FLASH_CS    <= fctrl_sn;
     FLASH_SCK   <= fctrl_c;
     
-    LEDS_CLK    <= lctrl_leds_clk & lctrl_leds_clk;
-    LEDS_DATA   <= lctrl_leds_data & lctrl_leds_data;
-    
     USB_TXD     <= dbg_txd;
     USB_RTSN    <= dbg_full;
     
@@ -709,8 +706,8 @@ begin
         signal rx_det_stable_q      : std_ulogic := '0';
         signal analyzer_valid_q     : std_ulogic := '0';
         signal bbd_border_valid_q   : std_ulogic := '0';
-        signal border_hor_string    : string(1 to DIM_BIT) := (others => nul);
-        signal border_ver_string    : string(1 to DIM_BIT) := (others => nul);
+        signal border_hor_string    : string(1 to DIM_BITS) := (others => nul);
+        signal border_ver_string    : string(1 to DIM_BITS) := (others => nul);
         
     begin
         
@@ -720,10 +717,8 @@ begin
         process(dbg_rst, dbg_clk)
         begin
             if dbg_rst='1' then
+                state           <= IDLE;
                 dbg_wr_en       <= '0';
-                state           <= WAITING_FOR_BOOT;
-                boot_msg_delay  <= 0;
-                cycle_cnt       <= 0;
             elsif rising_edge(dbg_clk) then
                 rx_det_stable_q     <= rx_det_stable;
                 analyzer_valid_q    <= analyzer_valid;
@@ -755,10 +750,10 @@ begin
                     
                     when PRINTING_BLACK_BORDER_DETECTOR_EVENT =>
                         dbg_msg(1 to 8)                         <= "border: ";
-                        dbg_msg(9 to 9+DIM_BITS)                <= border_hor_string;
-                        dbg_msg(10+DIM_BITS)                    <= '|';
-                        dbg_msg(11+DIM_BITS to 11+2*DIM_BITS)   <= border_ver_string;
-                        dbg_msg(12+2*DIM_BITS)                  <= nul;
+                        dbg_msg(9 to 8+DIM_BITS)                <= border_hor_string;
+                        dbg_msg(9+DIM_BITS)                    <= '|';
+                        dbg_msg(10+DIM_BITS to 9+2*DIM_BITS)   <= border_ver_string;
+                        dbg_msg(10+2*DIM_BITS)                  <= nul;
                         dbg_wr_en                               <= '1';
                         state                                   <= IDLE;
                     
