@@ -120,9 +120,9 @@ begin
     VER_BORDER_SIZE <= cur_reg.current_border_sizes(VER);
     
     is_black    <= '1' when
-            pixel(     RGB_BITS-1 downto G_BITS+B_BITS) < threshold and
-            pixel(G_BITS+B_BITS-1 downto        B_BITS) < threshold and
-            pixel(       B_BITS-1 downto             0) < threshold
+            FRAME_RGB(     RGB_BITS-1 downto G_BITS+B_BITS) < threshold and
+            FRAME_RGB(G_BITS+B_BITS-1 downto        B_BITS) < threshold and
+            FRAME_RGB(       B_BITS-1 downto             0) < threshold
         else '0';
     
     cfg_proc : process(CLK)
