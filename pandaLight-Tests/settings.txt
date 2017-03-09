@@ -44,7 +44,7 @@
    131 (0x083) |    1 | inconsistent frames | number of frames      [0-255] | number of frames to occur in a row for old border sizes to be reset
    132 (0x084) |    1 |         remove bias | number of pixels      [0-255] | number of pixels to also remove from a frame, additional to the border
    134 (0x086) |    2 |          scan width |                             * | pixels to scan in horizontal direction
-   135 (0x087) |    2 |         scan height |                             * | pixels to scan in vertical direction
+   135 (0x087) |    2 |         scan height |                            ** | pixels to scan in vertical direction
  --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
    256 (0x100) |  768 |          RGB lookup | color channel values  [0-255] | 0x100 to 0x1FF : red, 0x200 to 0x2FF : green, 0x300 to 0x3FF : blue
 
