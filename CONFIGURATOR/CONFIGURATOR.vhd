@@ -34,6 +34,9 @@ use IEEE.STD_LOGIC_MISC.ALL;
 use work.help_funcs.all;
 
 entity CONFIGURATOR is
+    generic (
+        DIM_BITS    : natural range 9 to 16 := 11
+    );
     port (
         CLK : in std_ulogic;
         RST : in std_ulogic;
@@ -43,8 +46,8 @@ entity CONFIGURATOR is
         CONFIGURE_LEDCOR    : in std_ulogic;
         CONFIGURE_BBD       : in std_ulogic;
         
-        FRAME_WIDTH     : in std_ulogic_vector(15 downto 0);
-        FRAME_HEIGHT    : in std_ulogic_vector(15 downto 0);
+        FRAME_WIDTH     : in std_ulogic_vector(DIM_BITS-1 downto 0);
+        FRAME_HEIGHT    : in std_ulogic_vector(DIM_BITS-1 downto 0);
         
         SETTINGS_ADDR   : in std_ulogic_vector(9 downto 0);
         SETTINGS_WR_EN  : in std_ulogic;
@@ -117,8 +120,8 @@ architecture rtl of CONFIGURATOR is
         cfg_wr_en               : std_ulogic;
         cfg_data                : std_ulogic_vector(7 downto 0);
         multiplier_start        : std_ulogic;
-        multiplier_multiplicand : std_ulogic_vector(15 downto 0);
-        multiplier_multiplier   : std_ulogic_vector(15 downto 0);
+        multiplier_multiplicand : std_ulogic_vector(DIM_BITS-1 downto 0);
+        multiplier_multiplier   : std_ulogic_vector(DIM_BITS-1 downto 0);
         led_count               : std_ulogic_vector(7 downto 0);
         buf_rd_p                : std_ulogic_vector(9 downto 0);
         buf_wr_p                : std_ulogic_vector(9 downto 0);
@@ -136,8 +139,8 @@ architecture rtl of CONFIGURATOR is
         cfg_wr_en               => '0',
         cfg_data                => x"00",
         multiplier_start        => '0',
-        multiplier_multiplicand => x"0000",
-        multiplier_multiplier   => x"0000",
+        multiplier_multiplicand => (others => '0'),
+        multiplier_multiplier   => (others => '0'),
         led_count               => x"00",
         buf_rd_p                => (others => '0'),
         buf_wr_p                => (others => '0'),
@@ -149,8 +152,8 @@ architecture rtl of CONFIGURATOR is
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     
     signal multiplier_valid         : std_ulogic := '0';
-    signal multiplier_result        : std_ulogic_vector(31 downto 0) := x"0000_0000";
-    signal div_multiplier_result    : std_ulogic_vector(15 downto 0) := x"0000";
+    signal multiplier_result        : std_ulogic_vector(2*DIM_BITS-1 downto 0) := (others => '0');
+    signal div_multiplier_result    : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
     type settings_buf_type is
         array(0 to 1023) of
@@ -179,12 +182,12 @@ begin
     CFG_DATA        <= cur_reg.cfg_data;
     BUSY            <= '1' when cur_reg.state/=WAITING_FOR_START else '0';
     
-    div_multiplier_result       <= multiplier_result(31 downto 16) + multiplier_result(15); -- round
+    div_multiplier_result       <= multiplier_result(2*DIM_BITS-1 downto DIM_BITS) + multiplier_result(DIM_BITS-1); -- round
     is_led_dimension_settings   <= not or_reduce(SETTINGS_ADDR(9 downto 5)); -- within address range 0..32
     
     ITERATIVE_MULTIPLIER_inst : entity work.ITERATIVE_MULTIPLIER
         generic map (
-            WIDTH   => 16
+            WIDTH   => DIM_BITS
         )
         port map (
             CLK => CLK,
@@ -282,11 +285,11 @@ begin
                 end if;
             
             when CALCULATING_ABSOLUTE_HOR_VALUES_H =>
-                r.multiplier_multiplicand               := FRAME_WIDTH;
-                r.multiplier_multiplier(15 downto 8)    := buf_do;
-                r.buf_rd_p                              := cr.buf_rd_p+1;
-                r.buf_wr_p                              := cr.buf_rd_p;
-                r.state                                 := CALCULATING_ABSOLUTE_HOR_VALUES_L;
+                r.multiplier_multiplicand                       := FRAME_WIDTH;
+                r.multiplier_multiplier(DIM_BITS-1 downto 8)    := buf_do(DIM_BITS-9 downto 0);
+                r.buf_rd_p                                      := cr.buf_rd_p+1;
+                r.buf_wr_p                                      := cr.buf_rd_p;
+                r.state                                         := CALCULATING_ABSOLUTE_HOR_VALUES_L;
             
             when CALCULATING_ABSOLUTE_HOR_VALUES_L =>
                 r.multiplier_multiplier(7 downto 0) := buf_do;
@@ -300,8 +303,9 @@ begin
                 r.state             := CALCULATING_WAIT_FOR_ABSOLUTE_HOR_VALUE;
             
             when CALCULATING_WAIT_FOR_ABSOLUTE_HOR_VALUE =>
-                r.scaled_buf_wr_en  := '1';
-                r.buf_di            := div_multiplier_result(15 downto 8);
+                r.scaled_buf_wr_en              := '1';
+                r.buf_di                        := x"00";
+                r.buf_di(DIM_BITS-9 downto 0)   := div_multiplier_result(DIM_BITS-1 downto 8);
                 if multiplier_valid='1' then
                     r.state := CALCULATING_GETTING_ABSOLUTE_HOR_VALUE_L;
                 end if;
@@ -317,11 +321,11 @@ begin
                 end if;
             
             when CALCULATING_ABSOLUTE_VER_VALUES_H =>
-                r.multiplier_multiplicand               := FRAME_HEIGHT;
-                r.multiplier_multiplier(15 downto 8)    := buf_do;
-                r.buf_rd_p                              := cr.buf_rd_p+1;
-                r.buf_wr_p                              := cr.buf_rd_p;
-                r.state                                 := CALCULATING_ABSOLUTE_VER_VALUES_L;
+                r.multiplier_multiplicand                       := FRAME_HEIGHT;
+                r.multiplier_multiplier(DIM_BITS-1 downto 8)    := buf_do(DIM_BITS-9 downto 0);
+                r.buf_rd_p                                      := cr.buf_rd_p+1;
+                r.buf_wr_p                                      := cr.buf_rd_p;
+                r.state                                         := CALCULATING_ABSOLUTE_VER_VALUES_L;
             
             when CALCULATING_ABSOLUTE_VER_VALUES_L =>
                 r.multiplier_multiplier(7 downto 0) := buf_do;
@@ -335,8 +339,9 @@ begin
                 r.state             := CALCULATING_WAIT_FOR_ABSOLUTE_VER_VALUE;
             
             when CALCULATING_WAIT_FOR_ABSOLUTE_VER_VALUE =>
-                r.scaled_buf_wr_en  := '1';
-                r.buf_di            := div_multiplier_result(15 downto 8);
+                r.scaled_buf_wr_en              := '1';
+                r.buf_di                        := x"00";
+                r.buf_di(DIM_BITS-9 downto 0)   := div_multiplier_result(DIM_BITS-1 downto 8);
                 if multiplier_valid='1' then
                     r.state := CALCULATING_GETTING_ABSOLUTE_VER_VALUE_L;
                 end if;
@@ -371,10 +376,10 @@ begin
                 r.cfg_data      := scaled_buf_do;
                 r.buf_rd_p      := cr.buf_rd_p+1;
                 case r.cfg_addr(4 downto 0) is
-                    when "10110"    =>  r.cfg_data  := FRAME_WIDTH(15 downto 8);
-                    when "10111"    =>  r.cfg_data  := FRAME_WIDTH(7 downto 0);
-                    when "11000"    =>  r.cfg_data  := FRAME_HEIGHT(15 downto 8);
-                    when "11001"    =>  r.cfg_data  := FRAME_HEIGHT(7 downto 0);
+                    when "10110"    =>  r.cfg_data  := x"00";   r.cfg_data(DIM_BITS-9 downto 0) := FRAME_WIDTH(DIM_BITS-1 downto 8);
+                    when "10111"    =>                          r.cfg_data                      := FRAME_WIDTH(7 downto 0);
+                    when "11000"    =>  r.cfg_data  := x"00";   r.cfg_data(DIM_BITS-9 downto 0) := FRAME_HEIGHT(DIM_BITS-1 downto 8);
+                    when "11001"    =>                          r.cfg_data                      := FRAME_HEIGHT(7 downto 0);
                                         r.state     := WAITING_FOR_START;
                     when others     =>  null;
                 end case;
