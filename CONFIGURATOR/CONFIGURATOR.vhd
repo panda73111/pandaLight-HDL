@@ -251,6 +251,7 @@ begin
         r                   := cr;
         r.cfg_sel_ledex     := '0';
         r.cfg_sel_ledcor    := '0';
+        r.cfg_sel_bbd       := '0';
         r.cfg_wr_en         := '0';
         r.multiplier_start  := '0';
         r.buf_wr_en         := '0';
