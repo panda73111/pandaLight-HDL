@@ -92,10 +92,10 @@ architecture rtl of CONFIGURATOR is
     constant BUF_I_VER_LED_OFFS_L       : std_ulogic_vector(9 downto 0) := "0000010101";
     constant BUF_I_START_LED_NUM        : std_ulogic_vector(9 downto 0) := "0001000000";
     constant BUF_I_BBD_ENABLE           : std_ulogic_vector(9 downto 0) := "0010000000";
-    constant BUF_I_BBD_SCAN_WIDTH_H     : std_ulogic_vector(9 downto 0) := "0010000110";
+    constant BUF_I_BBD_SCAN_WIDTH_H     : std_ulogic_vector(9 downto 0) := "0010000101";
     constant BUF_I_BBD_SCAN_WIDTH_L     : std_ulogic_vector(9 downto 0) := "0010000110";
     constant BUF_I_BBD_SCAN_HEIGHT_H    : std_ulogic_vector(9 downto 0) := "0010000111";
-    constant BUF_I_BBD_SCAN_HEIGHT_L    : std_ulogic_vector(9 downto 0) := "0010000111";
+    constant BUF_I_BBD_SCAN_HEIGHT_L    : std_ulogic_vector(9 downto 0) := "0010001000";
     constant BUF_I_LED_LOOKUP_TABLES    : std_ulogic_vector(9 downto 0) := "0100000000";
     
     type state_type is (
@@ -332,7 +332,7 @@ begin
                 r.scaled_buf_wr_en  := '1';
                 r.buf_di            := div_multiplier_result(7 downto 0);
                 r.buf_wr_p          := cr.buf_wr_p+1;
-                r.state := CALCULATING_ABSOLUTE_HOR_VALUES_H;
+                r.state             := CALCULATING_ABSOLUTE_HOR_VALUES_H;
                 if cr.buf_wr_p=BUF_I_BBD_SCAN_WIDTH_H then
                     r.buf_rd_p  := BUF_I_VER_LED_HEIGHT_H;
                     r.state     := CALCULATING_ABSOLUTE_VER_VALUES_H;
