@@ -1033,8 +1033,8 @@ begin
                         end if;
                     
                     when CONF_BBD_CONFIGURING_BLACK_BORDER_DETECTOR =>
-                        conf_configure_ledex    <= '1';
-                        state                   <= CONF_BBD_WAITING_FOR_BUSY;
+                        conf_configure_bbd  <= '1';
+                        state               <= CONF_BBD_WAITING_FOR_BUSY;
                     
                     when CONF_BBD_WAITING_FOR_BUSY =>
                         if conf_busy='1' then
