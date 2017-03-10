@@ -94,7 +94,7 @@ BEGIN
     
     -- Stimulus process
     stim_proc: process
-        constant DIMENSION_MAX  : natural := 2**16-1;
+        constant DIMENSION_MAX  : natural := 2**DIM_BITS-1;
         
         type channel_lookup_table_type is
             array(0 to 255) of
