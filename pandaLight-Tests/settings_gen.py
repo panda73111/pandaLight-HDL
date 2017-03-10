@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+DIMENSION_BITS = 11
+
 HOR_LED_COUNT           =  16
 HOR_LED_SCALED_WIDTH    =  60 / 1280
 HOR_LED_SCALED_HEIGHT   =  80 /  720
@@ -45,7 +47,7 @@ gamma_cor_int   = int(GAMMA_CORRECTION)
 gamma_cor_frac  = int((GAMMA_CORRECTION % 1) * 2 ** 12); # 12 Bit fraction
 
 def fractionToShort(fraction):
-    i = int(fraction * (2 ** 16 - 1))
+    i = int(fraction * (2 ** DIMENSION_BITS - 1))
     return [i >> 8 & 0xFF, i & 0xFF]
 
 values = [
