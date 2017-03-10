@@ -870,8 +870,8 @@ begin
     --- black border detector ---
     -----------------------------
     
-    bbd_clk <= g_clk;
-    bbd_rst <= g_rst or not analyzer_valid;
+    bbd_clk <= rx_pix_clk;
+    bbd_rst <= conf_cfg_sel_bbd or not analyzer_valid;
     
     bbd_cfg_addr    <= conf_cfg_addr(bbd_cfg_addr'range);
     bbd_cfg_wr_en   <= conf_cfg_wr_en and conf_cfg_sel_bbd;
@@ -912,7 +912,7 @@ begin
     -- configurator ---
     -------------------
     
-    conf_clk    <= g_clk;
+    conf_clk    <= rx_pix_clk;
     conf_rst    <= g_rst;
     
     CONFIGURATOR_inst : entity work.CONFIGURATOR
@@ -979,7 +979,7 @@ begin
         conf_frame_width    <= stdulv(1280, conf_frame_width'length);
         conf_frame_height   <= stdulv(720, conf_frame_height'length);
         
-        configurator_stim_proc : process(conf_rst, conf_clk)
+        configurator_stim_proc : process(conf_rst, g_clk)
         begin
             if conf_rst='1' then
                 conf_settings_wr_en     <= '0';
@@ -989,7 +989,7 @@ begin
                 counter                 <= uns(1023, 11);
                 settings_addr           <= (others => '0');
                 conf_settings_addr      <= (others => '0');
-            elsif rising_edge(conf_clk) then
+            elsif rising_edge(g_clk) then
                 conf_settings_wr_en     <= '0';
                 conf_calculate          <= '0';
                 conf_configure_bbd      <= '0';
