@@ -1091,7 +1091,7 @@ begin
     -------------------
     
     conf_clk    <= rx_pix_clk;
-    conf_rst    <= g_rst or not analyzer_valid;
+    conf_rst    <= g_rst;
     
     conf_frame_width    <= analyzer_width;
     conf_frame_height   <= analyzer_height;
