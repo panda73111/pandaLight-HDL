@@ -194,21 +194,21 @@ BEGIN
             wait until rising_edge(CLK);
             CONFIGURE_LEDCOR    <= '0';
             wait until BUSY='0';
-            wait for 2 ms;
+            wait for 100 us;
             wait until rising_edge(CLK);
             
             CONFIGURE_LEDEX <= '1';
             wait until rising_edge(CLK);
             CONFIGURE_LEDEX <= '0';
             wait until BUSY='0';
-            wait for 2 ms;
+            wait for 100 us;
             wait until rising_edge(CLK);
             
             CONFIGURE_BBD <= '1';
             wait until rising_edge(CLK);
             CONFIGURE_BBD <= '0';
             wait until BUSY='0';
-            wait for 2 ms;
+            wait for 100 us;
             wait until rising_edge(CLK);
         end procedure;
     begin
