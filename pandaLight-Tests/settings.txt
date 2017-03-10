@@ -12,7 +12,7 @@
  --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
                |      |    VERTICAL SPEC.   |                               |
  --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
-    11 (0x00B) |    1 |          LED  count |       number of LEDs  [0-255] | number of LEDs on each left and right side of the frame
+    11 (0x00B) |    1 |          LED  count | number of LEDs        [0-255] | number of LEDs on each left and right side of the frame
     12 (0x00C) |    2 |          LED  width |                             * | the width of a vertical LED
     14 (0x00E) |    2 |          LED height |                            ** | the height of a vertical LED
     16 (0x010) |    2 |          LED   step |                            ** | pixels from one vertical LED's top row to the next one
