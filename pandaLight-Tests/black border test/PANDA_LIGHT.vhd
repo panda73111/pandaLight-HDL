@@ -268,6 +268,7 @@ architecture rtl of PANDA_LIGHT is
     signal bbd_clk  : std_ulogic := '0';
     signal bbd_rst  : std_ulogic := '0';
     
+    signal bbd_cfg_clk      : std_ulogic := '0';
     signal bbd_cfg_addr     : std_ulogic_vector(3 downto 0) := (others => '0');
     signal bbd_cfg_wr_en    : std_ulogic := '0';
     signal bbd_cfg_data     : std_ulogic_vector(7 downto 0) := (others => '0');
@@ -871,8 +872,9 @@ begin
     -----------------------------
     
     bbd_clk <= rx_pix_clk;
-    bbd_rst <= conf_cfg_sel_bbd or not analyzer_valid;
+    bbd_rst <= not analyzer_valid or conf_cfg_sel_bbd;
     
+    bbd_cfg_clk     <= g_clk;
     bbd_cfg_addr    <= conf_cfg_addr(bbd_cfg_addr'range);
     bbd_cfg_wr_en   <= conf_cfg_wr_en and conf_cfg_sel_bbd;
     bbd_cfg_data    <= conf_cfg_data;
@@ -893,6 +895,7 @@ begin
             CLK => bbd_clk,
             RST => bbd_rst,
             
+            CFG_CLK     => bbd_cfg_clk,
             CFG_ADDR    => bbd_cfg_addr,
             CFG_WR_EN   => bbd_cfg_wr_en,
             CFG_DATA    => bbd_cfg_data,
@@ -912,7 +915,7 @@ begin
     -- configurator ---
     -------------------
     
-    conf_clk    <= rx_pix_clk;
+    conf_clk    <= g_clk;
     conf_rst    <= g_rst;
     
     CONFIGURATOR_inst : entity work.CONFIGURATOR

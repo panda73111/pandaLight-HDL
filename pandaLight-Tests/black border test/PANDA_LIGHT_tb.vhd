@@ -202,15 +202,15 @@ begin
     stim_proc : process
         constant PANDALIGHT_MAGIC   : string := "PL";
         constant TEST_SETTINGS      : std_ulogic_vector(1024*8-1 downto 0) :=
-            x"10_0B_FF_1C_71_0F_FF_01_C7_01_FF_09_0F_FF_15_55" &
-            x"1C_71_00_FF_03_8E_00_00_00_00_00_00_00_00_00_00" &
+            x"10_00_5F_00_E3_00_7F_00_0E_00_0F_09_00_7F_00_AA" &
+            x"00_E3_00_07_00_1C_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
-            x"00_00_00_03_20_00_00_FF_00_FF_00_FF_00_00_00_00" &
+            x"00_00_00_00_20_00_00_FF_00_FF_00_FF_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
-            x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
+            x"01_0A_0A_0A_00_02_7F_04_71_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
             x"00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00" &
@@ -312,24 +312,20 @@ begin
         g_rst   <= '0';
         wait for 200 ns;
         RX_DET  <= "01";
-        wait for 200 ns;
-        
-        main_loop : loop
-                
-            -- send "receive settings from UART" request to the module
-            report "Sending 'receive settings from UART' request";
-            send_magic;
-            send_bytes(x"22");
-            for block_i in 4 downto 1 loop
-                send_bytes(TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8));
-            end loop;
-            wait for 100 ms;
+        wait for 1 ms;
 
-            report "NONE. All tests completed."
-                severity FAILURE;
-            
+        -- send "receive settings from UART" request to the module
+        report "Sending 'receive settings from UART' request";
+        send_magic;
+        send_bytes(x"22");
+        for block_i in 4 downto 1 loop
+            send_bytes(TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8));
         end loop;
-        
+        wait for 1 ms;
+
+        report "NONE. All tests completed."
+            severity FAILURE;
+
         wait;
     end process;
     
