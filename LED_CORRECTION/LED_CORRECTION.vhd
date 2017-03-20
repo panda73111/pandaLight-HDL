@@ -38,6 +38,7 @@ entity LED_CORRECTION is
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
+        CFG_CLK     : in std_ulogic;
         CFG_ADDR    : in std_ulogic_vector(9 downto 0);
         CFG_WR_EN   : in std_ulogic := '0';
         CFG_DATA    : in std_ulogic_vector(7 downto 0) := x"00";
@@ -175,9 +176,9 @@ begin
             LED_OUT_RGB_VALID   => lut_led_out_rgb_valid
         );
     
-    cfg_proc : process(CLK)
+    cfg_proc : process(CFG_CLK)
     begin
-        if rising_edge(CLK) then
+        if rising_edge(CFG_CLK) then
             lut_table_addr  <= lut_ch_select & CFG_ADDR(7 downto 0);
             lut_table_wr_en <= '0';
             lut_table_data  <= CFG_DATA;
