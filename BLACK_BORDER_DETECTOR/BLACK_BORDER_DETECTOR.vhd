@@ -41,6 +41,7 @@ entity BLACK_BORDER_DETECTOR is
         CLK : std_ulogic;
         RST : std_ulogic;
         
+        CFG_CLK     : in std_ulogic;
         CFG_ADDR    : in std_ulogic_vector(3 downto 0);
         CFG_WR_EN   : in std_ulogic;
         CFG_DATA    : in std_ulogic_vector(7 downto 0);
@@ -122,15 +123,15 @@ begin
             FRAME_RGB(       B_BITS-1 downto             0) < threshold
         else '0';
     
-    cfg_proc : process(CLK)
+    cfg_proc : process(CFG_CLK)
     begin
-        if rising_edge(CLK) then
+        if rising_edge(CFG_CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
-                    when "0000" => enable                               <= CFG_DATA(0);
-                    when "0001" => threshold                            <= CFG_DATA;
-                    when "0010" => consistent_frames                    <= CFG_DATA;
-                    when "0011" => inconsistent_frames                  <= CFG_DATA;
+                    when "0000" => enable               <= CFG_DATA(0);
+                    when "0001" => threshold            <= CFG_DATA;
+                    when "0010" => consistent_frames    <= CFG_DATA;
+                    when "0011" => inconsistent_frames  <= CFG_DATA;
                     when others => null;
                 end case;
             end if;
