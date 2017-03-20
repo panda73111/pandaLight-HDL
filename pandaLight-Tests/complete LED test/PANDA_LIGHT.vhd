@@ -265,8 +265,9 @@ architecture rtl of PANDA_LIGHT is
     --- LED control ---
     -------------------
     
-    signal lctrl_clk    : std_ulogic := '0';
-    signal lctrl_rst    : std_ulogic := '0';
+    signal lctrl_led_clk_in         : std_ulogic := '0';
+    signal lctrl_leds_out_clk_in    : std_ulogic := '0';
+    signal lctrl_rst                : std_ulogic := '0';
     
     signal lctrl_mode   : std_ulogic_vector(1 downto 0) := "00";
     
@@ -274,8 +275,8 @@ architecture rtl of PANDA_LIGHT is
     signal lctrl_led_rgb        : std_ulogic_vector(23 downto 0) := x"000000";
     signal lctrl_led_rgb_wr_en  : std_ulogic := '0';
     
-    signal lctrl_leds_clk   : std_ulogic := '0';
-    signal lctrl_leds_data  : std_ulogic := '0';
+    signal lctrl_leds_out_clk_out   : std_ulogic := '0';
+    signal lctrl_leds_out_data      : std_ulogic := '0';
     
     
     -----------------------------
@@ -768,8 +769,9 @@ begin
     -- LED control ---
     ------------------
     
-    lctrl_clk   <= lcor_clk;
-    lctrl_rst   <= lcor_rst;
+    lctrl_led_clk_in        <= lcor_clk;
+    lctrl_leds_out_clk_in   <= g_clk;
+    lctrl_rst               <= lcor_rst;
     
     lctrl_mode  <= "00";
     
@@ -779,13 +781,14 @@ begin
     
     LED_CONTROL_inst : entity work.LED_CONTROL
         generic map (
-            CLK_IN_PERIOD           => G_CLK_PERIOD,
-            WS2801_LEDS_CLK_PERIOD  => 1000.0, -- 1 MHz
-            MAX_LED_COUNT           => MAX_LED_COUNT
+            LEDS_OUT_CLK_IN_PERIOD          => G_CLK_PERIOD,
+            WS2801_LEDS_OUT_CLK_OUT_PERIOD  => 1000.0, -- 1 MHz
+            MAX_LED_COUNT                   => MAX_LED_COUNT
         )
         port map (
-            CLK => lctrl_clk,
-            RST => lctrl_rst,
+            LED_CLK_IN      => lctrl_led_clk_in,
+            LEDS_OUT_CLK_IN => lctrl_leds_out_clk_in,
+            RST             => lctrl_rst,
             
             MODE    => lctrl_mode,
             
@@ -793,8 +796,8 @@ begin
             LED_RGB         => lctrl_led_rgb,
             LED_RGB_WR_EN   => lctrl_led_rgb_wr_en,
             
-            LEDS_CLK    => lctrl_leds_clk,
-            LEDS_DATA   => lctrl_leds_data
+            LEDS_OUT_CLK_OUT    => lctrl_leds_out_clk_out,
+            LEDS_OUT_DATA       => lctrl_leds_out_data
         );
     
     

@@ -30,8 +30,8 @@ entity LED_CONTROL_WS2812 is
         BUSY    : out std_ulogic := '0';
         VSYNC   : out std_ulogic := '0';
         
-        RGB_RD_EN   : out std_ulogic;
-        LEDS_DATA   : out std_ulogic := '0'
+        RGB_RD_EN       : out std_ulogic;
+        LEDS_OUT_DATA   : out std_ulogic := '0'
     );
 end LED_CONTROL_WS2812;
 
@@ -62,19 +62,19 @@ architecture rtl of LED_CONTROL_WS2812 is
     );
     
     type reg_type is record
-        state   : state_type;
-        bit_i       : unsigned(5 downto 0);
-        tick_count  : unsigned(TICK_BITS-1 downto 0);
-        leds_data   : std_ulogic;
-        rgb_rd_en   : std_ulogic;
+        state           : state_type;
+        bit_i           : unsigned(5 downto 0);
+        tick_count      : unsigned(TICK_BITS-1 downto 0);
+        leds_out_data   : std_ulogic;
+        rgb_rd_en       : std_ulogic;
     end record;
     
     constant reg_type_def   : reg_type := (
-        state       => WAITING_FOR_START,
-        bit_i       => "000000",
-        tick_count  => (others => '0'),
-        leds_data   => '0',
-        rgb_rd_en   => '0'
+        state           => WAITING_FOR_START,
+        bit_i           => "000000",
+        tick_count      => (others => '0'),
+        leds_out_data   => '0',
+        rgb_rd_en       => '0'
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
@@ -86,7 +86,7 @@ begin
     VSYNC   <= '1' when cur_reg.state=PAUSING else '0';
     
     RGB_RD_EN       <= cur_reg.rgb_rd_en;
-    LEDS_DATA       <= cur_reg.leds_data;
+    LEDS_OUT_DATA   <= cur_reg.leds_out_data;
     counter_expired <= cur_reg.tick_count(cur_reg.tick_count'high)='1';
     
     process(RST, cur_reg, START, STOP, RGB, counter_expired)
@@ -126,21 +126,21 @@ begin
                 end if;
             
             when ZERO_BIT_SETTING_HIGH =>
-                r.leds_data := '1';
+                r.leds_out_data := '1';
                 if counter_expired then
                     r.tick_count    := uns(ZERO_BIT_LOW_TICKS-2-3, TICK_BITS);
                     r.state         := SETTING_LOW;
                 end if;
             
             when ONE_BIT_SETTING_HIGH =>
-                r.leds_data := '1';
+                r.leds_out_data := '1';
                 if counter_expired then
                     r.tick_count    := uns(ONE_BIT_LOW_TICKS-2-3, TICK_BITS);
                     r.state         := SETTING_LOW;
                 end if;
             
             when SETTING_LOW =>
-                r.leds_data := '0';
+                r.leds_out_data := '0';
                 if counter_expired then
                     r.state := DECREMENTING_BIT_I;
                 end if;
