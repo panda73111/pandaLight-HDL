@@ -8,11 +8,35 @@
 -- Description: 
 --
 -- Additional Comments: 
---   Modes (to be extended):
---    [0] = WS2801
---    [1] = WS2811, fast mode (800 kHz)
---    [2] = WS2811, slow mode (400 kHz)
---    [3] = WS2812/WS2812B
+--   Generic:
+--     LEDS_OUT_CLK_IN_PERIOD           : clock period of LEDS_OUT_CLK_IN in nanoseconds
+--     WS2801_LEDS_OUT_CLK_OUT_PERIOD   : target clock period of LEDS_OUT_CLK_OUT in nanoseconds
+--     MAX_LED_COUNT                    : the maximum number of LEDs to support
+--   Port:
+--     LED_CLK_IN       : clock input used for LED_* signals
+--     LEDS_OUT_CLK_IN  : clock input used for LEDS_OUT_* signals
+--     RST              : active high reset, aborts and resets the LED bitstream until released
+--
+--     CFG_CLK      : clock input used for the configuration bus
+--     CFG_WR_EN    : active high write enable of the configuration data
+--     CFG_DATA     : configuration data to be written
+--
+--     LED_VSYNC        : positive vsync of the incoming LED data
+--     LED_RGB          : LED RGB color
+--     LED_RGB_WR_EN    : high while the LED colour components are valid
+--
+--     BUSY             : high while the LED bitstream is being shifted out
+--
+--     LEDS_OUT_CLK_OUT : the clock signal of the LED bitstream
+--     LEDS_OUT_DATA    : the data signal of the LED bitstream
+--
+--   These configuration registers can only be set while RST is high, using the CFG_* inputs:
+--
+--    [0] = MODE : LED chip mode (to be extended):
+--                  0 = WS2801
+--                  1 = WS2811, fast mode (800 kHz)
+--                  2 = WS2811, slow mode (400 kHz)
+--                  3 = WS2812/WS2812B
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -30,7 +54,9 @@ entity LED_CONTROL is
         LEDS_OUT_CLK_IN : in std_ulogic;
         RST             : in std_ulogic;
         
-        MODE    : in std_ulogic_vector(1 downto 0);
+        CFG_CLK     : in std_ulogic;
+        CFG_WR_EN   : in std_ulogic;
+        CFG_DATA    : in std_ulogic_vector(7 downto 0);
         
         LED_VSYNC       : in std_ulogic;
         LED_RGB         : in std_ulogic_vector(23 downto 0);
@@ -101,20 +127,23 @@ architecture rtl of LED_CONTROL is
     signal fifo_dout    : std_ulogic_vector(23 downto 0) := x"000000";
     signal fifo_empty   : std_ulogic := '0';
     
+    -- configuration registers
+    signal mode : std_ulogic(1 downto 0) := "00";
+    
 begin
 
     BUSY                <= ws2801_busy or ws2811_busy or ws2812_busy;
     LEDS_OUT_CLK_OUT    <= ws2801_leds_out_clk;
     
-    with MODE select LEDS_OUT_DATA <=
+    with mode select LEDS_OUT_DATA <=
         ws2801_leds_out_data when "00",
         ws2811_leds_out_data when "01",
         ws2811_leds_out_data when "10",
         ws2812_leds_out_data when others;
     
-    ws2801_rst  <= '1' when MODE/="00" else '0';
-    ws2811_rst  <= '1' when MODE/="01" and MODE/="10" else '0';
-    ws2812_rst  <= '1' when MODE/="11" else '0';
+    ws2801_rst  <= '1' when mode/="00" else '0';
+    ws2811_rst  <= '1' when mode/="01" and mode/="10" else '0';
+    ws2812_rst  <= '1' when mode/="11" else '0';
     
     ws2801_start    <= cur_reg.start;
     ws2811_start    <= cur_reg.start;
@@ -124,7 +153,7 @@ begin
     ws2811_stop     <= fifo_empty;
     ws2812_stop     <= fifo_empty;
     
-    ws2811_slow_mode    <= '1' when MODE="10" else '0';
+    ws2811_slow_mode    <= '1' when mode="10" else '0';
     fifo_rd_en          <= ws2801_rgb_rd_en or ws2811_rgb_rd_en or ws2812_rgb_rd_en;
     
     FIFO_inst : entity work.ASYNC_FIFO_2CLK
@@ -204,6 +233,15 @@ begin
             RGB_RD_EN       => ws2812_rgb_rd_en,
             LEDS_OUT_DATA   => ws2812_leds_out_data
         );
+    
+    cfg_proc : process(CFG_CLK)
+    begin
+        if rising_edge(CFG_CLK) then
+            if RST='1' and CFG_WR_EN='1' then
+                mode    <= CFG_DATA(1 downto 0);
+            end if;
+        end if;
+    end process;
     
     stm_proc : process(cur_reg, LED_RGB_WR_EN, LED_RGB, LED_VSYNC,
         ws2801_busy, ws2811_busy, ws2812_busy, fifo_rd_en, led_vsync_q)
