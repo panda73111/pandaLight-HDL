@@ -1,8 +1,8 @@
 ----------------------------------------------------------------------------------
 -- Engineer: Sebastian Huether
 -- 
--- Create Date:    20:15:50 07/30/2014 
--- Module Name:    LED_CONTROL - rtl 
+-- Create Date:    16:05:20 03/01/2017
+-- Module Name:    LED_CONTROL - rtl
 -- Project Name:   LED_CONTROL
 -- Tool versions:  Xilinx ISE 14.7
 -- Description: 
@@ -15,10 +15,9 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 use work.help_funcs.all;
 
-entity LED_CONTROL_WS2801 is
+entity LED_CONTROL_WS2812 is
     generic (
-        CLK_IN_PERIOD   : real;
-        LEDS_CLK_PERIOD : real
+        CLK_IN_PERIOD   : real
     );
     port (
         CLK : in std_ulogic;
@@ -32,38 +31,40 @@ entity LED_CONTROL_WS2801 is
         VSYNC   : out std_ulogic := '0';
         
         RGB_RD_EN   : out std_ulogic;
-        LEDS_CLK    : out std_ulogic := '0';
         LEDS_DATA   : out std_ulogic := '0'
     );
-end LED_CONTROL_WS2801;
+end LED_CONTROL_WS2812;
 
-architecture rtl of LED_CONTROL_WS2801 is
+architecture rtl of LED_CONTROL_WS2812 is
     
-    -- tick at one fourth of LEDS_CLK_PERIOD
-    constant LEDS_CLK_TICKS : natural := int(LEDS_CLK_PERIOD / CLK_IN_PERIOD) / 4;
+    -- ticks to the "logic high"/"logic low" time of a 1 Bit/0 Bit
+    constant ONE_BIT_HIGH_TICKS     : natural := int(800.0 / CLK_IN_PERIOD); -- 0.8 us
+    constant ONE_BIT_LOW_TICKS      : natural := int(450.0 / CLK_IN_PERIOD); -- 0.45 us
+    constant ZERO_BIT_HIGH_TICKS    : natural := int(400.0 / CLK_IN_PERIOD); -- 0.4 us
+    constant ZERO_BIT_LOW_TICKS     : natural := int(850.0 / CLK_IN_PERIOD); -- 0.85 us
     
-    -- pause for 600 us
-    constant PAUSE_TICKS    : natural := int(600_000.0 / CLK_IN_PERIOD);
+    -- pause for 60 us
+    constant PAUSE_TICKS    : natural := int(60_000.0 / CLK_IN_PERIOD);
+    
+    constant TICK_BITS  : positive := log2(PAUSE_TICKS)+1;
     
     type state_type is (
         WAITING_FOR_START,
         GETTING_NEXT_RGB,
-        WAITING_FOR_DATA_SWITCH,
-        SETTING_DATA,
+        WAITING_FOR_RGB,
+        EVALUATING_RGB_BIT,
+        ONE_BIT_SETTING_HIGH,
+        ZERO_BIT_SETTING_HIGH,
+        SETTING_LOW,
         DECREMENTING_BIT_I,
-        WAITING_FOR_CLK_SWITCH,
-        SETTING_CLK,
         CHECKING_BIT_I,
-        WAITING_FOR_LAST_SWITCH,
-        SETTING_LAST_CLK_LOW,
         PAUSING
     );
     
     type reg_type is record
-        state       : state_type;
+        state   : state_type;
         bit_i       : unsigned(5 downto 0);
-        tick_count    : unsigned(log2(PAUSE_TICKS)+1 downto 0);
-        leds_clk    : std_ulogic;
+        tick_count  : unsigned(TICK_BITS-1 downto 0);
         leds_data   : std_ulogic;
         rgb_rd_en   : std_ulogic;
     end record;
@@ -72,7 +73,6 @@ architecture rtl of LED_CONTROL_WS2801 is
         state       => WAITING_FOR_START,
         bit_i       => "000000",
         tick_count  => (others => '0'),
-        leds_clk    => '0',
         leds_data   => '0',
         rgb_rd_en   => '0'
     );
@@ -85,10 +85,8 @@ begin
     BUSY    <= '1' when cur_reg.state/=WAITING_FOR_START else '0';
     VSYNC   <= '1' when cur_reg.state=PAUSING else '0';
     
-    RGB_RD_EN   <= cur_reg.rgb_rd_en;
-    LEDS_CLK    <= cur_reg.leds_clk;
-    LEDS_DATA   <= cur_reg.leds_data;
-    
+    RGB_RD_EN       <= cur_reg.rgb_rd_en;
+    LEDS_DATA       <= cur_reg.leds_data;
     counter_expired <= cur_reg.tick_count(cur_reg.tick_count'high)='1';
     
     process(RST, cur_reg, START, STOP, RGB, counter_expired)
@@ -99,68 +97,63 @@ begin
         r.tick_count    := cr.tick_count-1;
         r.rgb_rd_en     := '0';
         
-        if counter_expired then
-            r.tick_count    := uns(LEDS_CLK_TICKS-2, cur_reg.tick_count'length);
-        end if;
-        
         case cr.state is
             
             when WAITING_FOR_START =>
-                r.tick_count    := uns(LEDS_CLK_TICKS, cur_reg.tick_count'length);
+                r.tick_count    := (others => '0');
                 if START='1' then
                     r.state := GETTING_NEXT_RGB;
                 end if;
             
             when GETTING_NEXT_RGB =>
-                r.bit_i := uns(23, 6);
-                r.state := WAITING_FOR_LAST_SWITCH;
+                r.tick_count    := uns(PAUSE_TICKS-2, TICK_BITS);
+                r.bit_i         := uns(23, 6);
+                r.state         := PAUSING;
                 if STOP='0' then
                     r.rgb_rd_en := '1';
-                    r.state     := WAITING_FOR_DATA_SWITCH;
+                    r.state     := WAITING_FOR_RGB;
                 end if;
             
-            when WAITING_FOR_DATA_SWITCH =>
+            when WAITING_FOR_RGB =>
+                r.state := EVALUATING_RGB_BIT;
+            
+            when EVALUATING_RGB_BIT =>
+                r.tick_count    := uns(ZERO_BIT_HIGH_TICKS-2, TICK_BITS);
+                r.state         := ZERO_BIT_SETTING_HIGH;
+                if RGB(int(cr.bit_i))='1' then
+                    r.tick_count    := uns(ONE_BIT_HIGH_TICKS-2, TICK_BITS);
+                    r.state         := ONE_BIT_SETTING_HIGH;
+                end if;
+            
+            when ZERO_BIT_SETTING_HIGH =>
+                r.leds_data := '1';
                 if counter_expired then
-                    r.state     := SETTING_DATA;
+                    r.tick_count    := uns(ZERO_BIT_LOW_TICKS-2-3, TICK_BITS);
+                    r.state         := SETTING_LOW;
                 end if;
             
-            when SETTING_DATA =>
-                r.leds_clk  := '0';
-                r.leds_data := RGB(int(cr.bit_i));
+            when ONE_BIT_SETTING_HIGH =>
+                r.leds_data := '1';
+                if counter_expired then
+                    r.tick_count    := uns(ONE_BIT_LOW_TICKS-2-3, TICK_BITS);
+                    r.state         := SETTING_LOW;
+                end if;
+            
+            when SETTING_LOW =>
+                r.leds_data := '0';
                 if counter_expired then
                     r.state := DECREMENTING_BIT_I;
                 end if;
             
             when DECREMENTING_BIT_I =>
                 r.bit_i := cr.bit_i-1;
-                r.state := WAITING_FOR_CLK_SWITCH;
-            
-            when WAITING_FOR_CLK_SWITCH =>
-                if counter_expired then
-                    r.state := SETTING_CLK;
-                end if;
-            
-            when SETTING_CLK =>
-                r.leds_clk  := '1';
-                if counter_expired then
-                    r.state := CHECKING_BIT_I;
-                end if;
+                r.state := CHECKING_BIT_I;
             
             when CHECKING_BIT_I =>
-                r.state := WAITING_FOR_DATA_SWITCH;
+                r.state := EVALUATING_RGB_BIT;
                 if cr.bit_i(5)='1' then
                     r.state := GETTING_NEXT_RGB;
                 end if;
-            
-            when WAITING_FOR_LAST_SWITCH =>
-                if counter_expired then
-                    r.state := SETTING_LAST_CLK_LOW;
-                end if;
-                
-            when SETTING_LAST_CLK_LOW =>
-                r.leds_clk      := '0';
-                r.tick_count    := uns(PAUSE_TICKS-2, cur_reg.tick_count'length);
-                r.state         := PAUSING;
             
             when PAUSING =>
                 if counter_expired then

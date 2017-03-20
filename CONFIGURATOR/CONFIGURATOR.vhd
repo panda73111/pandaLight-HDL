@@ -44,6 +44,7 @@ entity CONFIGURATOR is
         CALCULATE           : in std_ulogic;
         CONFIGURE_LEDEX     : in std_ulogic;
         CONFIGURE_LEDCOR    : in std_ulogic;
+        CONFIGURE_LEDCON    : in std_ulogic;
         
         FRAME_WIDTH     : in std_ulogic_vector(DIM_BITS-1 downto 0);
         FRAME_HEIGHT    : in std_ulogic_vector(DIM_BITS-1 downto 0);
@@ -55,6 +56,7 @@ entity CONFIGURATOR is
         
         CFG_SEL_LEDEX   : out std_ulogic := '0';
         CFG_SEL_LEDCOR  : out std_ulogic := '0';
+        CFG_SEL_LEDCON  : out std_ulogic := '0';
         
         CFG_ADDR    : out std_ulogic_vector(9 downto 0) := (others => '0');
         CFG_WR_EN   : out std_ulogic := '0';
@@ -89,6 +91,7 @@ architecture rtl of CONFIGURATOR is
     constant BUF_I_VER_LED_OFFS_H       : std_ulogic_vector(9 downto 0) := "0000010100";
     constant BUF_I_VER_LED_OFFS_L       : std_ulogic_vector(9 downto 0) := "0000010101";
     constant BUF_I_START_LED_NUM        : std_ulogic_vector(9 downto 0) := "0001000000";
+    constant BUF_I_START_LED_TYPE       : std_ulogic_vector(9 downto 0) := "0001000011";
     constant BUF_I_LED_LOOKUP_TABLES    : std_ulogic_vector(9 downto 0) := "0100000000";
     
     type state_type is (
@@ -104,13 +107,15 @@ architecture rtl of CONFIGURATOR is
         ADDING_HOR_LED_COUNT,
         ADDING_VER_LED_COUNT,
         CONFIGURING_LEDEX,
-        CONFIGURING_LEDCOR
+        CONFIGURING_LEDCOR,
+        CONFIGURING_LEDCON
     );
     
     type reg_type is record
         state                   : state_type;
         cfg_sel_ledex           : std_ulogic;
         cfg_sel_ledcor          : std_ulogic;
+        cfg_sel_ledcon          : std_ulogic;
         cfg_addr                : std_ulogic_vector(9 downto 0);
         cfg_wr_en               : std_ulogic;
         cfg_data                : std_ulogic_vector(7 downto 0);
@@ -129,6 +134,7 @@ architecture rtl of CONFIGURATOR is
         state                   => WAITING_FOR_START,
         cfg_sel_ledex           => '0',
         cfg_sel_ledcor          => '0',
+        cfg_sel_ledcon          => '0',
         cfg_addr                => (others => '1'),
         cfg_wr_en               => '0',
         cfg_data                => x"00",
@@ -171,6 +177,7 @@ begin
     SETTINGS_DOUT   <= buf_do;
     CFG_SEL_LEDEX   <= cur_reg.cfg_sel_ledex;
     CFG_SEL_LEDCOR  <= cur_reg.cfg_sel_ledcor;
+    CFG_SEL_LEDCON  <= cur_reg.cfg_sel_ledcon;
     CFG_ADDR        <= cur_reg.cfg_addr;
     CFG_WR_EN       <= cur_reg.cfg_wr_en;
     CFG_DATA        <= cur_reg.cfg_data;
@@ -235,7 +242,7 @@ begin
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, CALCULATE, CONFIGURE_LEDEX, CONFIGURE_LEDCOR,
+    stm_proc : process(RST, cur_reg, CALCULATE, CONFIGURE_LEDEX, CONFIGURE_LEDCOR, CONFIGURE_LEDCON,
         SETTINGS_ADDR, SETTINGS_WR_EN, SETTINGS_DIN, FRAME_WIDTH, FRAME_HEIGHT,
         multiplier_valid, div_multiplier_result, buf_do, scaled_buf_do, is_led_dimension_settings)
         alias cr is cur_reg;
@@ -244,6 +251,7 @@ begin
         r                   := cr;
         r.cfg_sel_ledex     := '0';
         r.cfg_sel_ledcor    := '0';
+        r.cfg_sel_ledcon    := '0';
         r.cfg_wr_en         := '0';
         r.multiplier_start  := '0';
         r.buf_wr_en         := '0';
@@ -272,6 +280,10 @@ begin
                 if CONFIGURE_LEDCOR='1' then
                     r.buf_rd_p  := BUF_I_START_LED_NUM-1;
                     r.state     := CONFIGURING_LEDCOR;
+                end if;
+                if CONFIGURE_LEDCON='1' then
+                    r.buf_rd_p  := BUF_I_START_LED_TYPE;
+                    r.state     := CONFIGURING_LEDCON;
                 end if;
             
             when CALCULATING_ABSOLUTE_HOR_VALUES_H =>
@@ -387,6 +399,13 @@ begin
                     when "1111111111"   =>  r.state     := WAITING_FOR_START;
                     when others         =>  null;
                 end case;
+            
+            when CONFIGURING_LEDCON =>
+                r.cfg_sel_ledcon    := '1';
+                r.cfg_wr_en         := '1';
+                r.cfg_addr          := "0000000000";
+                r.cfg_data          := buf_do;
+                r.state             := WAITING_FOR_START;
             
         end case;
         
