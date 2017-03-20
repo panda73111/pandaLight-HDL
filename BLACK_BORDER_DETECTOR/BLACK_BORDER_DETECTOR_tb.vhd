@@ -36,6 +36,7 @@ ARCHITECTURE behavior OF BLACK_BORDER_DETECTOR_tb IS
     signal CLK  : std_ulogic := '0';
     signal RST  : std_ulogic := '0';
     
+    signal CFG_CLK      : std_ulogic := '0';
     signal CFG_ADDR     : std_ulogic_vector(3 downto 0) := (others => '0');
     signal CFG_WR_EN    : std_ulogic := '0';
     signal CFG_DATA     : std_ulogic_vector(7 downto 0) := (others => '0');
@@ -94,7 +95,8 @@ BEGIN
     -- clock generation
     g_clk   <= not g_clk after G_CLK_PERIOD/2;
     
-    CLK <= pix_clk;
+    CLK     <= pix_clk;
+    CFG_CLK <= g_clk;
     
     BLACK_BORDER_DETECTOR_inst : entity work.BLACK_BORDER_DETECTOR
         generic map (
@@ -107,6 +109,7 @@ BEGIN
             CLK => CLK,
             RST => RST,
             
+            CFG_CLK     => CFG_CLK,
             CFG_ADDR    => CFG_ADDR,
             CFG_WR_EN   => CFG_WR_EN,
             CFG_DATA    => CFG_DATA,
@@ -192,12 +195,12 @@ BEGIN
                         end if;
                     
                     when LETTERBOX_16_9 =>
-                        if y>BORDER_HEIGHT_16_9 and y<BORDER_HEIGHT_16_9 then
+                        if y>BORDER_HEIGHT_16_9 and y<FRAME_HEIGHT-BORDER_HEIGHT_16_9 then
                             FRAME_RGB   <= x"FF_FF_FF";
                         end if;
                     
                     when LETTERBOX_21_9 =>
-                        if y>BORDER_HEIGHT_21_9 and y<BORDER_HEIGHT_21_9 then
+                        if y>BORDER_HEIGHT_21_9 and y<FRAME_HEIGHT-BORDER_HEIGHT_21_9 then
                             FRAME_RGB   <= x"FF_FF_FF";
                         end if;
                     
@@ -252,7 +255,7 @@ BEGIN
                     when 11     =>  CFG_DATA    <= cfg.frame_height(15 downto 8);
                     when 12     =>  CFG_DATA    <= cfg.frame_height( 7 downto 0);
                 end case;
-                wait until rising_edge(CLK);
+                wait until rising_edge(CFG_CLK);
             end loop;
             CFG_WR_EN   <= '0';
             RST         <= '0';
