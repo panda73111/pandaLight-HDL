@@ -79,6 +79,7 @@ entity LED_COLOR_EXTRACTOR is
         CLK : in std_ulogic;
         RST : in std_ulogic;
         
+        CFG_CLK     : in std_ulogic;
         CFG_ADDR    : in std_ulogic_vector(4 downto 0);
         CFG_WR_EN   : in std_ulogic;
         CFG_DATA    : in std_ulogic_vector(7 downto 0);
@@ -174,9 +175,9 @@ begin
     --- processes ---
     -----------------
     
-    cfg_proc : process(CLK)
+    cfg_proc : process(CFG_CLK)
     begin
-        if rising_edge(CLK) then
+        if rising_edge(CFG_CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
                     when "00000" => hor_led_count                       <= CFG_DATA;
