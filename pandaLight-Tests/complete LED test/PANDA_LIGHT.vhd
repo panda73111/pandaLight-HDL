@@ -1173,6 +1173,7 @@ begin
         signal counter              : unsigned(10 downto 0) := uns(1023, 11);
         signal settings_addr        : std_ulogic_vector(9 downto 0) := (others => '0');
         signal init_read_finished   : boolean := false;
+        signal config_valid         : boolean := false;
         
         signal counter_expired  : boolean := false;
     begin
@@ -1197,6 +1198,10 @@ begin
                 conf_configure_ledex    <= '0';
                 conf_configure_ledcor   <= '0';
                 conf_configure_ledcon   <= '0';
+                
+                if analyzer_valid='0' then
+                    config_valid    <= false;
+                end if;
                 
                 case state is
                     
@@ -1275,13 +1280,17 @@ begin
                     
                     when CONF_LEDCON_WAITING_FOR_IDLE =>
                         if conf_busy='0' then
-                            state   <= IDLE;
+                            config_valid    <= true;
+                            state           <= IDLE;
                         end if;
                     
                     when IDLE =>
                         counter             <= uns(1023, counter'length);
                         settings_addr       <= (others => '0');
                         conf_settings_addr  <= (others => '0');
+                        if not config_valid and analyzer_valid='1' then
+                            state   <= CALCULATING;
+                        end if;
                         if start_settings_read_from_flash then
                             state   <= READING_SETTINGS_FROM_FLASH;
                         end if;
