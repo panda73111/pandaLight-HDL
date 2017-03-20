@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/PR-SVG-20010719/DTD/svg10.dtd">
-<svg width="115cm" height="41cm" viewBox="-245 -205 2293 810" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg width="129cm" height="41cm" viewBox="-245 -205 2573 810" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <g>
-    <rect style="fill: #ffffff" x="-40" y="-200" width="2020" height="800"/>
-    <rect style="fill: none; fill-opacity:0; stroke-width: 10; stroke: #000000" x="-40" y="-200" width="2020" height="800"/>
+    <rect style="fill: #ffffff" x="-40" y="-200" width="2300" height="800"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 10; stroke: #000000" x="-40" y="-200" width="2300" height="800"/>
   </g>
   <g>
     <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" x1="-240" y1="260" x2="22.1115" y2="260"/>
@@ -34,32 +34,20 @@
     <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="660" y="280" width="160" height="80"/>
   </g>
   <g>
-    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" x1="820" y1="320" x2="922.111" y2="320"/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="921.056,325 931.056,320 921.056,315 "/>
+    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" x1="820" y1="320" x2="1202.11" y2="320"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="1201.06,325 1211.06,320 1201.06,315 "/>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="660" y="60" width="160" height="120"/>
-    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="660" y="60" width="160" height="120"/>
+    <rect style="fill: #ffffff" x="940" y="60" width="160" height="120"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="940" y="60" width="160" height="120"/>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="940" y="280" width="200" height="160"/>
-    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="940" y="280" width="200" height="160"/>
+    <rect style="fill: #ffffff" x="1220" y="280" width="200" height="160"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="1220" y="280" width="200" height="160"/>
   </g>
   <g>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="620,320 620,400 922.111,400 "/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="921.056,405 931.056,400 921.056,395 "/>
-  </g>
-  <g>
-    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" x1="1140" y1="360" x2="1242.11" y2="360"/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="1241.06,365 1251.06,360 1241.06,355 "/>
-  </g>
-  <g>
-    <rect style="fill: #ffffff" x="1260" y="320" width="160" height="80"/>
-    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="1260" y="320" width="160" height="80"/>
-  </g>
-  <g>
-    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" x1="1700" y1="360" x2="2022.11" y2="360"/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="2021.06,365 2031.06,360 2021.06,355 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="620,320 620,400 1202.11,400 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="1201.06,405 1211.06,400 1201.06,395 "/>
   </g>
   <g>
     <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" x1="1420" y1="360" x2="1522.11" y2="360"/>
@@ -68,6 +56,18 @@
   <g>
     <rect style="fill: #ffffff" x="1540" y="320" width="160" height="80"/>
     <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="1540" y="320" width="160" height="80"/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" x1="1980" y1="360" x2="2302.11" y2="360"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="2301.06,365 2311.06,360 2301.06,355 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" x1="1700" y1="360" x2="1802.11" y2="360"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="1801.06,365 1811.06,360 1801.06,355 "/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="1820" y="320" width="160" height="80"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="1820" y="320" width="160" height="80"/>
   </g>
   <g>
     <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="200,240 460,240 460,275.528 "/>
@@ -86,33 +86,33 @@
     <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="735,267.764 740,277.764 745,267.764 "/>
   </g>
   <g>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="740,240 1060,240 1060,275.528 "/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="1055,267.764 1060,277.764 1065,267.764 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="740,240 1340,240 1340,275.528 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="1335,267.764 1340,277.764 1345,267.764 "/>
   </g>
   <g>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="1060,240 1360,240 1360,315.528 "/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="1355,307.764 1360,317.764 1365,307.764 "/>
-  </g>
-  <g>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="1360,240 1640,240 1640,315.528 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="1340,240 1640,240 1640,315.528 "/>
     <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="1635,307.764 1640,317.764 1645,307.764 "/>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="1660" y="460" width="160" height="80"/>
-    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="1660" y="460" width="160" height="80"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="1640,240 1920,240 1920,315.528 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="1915,307.764 1920,317.764 1925,307.764 "/>
   </g>
   <g>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="620,400 620,500 1642.11,500 "/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="1641.06,505 1651.06,500 1641.06,495 "/>
-  </g>
-  <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="1640,240 1740,240 1740,340 "/>
-  <g>
-    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" x1="1740" y1="380" x2="1740" y2="455.528"/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="1735,447.764 1740,457.764 1745,447.764 "/>
+    <rect style="fill: #ffffff" x="1940" y="460" width="160" height="80"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="1940" y="460" width="160" height="80"/>
   </g>
   <g>
-    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" x1="1820" y1="500" x2="2022.11" y2="500"/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="2021.06,505 2031.06,500 2021.06,495 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="620,400 620,500 1922.11,500 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="1921.06,505 1931.06,500 1921.06,495 "/>
+  </g>
+  <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="1920,240 2020,240 2020,340 "/>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" x1="2020" y1="380" x2="2020" y2="455.528"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #960000" points="2015,447.764 2020,457.764 2025,447.764 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" x1="2100" y1="500" x2="2302.11" y2="500"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="2301.06,505 2311.06,500 2301.06,495 "/>
   </g>
   <g>
     <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="-240" y1="100" x2="75.5279" y2="100"/>
@@ -137,16 +137,16 @@
   </g>
   <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="340,-140 460,-140 460,-40 "/>
   <g>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="460,-140 740,-140 740,55.5279 "/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="735,47.7639 740,57.7639 745,47.7639 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="460,-140 1020,-140 1020,55.5279 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="1015,47.7639 1020,57.7639 1025,47.7639 "/>
   </g>
   <g>
-    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" x1="540" y1="120" x2="655.528" y2="120"/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="647.764,125 657.764,120 647.764,115 "/>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" x1="540" y1="120" x2="935.528" y2="120"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="927.764,125 937.764,120 927.764,115 "/>
   </g>
-  <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="820,100 1600,100 1600,220 "/>
-  <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="820,120 1340,120 1340,220 "/>
-  <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="820,140 1040,140 1040,220 "/>
+  <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="1100,100 1880,100 1880,220 "/>
+  <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="1100,120 1620,120 1620,220 "/>
+  <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="1100,140 1320,140 1320,220 "/>
   <g>
     <rect style="fill: #ffffff" x="260" y="-60" width="160" height="80"/>
     <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="260" y="-60" width="160" height="80"/>
@@ -160,259 +160,264 @@
     <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="247.764,-15 257.764,-20 247.764,-25 "/>
   </g>
   <g>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="420,-20 720,-20 720,55.5279 "/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="715,47.7639 720,57.7639 725,47.7639 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="420,-20 1000,-20 1000,55.5279 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="995,47.7639 1000,57.7639 1005,47.7639 "/>
   </g>
   <g>
     <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" x1="460" y1="0" x2="460" y2="75.5279"/>
     <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="455,67.7639 460,77.7639 465,67.7639 "/>
   </g>
-  <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="740,-140 1620,-140 1620,220 "/>
+  <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="1020,-140 1900,-140 1900,220 "/>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" x1="1900" y1="260" x2="1900" y2="315.528"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="1895,307.764 1900,317.764 1905,307.764 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" x1="1880" y1="260" x2="1880" y2="315.528"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="1875,307.764 1880,317.764 1885,307.764 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" x1="1320" y1="260" x2="1320" y2="275.528"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="1315,267.764 1320,277.764 1325,267.764 "/>
+  </g>
   <g>
     <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" x1="1620" y1="260" x2="1620" y2="315.528"/>
     <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="1615,307.764 1620,317.764 1625,307.764 "/>
   </g>
+  <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="1100,160 1280,160 1280,220 "/>
+  <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="1340,160 1580,160 1580,220 "/>
+  <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="1640,160 1840,160 1840,220 "/>
   <g>
-    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" x1="1600" y1="260" x2="1600" y2="315.528"/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="1595,307.764 1600,317.764 1605,307.764 "/>
+    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" x1="1840" y1="260" x2="1840" y2="302.111"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="1835,301.056 1840,311.056 1845,301.056 "/>
   </g>
   <g>
-    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" x1="1040" y1="260" x2="1040" y2="275.528"/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="1035,267.764 1040,277.764 1045,267.764 "/>
+    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" x1="1580" y1="260" x2="1580" y2="302.111"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="1575,301.056 1580,311.056 1585,301.056 "/>
   </g>
   <g>
-    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" x1="1340" y1="260" x2="1340" y2="315.528"/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000096" points="1335,307.764 1340,317.764 1345,307.764 "/>
+    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" x1="1280" y1="260" x2="1280" y2="262.111"/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="1275,261.056 1280,271.056 1285,261.056 "/>
   </g>
-  <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="820,160 1000,160 1000,220 "/>
-  <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="1060,160 1300,160 1300,220 "/>
-  <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="1360,160 1560,160 1560,220 "/>
+  <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" x1="1280" y1="160" x2="1300" y2="160"/>
+  <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" x1="1580" y1="160" x2="1600" y2="160"/>
   <g>
-    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" x1="1560" y1="260" x2="1560" y2="302.111"/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="1555,301.056 1560,311.056 1565,301.056 "/>
-  </g>
-  <g>
-    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" x1="1300" y1="260" x2="1300" y2="302.111"/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="1295,301.056 1300,311.056 1305,301.056 "/>
-  </g>
-  <g>
-    <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" x1="1000" y1="260" x2="1000" y2="262.111"/>
-    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" points="995,261.056 1000,271.056 1005,261.056 "/>
-  </g>
-  <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" x1="1000" y1="160" x2="1020" y2="160"/>
-  <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #000096" x1="1300" y1="160" x2="1320" y2="160"/>
-  <g>
-    <rect style="fill: #ffffff" x="918.725" y="-200" width="102.55" height="21.8"/>
-    <text font-size="18.0622" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:700" x="970" y="-181.95">
-      <tspan x="970" y="-181.95">PandaLight</tspan>
+    <rect style="fill: #ffffff" x="1058.72" y="-200" width="102.55" height="21.8"/>
+    <text font-size="18.0622" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:700" x="1110" y="-181.95">
+      <tspan x="1110" y="-181.95">PandaLight</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="-198.292" y="244.55" width="103.25" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="-146.667" y="257.35">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="-146.667" y="257.35">
       <tspan x="-146.667" y="257.35">HDMI in bitstream</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="92.65" y="-160" width="54.7" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="120" y="-147.2">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="120" y="-147.2">
       <tspan x="120" y="-147.2">CLK_MAN</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="-179.133" y="-155.45" width="91.6" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="-133.333" y="-142.65">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="-133.333" y="-142.65">
       <tspan x="-133.333" y="-142.65">CLK20 [20 MHz]</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="60.575" y="220" width="118.85" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="120" y="232.8">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="120" y="232.8">
       <tspan x="120" y="232.8">ISERDES2_CLK_MAN</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="197.325" y="-155.45" width="85.35" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="240" y="-142.65">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="240" y="-142.65">
       <tspan x="240" y="-142.65">g_clk [50 MHz]</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="231.7" y="224.55" width="56.6" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="260" y="237.35">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="260" y="237.35">
       <tspan x="260" y="237.35">rx_pix_clk</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="221.525" y="244.55" width="76.95" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="260" y="257.35">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="260" y="257.35">
       <tspan x="260" y="257.35">rx_pix_clk_x2</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="218.025" y="264.55" width="83.95" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="260" y="277.35">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="260" y="277.35">
       <tspan x="260" y="277.35">rx_pix_clk_x10</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="411.475" y="280" width="97.05" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="460" y="292.8">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="460" y="292.8">
       <tspan x="460" y="292.8">TMDS_DECODER</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="687.6" y="280" width="104.8" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="740" y="292.8">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="740" y="292.8">
       <tspan x="740" y="292.8">VIDEO_ANALYZER</tspan>
     </text>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="693.05" y="60" width="93.9" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="740" y="72.8">
-      <tspan x="740" y="72.8">CONFIGURATOR</tspan>
+    <rect style="fill: #ffffff" x="973.05" y="60" width="93.9" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1020" y="72.8">
+      <tspan x="1020" y="72.8">CONFIGURATOR</tspan>
     </text>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="854.85" y="84.55" width="90.3" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="900" y="97.35">
-      <tspan x="900" y="97.35">conf_sel_ledcon</tspan>
+    <rect style="fill: #ffffff" x="1114.85" y="84.55" width="90.3" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1160" y="97.35">
+      <tspan x="1160" y="97.35">conf_sel_ledcon</tspan>
     </text>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="966.825" y="280" width="146.35" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1040" y="292.8">
-      <tspan x="1040" y="292.8">LED_COLOR_EXTRACTOR</tspan>
-    </text>
-  </g>
-  <g>
-    <rect style="fill: #ffffff" x="1167.57" y="344.55" width="64.85" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1200" y="357.35">
-      <tspan x="1200" y="357.35">LED frames</tspan>
-    </text>
-  </g>
-  <g>
-    <rect style="fill: #ffffff" x="760" y="327.2" width="0" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:start;font-family:sans-serif;font-style:normal;font-weight:normal" x="760" y="340">
-      <tspan x="760" y="340"></tspan>
-    </text>
-  </g>
-  <g>
-    <rect style="fill: #ffffff" x="1286.65" y="320" width="106.7" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1340" y="332.8">
-      <tspan x="1340" y="332.8">LED_CORRECTION</tspan>
-    </text>
-  </g>
-  <g>
-    <rect style="fill: #ffffff" x="1830.3" y="344.55" width="79.4" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1870" y="357.35">
-      <tspan x="1870" y="357.35">LED bitstream</tspan>
+    <rect style="fill: #ffffff" x="1246.83" y="280" width="146.35" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1320" y="292.8">
+      <tspan x="1320" y="292.8">LED_COLOR_EXTRACTOR</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="1447.57" y="344.55" width="64.85" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1480" y="357.35">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1480" y="357.35">
       <tspan x="1480" y="357.35">LED frames</tspan>
     </text>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="1577.3" y="320" width="85.4" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1620" y="332.8">
-      <tspan x="1620" y="332.8">LED_CONTROL</tspan>
+    <rect style="fill: #ffffff" x="760" y="327.2" width="0" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:start;font-family:sans-serif;font-style:normal;font-weight:normal" x="760" y="340">
+      <tspan x="760" y="340"></tspan>
     </text>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="1676" y="460" width="128" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1740" y="472.8">
-      <tspan x="1740" y="472.8">TMDS_PASSTHROUGH</tspan>
+    <rect style="fill: #ffffff" x="1566.65" y="320" width="106.7" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1620" y="332.8">
+      <tspan x="1620" y="332.8">LED_CORRECTION</tspan>
     </text>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="1837.56" y="484.55" width="111.55" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1893.33" y="497.35">
-      <tspan x="1893.33" y="497.35">HDMI out bitstream</tspan>
+    <rect style="fill: #ffffff" x="2110.3" y="344.55" width="79.4" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="2150" y="357.35">
+      <tspan x="2150" y="357.35">LED bitstream</tspan>
+    </text>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="1727.57" y="344.55" width="64.85" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1760" y="357.35">
+      <tspan x="1760" y="357.35">LED frames</tspan>
+    </text>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="1857.3" y="320" width="85.4" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1900" y="332.8">
+      <tspan x="1900" y="332.8">LED_CONTROL</tspan>
+    </text>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="1956" y="460" width="128" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="2020" y="472.8">
+      <tspan x="2020" y="472.8">TMDS_PASSTHROUGH</tspan>
+    </text>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="2117.56" y="484.55" width="111.55" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="2173.33" y="497.35">
+      <tspan x="2173.33" y="497.35">HDMI out bitstream</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="-189.083" y="84.55" width="111.5" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="-133.333" y="97.35">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="-133.333" y="97.35">
       <tspan x="-133.333" y="97.35">USB UART bistream</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="-197.383" y="124.55" width="128.1" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="-133.333" y="137.35">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="-133.333" y="137.35">
       <tspan x="-133.333" y="137.35">ESP32 UART bitstream</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="412.65" y="80" width="94.7" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="460" y="92.8">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="460" y="92.8">
       <tspan x="460" y="92.8">UART_CONTROL</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="205.65" y="104.55" width="88.7" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="250" y="117.35">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="250" y="117.35">
       <tspan x="250" y="117.35">UART bitstream</tspan>
     </text>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="572.375" y="104.55" width="55.25" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="600" y="117.35">
-      <tspan x="600" y="117.35">uart_dout</tspan>
+    <rect style="fill: #ffffff" x="712.375" y="104.55" width="55.25" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="740" y="117.35">
+      <tspan x="740" y="117.35">uart_dout</tspan>
     </text>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="856.125" y="104.55" width="87.75" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="900" y="117.35">
-      <tspan x="900" y="117.35">conf_sel_ledcor</tspan>
+    <rect style="fill: #ffffff" x="1116.13" y="104.55" width="87.75" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1160" y="117.35">
+      <tspan x="1160" y="117.35">conf_sel_ledcor</tspan>
     </text>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="858.3" y="124.55" width="83.4" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="900" y="137.35">
-      <tspan x="900" y="137.35">conf_sel_ledex</tspan>
+    <rect style="fill: #ffffff" x="1118.3" y="124.55" width="83.4" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1160" y="137.35">
+      <tspan x="1160" y="137.35">conf_sel_ledex</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="277.15" y="-60" width="125.7" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="340" y="-47.2">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="340" y="-47.2">
       <tspan x="340" y="-47.2">SPI_FLASH_CONTROL</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="-193.375" y="-35.45" width="106.75" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="-140" y="-22.65">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="-140" y="-22.65">
       <tspan x="-140" y="-22.65">SPI flash bitstream</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="500.8" y="-35.45" width="78.4" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="540" y="-22.65">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="540" y="-22.65">
       <tspan x="540" y="-22.65">SPI flash data</tspan>
     </text>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="875.975" y="144.55" width="48.05" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="900" y="157.35">
-      <tspan x="900" y="157.35">conf bus</tspan>
+    <rect style="fill: #ffffff" x="1135.97" y="144.55" width="48.05" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1160" y="157.35">
+      <tspan x="1160" y="157.35">conf bus</tspan>
     </text>
   </g>
   <g>
     <rect style="fill: #ffffff" x="553.225" y="304.55" width="53.55" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="580" y="317.35">
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="580" y="317.35">
       <tspan x="580" y="317.35">rx frames</tspan>
     </text>
   </g>
   <g>
-    <rect style="fill: #ffffff" x="858.275" y="304.55" width="43.45" height="15.45"/>
-    <text font-size="12.7998" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="880" y="317.35">
-      <tspan x="880" y="317.35">rx meta</tspan>
+    <rect style="fill: #ffffff" x="838.275" y="304.55" width="43.45" height="15.45"/>
+    <text font-size="12.8" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="860" y="317.35">
+      <tspan x="860" y="317.35">rx meta</tspan>
     </text>
   </g>
   <g>
     <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="0,260 0,340 362.111,340 "/>
     <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="361.056,345 371.056,340 361.056,335 "/>
   </g>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="900,220 900,140 922.111,140 "/>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" points="921.056,145 931.056,140 921.056,135 "/>
+  </g>
+  <line style="fill: none; fill-opacity:0; stroke-width: 8; stroke: #960000" x1="900" y1="260" x2="900" y2="320"/>
 </svg>
