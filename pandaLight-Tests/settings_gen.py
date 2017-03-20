@@ -30,8 +30,8 @@ BBD_THRESHOLD           =  10
 BBD_CONSIST_FRAMES      =  10
 BBD_INCONSIST_FRAMES    =  10
 BBD_REMOVE_BIAS         =   0
-BBD_SCALED_SCAN_WIDTH   = 400 / 1280
-BBD_SCALED_SCAN_HEIGHT  = 400 /  720
+BBD_SCALED_SCAN_WIDTH   = 200 / 1280
+BBD_SCALED_SCAN_HEIGHT  = 200 /  720
 
 def gammaCorrect(val, corr):
     return int(255 * pow(val / 255, corr))
