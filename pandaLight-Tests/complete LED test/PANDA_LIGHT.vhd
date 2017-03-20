@@ -225,6 +225,7 @@ architecture rtl of PANDA_LIGHT is
     signal ledex_clk    : std_ulogic := '0';
     signal ledex_rst    : std_ulogic := '0';
     
+    signal ledex_cfg_clk    : std_ulogic : '0';
     signal ledex_cfg_addr   : std_ulogic_vector(4 downto 0) := "00000";
     signal ledex_cfg_wr_en  : std_ulogic := '0';
     signal ledex_cfg_data   : std_ulogic_vector(7 downto 0) := x"00";
@@ -247,6 +248,7 @@ architecture rtl of PANDA_LIGHT is
     signal lcor_clk : std_ulogic := '0';
     signal lcor_rst : std_ulogic := '0';
     
+    signal lcor_cfg_clk     : std_ulogic : '0';
     signal lcor_cfg_addr    : std_ulogic_vector(9 downto 0) := (others => '0');
     signal lcor_cfg_wr_en   : std_ulogic := '0';
     signal lcor_cfg_data    : std_ulogic_vector(7 downto 0) := x"00";
@@ -269,7 +271,9 @@ architecture rtl of PANDA_LIGHT is
     signal lctrl_leds_out_clk_in    : std_ulogic := '0';
     signal lctrl_rst                : std_ulogic := '0';
     
-    signal lctrl_mode   : std_ulogic_vector(1 downto 0) := "00";
+    signal lctrl_cfg_clk    : std_ulogic : '0';
+    signal lctrl_cfg_wr_en  : std_ulogic := '0';
+    signal lctrl_cfg_data   : std_ulogic_vector(7 downto 0) := x"00";
     
     signal lctrl_led_vsync      : std_ulogic := '0';
     signal lctrl_led_rgb        : std_ulogic_vector(23 downto 0) := x"000000";
@@ -361,6 +365,7 @@ architecture rtl of PANDA_LIGHT is
     signal conf_calculate           : std_ulogic := '0';
     signal conf_configure_ledex     : std_ulogic := '0';
     signal conf_configure_ledcor    : std_ulogic := '0';
+    signal conf_configure_ledcon    : std_ulogic := '0';
     
     signal conf_frame_width     : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     signal conf_frame_height    : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
@@ -373,6 +378,7 @@ architecture rtl of PANDA_LIGHT is
     -- Outputs
     signal conf_cfg_sel_ledex   : std_ulogic := '0';
     signal conf_cfg_sel_ledcor  : std_ulogic := '0';
+    signal conf_cfg_sel_ledcon  : std_ulogic := '0';
     
     signal conf_cfg_addr        : std_ulogic_vector(9 downto 0) := (others => '0');
     signal conf_cfg_wr_en       : std_ulogic := '0';
@@ -689,6 +695,7 @@ begin
     ledex_clk   <= rx_pix_clk;
     ledex_rst   <= not analyzer_valid or conf_cfg_sel_ledex;
     
+    ledex_cfg_clk   <= g_clk;
     ledex_cfg_addr  <= conf_cfg_addr(ledex_cfg_addr'range);
     ledex_cfg_wr_en <= conf_cfg_wr_en and conf_cfg_sel_ledex;
     ledex_cfg_data  <= conf_cfg_data;
@@ -710,6 +717,7 @@ begin
             CLK => ledex_clk,
             RST => ledex_rst,
             
+            CFG_CLK     => ledex_cfg_clk,
             CFG_ADDR    => ledex_cfg_addr,
             CFG_WR_EN   => ledex_cfg_wr_en,
             CFG_DATA    => ledex_cfg_data,
@@ -732,6 +740,7 @@ begin
     lcor_clk    <= ledex_clk;
     lcor_rst    <= ledex_rst or conf_cfg_sel_ledcor;
     
+    lcor_cfg_clk    <= g_clk;
     lcor_cfg_addr   <= conf_cfg_addr(lcor_cfg_addr'range);
     lcor_cfg_wr_en  <= conf_cfg_wr_en and conf_cfg_sel_ledcor;
     lcor_cfg_data   <= conf_cfg_data;
@@ -750,6 +759,7 @@ begin
             CLK => lcor_clk,
             RST => lcor_rst,
             
+            CFG_CLK     => lcor_cfg_clk,
             CFG_ADDR    => lcor_cfg_addr,
             CFG_WR_EN   => lcor_cfg_wr_en,
             CFG_DATA    => lcor_cfg_data,
@@ -771,9 +781,11 @@ begin
     
     lctrl_led_clk_in        <= lcor_clk;
     lctrl_leds_out_clk_in   <= g_clk;
-    lctrl_rst               <= lcor_rst;
+    lctrl_rst               <= lcor_rst or conf_cfg_sel_ledcon;
     
-    lctrl_mode  <= "00";
+    lctrl_cfg_clk   <= g_clk;
+    lctrl_cfg_wr_en <= conf_cfg_wr_en and conf_cfg_sel_ledcon;
+    lctrl_cfg_data  <= conf_cfg_data;
     
     lctrl_led_vsync     <= lcor_led_out_vsync;
     lctrl_led_rgb       <= lcor_led_out_rgb;
@@ -790,7 +802,9 @@ begin
             LEDS_OUT_CLK_IN => lctrl_leds_out_clk_in,
             RST             => lctrl_rst,
             
-            MODE    => lctrl_mode,
+            CFG_CLK     => lctrl_cfg_clk,
+            CFG_WR_EN   => lctrl_cfg_wr_en,
+            CFG_DATA    => lctrl_cfg_data,
             
             LED_VSYNC       => lctrl_led_vsync,
             LED_RGB         => lctrl_led_rgb,
@@ -1094,7 +1108,7 @@ begin
     -- configurator ---
     -------------------
     
-    conf_clk    <= rx_pix_clk;
+    conf_clk    <= g_clk;
     conf_rst    <= g_rst;
     
     conf_frame_width    <= analyzer_width;
@@ -1108,12 +1122,14 @@ begin
             CALCULATE           => conf_calculate,
             CONFIGURE_LEDEX     => conf_configure_ledex,
             CONFIGURE_LEDCOR    => conf_configure_ledcor,
+            CONFIGURE_LEDCON    => conf_configure_ledcon,
             
             FRAME_WIDTH     => conf_frame_width,
             FRAME_HEIGHT    => conf_frame_height,
             
             CFG_SEL_LEDEX   => conf_cfg_sel_ledex,
             CFG_SEL_LEDCOR  => conf_cfg_sel_ledcor,
+            CFG_SEL_LEDCON  => conf_cfg_sel_ledcon,
             
             SETTINGS_ADDR   => conf_settings_addr,
             SETTINGS_WR_EN  => conf_settings_wr_en,
@@ -1136,13 +1152,17 @@ begin
             INIT,
             READING_SETTINGS_FROM_FLASH,
             CALCULATING,
-            CONF_LEDCOR_WAITING_FOR_BUSY,
-            CONF_LEDCOR_WAITING_FOR_IDLE,
-            CONF_LEDCOR_CONFIGURING_LED_CORRECTION,
+            CALCULATING_WAITING_FOR_BUSY,
+            CALCULATING_WAITING_FOR_IDLE,
+            CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR,
             CONF_LEDEX_WAITING_FOR_BUSY,
             CONF_LEDEX_WAITING_FOR_IDLE,
-            CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR,
-            IDLE_WAITING_FOR_IDLE,
+            CONF_LEDCOR_CONFIGURING_LED_CORRECTION,
+            CONF_LEDCOR_WAITING_FOR_BUSY,
+            CONF_LEDCOR_WAITING_FOR_IDLE,
+            CONF_LEDCON_CONFIGURING_LED_CONTROL,
+            CONF_LEDCON_WAITING_FOR_BUSY,
+            CONF_LEDCON_WAITING_FOR_IDLE,
             IDLE,
             WRITING_SETTINGS_TO_FLASH,
             RECEIVING_SETTINGS_FROM_UART,
@@ -1167,6 +1187,7 @@ begin
                 conf_calculate          <= '0';
                 conf_configure_ledex    <= '0';
                 conf_configure_ledcor   <= '0';
+                conf_configure_ledcon   <= '0';
                 counter                 <= uns(1023, 11);
                 settings_addr           <= (others => '0');
                 conf_settings_addr      <= (others => '0');
@@ -1175,6 +1196,7 @@ begin
                 conf_calculate          <= '0';
                 conf_configure_ledex    <= '0';
                 conf_configure_ledcor   <= '0';
+                conf_configure_ledcon   <= '0';
                 
                 case state is
                     
@@ -1202,20 +1224,20 @@ begin
                     
                     when CALCULATING =>
                         conf_calculate  <= '1';
-                        state           <= CONF_LEDCOR_WAITING_FOR_BUSY;
+                        state           <= CALCULATING_WAITING_FOR_BUSY;
                     
-                    when CONF_LEDCOR_WAITING_FOR_BUSY =>
+                    when CALCULATING_WAITING_FOR_BUSY =>
                         if conf_busy='1' then
-                            state   <= CONF_LEDCOR_WAITING_FOR_IDLE;
+                            state   <= CALCULATING_WAITING_FOR_IDLE;
                         end if;
                     
-                    when CONF_LEDCOR_WAITING_FOR_IDLE =>
+                    when CALCULATING_WAITING_FOR_IDLE =>
                         if conf_busy='0' then
-                            state   <= CONF_LEDCOR_CONFIGURING_LED_CORRECTION;
+                            state   <= CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR;
                         end if;
                     
-                    when CONF_LEDCOR_CONFIGURING_LED_CORRECTION =>
-                        conf_configure_ledcor   <= '1';
+                    when CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR =>
+                        conf_configure_ledex    <= '1';
                         state                   <= CONF_LEDEX_WAITING_FOR_BUSY;
                     
                     when CONF_LEDEX_WAITING_FOR_BUSY =>
@@ -1225,14 +1247,33 @@ begin
                     
                     when CONF_LEDEX_WAITING_FOR_IDLE =>
                         if conf_busy='0' then
-                            state   <= CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR;
+                            state   <= CONF_LEDCOR_CONFIGURING_LED_CORRECTION;
                         end if;
                     
-                    when CONF_LEDEX_CONFIGURING_LED_COLOR_EXTRACTOR =>
-                        conf_configure_ledex    <= '1';
-                        state                   <= IDLE_WAITING_FOR_IDLE;
+                    when CONF_LEDCOR_CONFIGURING_LED_CORRECTION =>
+                        conf_configure_ledcor   <= '1';
+                        state                   <= CONF_LEDCOR_WAITING_FOR_BUSY;
                     
-                    when IDLE_WAITING_FOR_IDLE =>
+                    when CONF_LEDCOR_WAITING_FOR_BUSY =>
+                        if conf_busy='1' then
+                            state   <= CONF_LEDCOR_WAITING_FOR_IDLE;
+                        end if;
+                    
+                    when CONF_LEDCOR_WAITING_FOR_IDLE =>
+                        if conf_busy='0' then
+                            state   <= CONF_LEDCON_CONFIGURING_LED_CONTROL;
+                        end if;
+                    
+                    when CONF_LEDCON_CONFIGURING_LED_CONTROL =>
+                        conf_configure_ledcon   <= '1';
+                        state                   <= CONF_LEDCON_WAITING_FOR_BUSY;
+                    
+                    when CONF_LEDCON_WAITING_FOR_BUSY =>
+                        if conf_busy='1' then
+                            state   <= CONF_LEDCON_WAITING_FOR_IDLE;
+                        end if;
+                    
+                    when CONF_LEDCON_WAITING_FOR_IDLE =>
                         if conf_busy='0' then
                             state   <= IDLE;
                         end if;
