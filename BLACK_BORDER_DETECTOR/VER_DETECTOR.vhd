@@ -49,7 +49,8 @@ architecture rtl of VER_DETECTOR is
         SCANNING_TOP,
         WAITING_FOR_BOTTOM_SCAN,
         SCANNING_BOTTOM,
-        COMPARING_BORDER_SIZES
+        COMPARING_BORDER_SIZES,
+        ADDING_BIAS
     );
     
     type columnflags_type is
@@ -62,8 +63,8 @@ architecture rtl of VER_DETECTOR is
         border_size     : unsigned(DIM_BITS-1 downto 0);
         got_non_black   : columnflags_type;
         buf_wr_en       : std_ulogic;
-        buf_rd_p        : natural range 0 to 2;
-        buf_wr_p        : natural range 0 to 2;
+        buf_rd_p        : natural range 0 to 3;
+        buf_wr_p        : natural range 0 to 3;
         buf_di          : std_ulogic_vector(DIM_BITS-1 downto 0);
     end record;
     
@@ -78,8 +79,8 @@ architecture rtl of VER_DETECTOR is
         buf_di          => (others => '0')
     );
     
-    type buf_type           is array(0 to 2) of std_ulogic_vector(DIM_BITS-1 downto 0);
-    type scancolumns_type   is array(0 to 2) of std_ulogic_vector(DIM_BITS-1 downto 0);
+    type buf_type           is array(0 to 3) of std_ulogic_vector(DIM_BITS-1 downto 0);
+    type scancolumns_type   is array(0 to 3) of std_ulogic_vector(DIM_BITS-1 downto 0);
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     signal right_scan_start     : unsigned(DIM_BITS-1 downto 0) := (others => '0');
@@ -232,16 +233,20 @@ begin
                 -- search the smallest border of the three scancolumns
                 if buf_do<cr.border_size then
                     r.border_size   := uns(buf_do);
-                    if buf_do/=(DIM_BITS-1 downto 0 => '0') then
-                        r.border_size   := uns(buf_do)+remove_bias;
-                    end if;
                 end if;
                 
                 if cr.buf_rd_p=2 then
-                    r.buf_rd_p      := 0;
-                    r.border_valid  := '1';
-                    r.state         := SCANNING_TOP;
+                    r.state := ADDING_BIAS;
                 end if;
+                
+            when ADDING_BIAS =>
+                if cr.border_size/=0 then
+                    r.border_size   := cr.border_size+remove_bias;
+                end if;
+                
+                r.buf_rd_p      := 0;
+                r.border_valid  := '1';
+                r.state         := SCANNING_TOP;
             
         end case;
         

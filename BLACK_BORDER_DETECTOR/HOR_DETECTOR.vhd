@@ -51,7 +51,8 @@ architecture rtl of HOR_DETECTOR is
         WAITING_FOR_RIGHT_SCAN,
         SCANNING_RIGHT,
         SWITCHING_LINE,
-        COMPARING_BORDER_SIZES
+        COMPARING_BORDER_SIZES,
+        ADDING_BIAS
     );
     
     type reg_type is record
@@ -59,7 +60,7 @@ architecture rtl of HOR_DETECTOR is
         border_valid    : std_ulogic;
         border_size     : unsigned(DIM_BITS-1 downto 0);
         buf_wr_en       : std_ulogic;
-        buf_p           : natural range 0 to 2;
+        buf_p           : natural range 0 to 3;
         buf_di          : std_ulogic_vector(DIM_BITS-1 downto 0);
     end record;
     
@@ -72,8 +73,8 @@ architecture rtl of HOR_DETECTOR is
         buf_di          => (others => '0')
     );
     
-    type buf_type       is array(0 to 2) of std_ulogic_vector(DIM_BITS-1 downto 0);
-    type scanlines_type is array(0 to 2) of std_ulogic_vector(DIM_BITS-1 downto 0);
+    type buf_type       is array(0 to 3) of std_ulogic_vector(DIM_BITS-1 downto 0);
+    type scanlines_type is array(0 to 3) of std_ulogic_vector(DIM_BITS-1 downto 0);
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
     
@@ -220,16 +221,20 @@ begin
                 -- search the smallest border of the three scanlines
                 if buf_do<cr.border_size then
                     r.border_size   := uns(buf_do);
-                    if buf_do/=(DIM_BITS-1 downto 0 => '0') then
-                        r.border_size   := uns(buf_do)+remove_bias;
-                    end if;
                 end if;
                 
                 if cr.buf_p=2 then
-                    r.buf_p         := 0;
-                    r.border_valid  := '1';
-                    r.state         := WAITING_FOR_SCANLINE;
+                    r.state := ADDING_BIAS;
                 end if;
+                
+            when ADDING_BIAS =>
+                if cr.border_size/=0 then
+                    r.border_size   := cr.border_size+remove_bias;
+                end if;
+                
+                r.buf_p         := 0;
+                r.border_valid  := '1';
+                r.state         := WAITING_FOR_SCANLINE;
             
         end case;
         
