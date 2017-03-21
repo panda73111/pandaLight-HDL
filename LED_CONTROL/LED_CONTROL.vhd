@@ -128,7 +128,7 @@ architecture rtl of LED_CONTROL is
     signal fifo_empty   : std_ulogic := '0';
     
     -- configuration registers
-    signal mode : std_ulogic(1 downto 0) := "00";
+    signal mode : std_ulogic_vector(1 downto 0) := "00";
     
 begin
 
@@ -190,9 +190,9 @@ begin
             BUSY    => ws2801_busy,
             VSYNC   => ws2801_vsync,
             
-            RGB_RD_EN           => ws2801_rgb_rd_en,
-            LEDS_OUT_CLK_OUT    => ws2801_leds_out_clk,
-            LEDS_OUT_DATA       => ws2801_leds_out_data
+            RGB_RD_EN       => ws2801_rgb_rd_en,
+            LEDS_OUT_CLK    => ws2801_leds_out_clk,
+            LEDS_OUT_DATA   => ws2801_leds_out_data
         );
     
     LED_CONTROL_WS2811_inst : entity work.LED_CONTROL_WS2811
