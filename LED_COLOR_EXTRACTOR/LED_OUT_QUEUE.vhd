@@ -63,8 +63,8 @@ architecture rtl of LED_OUT_QUEUE is
     signal fifo_rd_en   : std_ulogic := '0';
     signal fifo_empty   : std_ulogic := '0';
     signal fifo_valid   : std_ulogic := '0';
-    signal fifo_din     : std_ulogic_vector(3*ACCU_BITS+8 downto 0) := (others => '0');
-    signal fifo_dout    : std_ulogic_vector(3*ACCU_BITS+8 downto 0) := (others => '0');
+    signal fifo_din     : std_ulogic_vector(3*ACCU_BITS+9 downto 0) := (others => '0');
+    signal fifo_dout    : std_ulogic_vector(3*ACCU_BITS+9 downto 0) := (others => '0');
     
 begin
     
@@ -81,7 +81,7 @@ begin
     
     divisor <= stdulv(int(PIXEL_COUNT), ACCU_BITS);
     
-    fifo_din    <= LED_NUM_IN & DIMENSION_IN & SIDE & ACCU_R & ACCU_G & ACCU_B;
+    fifo_din    <= LED_NUM_IN & DIMENSION_IN & SIDE_IN & ACCU_R & ACCU_G & ACCU_B;
     
     ASYNC_FIFO_inst : entity work.ASYNC_FIFO
         generic map (

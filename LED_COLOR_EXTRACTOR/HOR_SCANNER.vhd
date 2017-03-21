@@ -62,11 +62,6 @@ architecture rtl of HOR_SCANNER is
     signal scanners_accu_g      : scanners_accu_type := (others => (others => '0'));
     signal scanners_accu_b      : scanners_accu_type := (others => (others => '0'));
     
-    signal accu_valid   : std_ulogic := '0';
-    signal accu_r       : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
-    signal accu_g       : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
-    signal accu_b       : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
-    
     signal led_count    : std_ulogic_vector(7 downto 0) := x"00";
     signal led_counter  : unsigned(log2(MAX_LED_COUNT)-1 downto 0) := (others => '0');
     signal side         : std_ulogic := '0';

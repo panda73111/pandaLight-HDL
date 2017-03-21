@@ -36,10 +36,12 @@ ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS
     signal CLK  : std_ulogic := '0';
     signal RST  : std_ulogic := '0';
     
+    signal CFG_CLK      : std_ulogic := '0';
     signal CFG_ADDR     : std_ulogic_vector(4 downto 0) := "00000";
     signal CFG_WR_EN    : std_ulogic := '0';
     signal CFG_DATA     : std_ulogic_vector(7 downto 0) := x"00";
     
+    signal FRAME_HSYNC      : std_ulogic := '0';
     signal FRAME_VSYNC      : std_ulogic := '0';
     signal FRAME_RGB_WR_EN  : std_ulogic := '0';
     signal FRAME_RGB        : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
@@ -68,6 +70,7 @@ ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS
 BEGIN
     
     CLK         <= pix_clk;
+    CFG_CLK     <= g_clk;
     rst_extr    <= RST or not pix_clk_locked;
     
     vp  <= VIDEO_PROFILES(int(profile));
@@ -93,7 +96,8 @@ BEGIN
         CLK_OUT         => pix_clk,
         CLK_OUT_LOCKED  => pix_clk_locked,
         
-        POSITIVE_VSYNC  => frame_vsync,
+        POSITIVE_HSYNC  => FRAME_HSYNC,
+        POSITIVE_VSYNC  => FRAME_VSYNC,
         
         RGB_ENABLE  => FRAME_RGB_WR_EN,
         RGB         => FRAME_RGB
@@ -139,10 +143,12 @@ BEGIN
         CLK => CLK,
         RST => rst_extr,
         
+        CFG_CLK     => CFG_CLK,
         CFG_ADDR    => CFG_ADDR,
         CFG_WR_EN   => CFG_WR_EN,
         CFG_DATA    => CFG_DATA,
         
+        FRAME_HSYNC     => FRAME_HSYNC,
         FRAME_VSYNC     => FRAME_VSYNC,
         FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
         FRAME_RGB       => FRAME_RGB,
@@ -172,6 +178,7 @@ BEGIN
         
         procedure write_config (cfg : in cfg_type) is
         begin
+            wait until rising_edge(CFG_CLK);
             CFG_WR_EN   <= '1';
             RST         <= '1';
             for settings_i in 0 to 25 loop
@@ -204,7 +211,7 @@ BEGIN
                     when 24     =>  CFG_DATA    <= cfg.FRAME_HEIGHT(15 downto 8);
                     when 25     =>  CFG_DATA    <= cfg.FRAME_HEIGHT(7 downto 0);
                 end case;
-                wait until rising_edge(CLK);
+                wait until rising_edge(CFG_CLK);
             end loop;
             CFG_WR_EN   <= '0';
             RST         <= '0';

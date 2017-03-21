@@ -136,6 +136,7 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     --- signals ---
     ---------------
     
+    signal accu_valid_2     : std_ulogic_vector(0 to 1) := (others => '0');
     signal accu_r_2         : accu_channel_2_type := (others => (others => '0'));
     signal accu_g_2         : accu_channel_2_type := (others => (others => '0'));
     signal accu_b_2         : accu_channel_2_type := (others => (others => '0'));
@@ -145,6 +146,7 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     signal accu_r       : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
     signal accu_g       : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
     signal accu_b       : std_ulogic_vector(ACCU_BITS-1 downto 0) := (others => '0');
+    signal pixel_count  : std_ulogic_vector(2*DIM_BITS-1 downto 0) := (others => '0');
     
     signal queue_led_num_in     : std_ulogic_vector(7 downto 0) := x"00";
     signal queue_led_num_out    : std_ulogic_vector(7 downto 0) := x"00";
@@ -159,6 +161,7 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     signal led_num_2        : led_num_2_type := (others => (others => '0'));
     signal frame_x          : unsigned(DIM_BITS-1 downto 0) := (others => '0');
     signal frame_y          : unsigned(DIM_BITS-1 downto 0) := (others => '0');
+    signal frame_valid_line : boolean := false;
     signal led_rgb_valid_2  : std_ulogic_vector(0 to 1) := (others => '0');
     signal led_side_2       : std_ulogic_vector(0 to 1) := (others => '0');
     signal led_rgb_2        : led_rgb_2_type := (others => (others => '0'));
@@ -226,7 +229,7 @@ begin
             queue_dimension_in  <= '0';
             
             for dim in HOR to VER loop
-                accu_wr_en          <= accus_valid(dim);
+                accu_wr_en          <= accu_valid_2(dim);
                 accu_r              <= accu_r_2(dim);
                 accu_g              <= accu_g_2(dim);
                 accu_b              <= accu_b_2(dim);
@@ -238,7 +241,7 @@ begin
                     queue_dimension_in  <= '1';
                 end if;
                 
-                exit when accus_valid(dim)='1';
+                exit when accu_valid_2(dim)='1';
             end loop;
         end if;
     end process;
@@ -298,7 +301,7 @@ begin
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
             
-            ACCU_VALID  => accus_valid(HOR),
+            ACCU_VALID  => accu_valid_2(HOR),
             ACCU_R      => accu_r_2(HOR),
             ACCU_G      => accu_g_2(HOR),
             ACCU_B      => accu_b_2(HOR),
@@ -332,7 +335,7 @@ begin
             FRAME_X => stdulv(frame_x),
             FRAME_Y => stdulv(frame_y),
             
-            ACCU_VALID  => accus_valid(VER),
+            ACCU_VALID  => accu_valid_2(VER),
             ACCU_R      => accu_r_2(VER),
             ACCU_G      => accu_g_2(VER),
             ACCU_B      => accu_b_2(VER),
@@ -364,7 +367,7 @@ begin
                 if queue_led_rgb_valid='1' then
                 
                 -- count the LEDs from top left clockwise
-                if queue_dimension_out=HOR then
+                if queue_dimension_out=stdulv(HOR, 1)(0) then
                     if queue_side_out='0' then
                         -- top LED
                         LED_NUM <= queue_led_num_out;
