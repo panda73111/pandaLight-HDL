@@ -45,6 +45,7 @@ entity CONFIGURATOR is
         CONFIGURE_LEDEX     : in std_ulogic;
         CONFIGURE_LEDCOR    : in std_ulogic;
         CONFIGURE_LEDCON    : in std_ulogic;
+        CONFIGURE_BBD       : in std_ulogic;
         
         FRAME_WIDTH     : in std_ulogic_vector(DIM_BITS-1 downto 0);
         FRAME_HEIGHT    : in std_ulogic_vector(DIM_BITS-1 downto 0);
@@ -57,6 +58,7 @@ entity CONFIGURATOR is
         CFG_SEL_LEDEX   : out std_ulogic := '0';
         CFG_SEL_LEDCOR  : out std_ulogic := '0';
         CFG_SEL_LEDCON  : out std_ulogic := '0';
+        CFG_SEL_BBD     : out std_ulogic := '0';
         
         CFG_ADDR    : out std_ulogic_vector(9 downto 0) := (others => '0');
         CFG_WR_EN   : out std_ulogic := '0';
@@ -92,6 +94,11 @@ architecture rtl of CONFIGURATOR is
     constant BUF_I_VER_LED_OFFS_L       : std_ulogic_vector(9 downto 0) := "0000010101";
     constant BUF_I_START_LED_NUM        : std_ulogic_vector(9 downto 0) := "0001000000";
     constant BUF_I_START_LED_TYPE       : std_ulogic_vector(9 downto 0) := "0001000011";
+    constant BUF_I_BBD_ENABLE           : std_ulogic_vector(9 downto 0) := "0010000000";
+    constant BUF_I_BBD_SCAN_WIDTH_H     : std_ulogic_vector(9 downto 0) := "0010000101";
+    constant BUF_I_BBD_SCAN_WIDTH_L     : std_ulogic_vector(9 downto 0) := "0010000110";
+    constant BUF_I_BBD_SCAN_HEIGHT_H    : std_ulogic_vector(9 downto 0) := "0010000111";
+    constant BUF_I_BBD_SCAN_HEIGHT_L    : std_ulogic_vector(9 downto 0) := "0010001000";
     constant BUF_I_LED_LOOKUP_TABLES    : std_ulogic_vector(9 downto 0) := "0100000000";
     
     type state_type is (
@@ -108,7 +115,8 @@ architecture rtl of CONFIGURATOR is
         ADDING_VER_LED_COUNT,
         CONFIGURING_LEDEX,
         CONFIGURING_LEDCOR,
-        CONFIGURING_LEDCON
+        CONFIGURING_LEDCON,
+        CONFIGURING_BLACK_BORDER_DETECTOR
     );
     
     type reg_type is record
@@ -116,6 +124,7 @@ architecture rtl of CONFIGURATOR is
         cfg_sel_ledex           : std_ulogic;
         cfg_sel_ledcor          : std_ulogic;
         cfg_sel_ledcon          : std_ulogic;
+        cfg_sel_bbd             : std_ulogic;
         cfg_addr                : std_ulogic_vector(9 downto 0);
         cfg_wr_en               : std_ulogic;
         cfg_data                : std_ulogic_vector(7 downto 0);
@@ -135,6 +144,7 @@ architecture rtl of CONFIGURATOR is
         cfg_sel_ledex           => '0',
         cfg_sel_ledcor          => '0',
         cfg_sel_ledcon          => '0',
+        cfg_sel_bbd             => '0',
         cfg_addr                => (others => '1'),
         cfg_wr_en               => '0',
         cfg_data                => x"00",
@@ -162,7 +172,7 @@ architecture rtl of CONFIGURATOR is
     signal settings_buf : settings_buf_type := (others => x"00");
     
     type scaled_settings_buf_type is
-        array(0 to 31) of
+        array(0 to 63) of
         std_ulogic_vector(7 downto 0);
     
     signal scaled_settings_buf  : scaled_settings_buf_type := (others => x"00");
@@ -170,7 +180,7 @@ architecture rtl of CONFIGURATOR is
     signal buf_do           : std_ulogic_vector(7 downto 0) := x"00";
     signal scaled_buf_do    : std_ulogic_vector(7 downto 0) := x"00";
     
-    signal is_led_dimension_settings    : std_ulogic := '0';
+    signal is_fraction  : std_ulogic := '0';
     
 begin
     
@@ -178,13 +188,17 @@ begin
     CFG_SEL_LEDEX   <= cur_reg.cfg_sel_ledex;
     CFG_SEL_LEDCOR  <= cur_reg.cfg_sel_ledcor;
     CFG_SEL_LEDCON  <= cur_reg.cfg_sel_ledcon;
+    CFG_SEL_BBD     <= cur_reg.cfg_sel_bbd;
     CFG_ADDR        <= cur_reg.cfg_addr;
     CFG_WR_EN       <= cur_reg.cfg_wr_en;
     CFG_DATA        <= cur_reg.cfg_data;
     BUSY            <= '1' when cur_reg.state/=WAITING_FOR_START else '0';
     
-    div_multiplier_result       <= multiplier_result(2*DIM_BITS-1 downto DIM_BITS) + multiplier_result(DIM_BITS-1); -- round
-    is_led_dimension_settings   <= not or_reduce(SETTINGS_ADDR(9 downto 5)); -- within address range 0..32
+    -- round
+    div_multiplier_result   <= multiplier_result(2*DIM_BITS-1 downto DIM_BITS) + multiplier_result(DIM_BITS-1);
+    
+    -- within address range 0..32 or 128..159
+    is_fraction <= not or_reduce(SETTINGS_ADDR(9 downto 5) and "11011");
     
     ITERATIVE_MULTIPLIER_inst : entity work.ITERATIVE_MULTIPLIER
         generic map (
@@ -224,17 +238,25 @@ begin
     end process;
     
     scaled_settings_buf_proc : process(CLK)
-        alias rd_p  is next_reg.buf_rd_p;
-        alias wr_p  is next_reg.buf_wr_p;
         alias di    is next_reg.buf_di;
         alias do    is scaled_buf_do;
         alias wr_en is next_reg.scaled_buf_wr_en;
+        
+        variable rd_p   : std_ulogic_vector(5 downto 0) := (others => '0');
+        variable wr_p   : std_ulogic_vector(5 downto 0) := (others => '0');
     begin
         if rising_edge(CLK) then
+            rd_p(4 downto 0)    := next_reg.buf_rd_p(4 downto 0);
+            wr_p(4 downto 0)    := next_reg.buf_wr_p(4 downto 0);
+            
+            -- map black border settings from address 128..159 to address 32..63
+            rd_p(5) := next_reg.buf_rd_p(7);
+            wr_P(5) := next_reg.buf_wr_p(7);
+            
             -- write first mode
-            do  <= scaled_settings_buf(int(rd_p(4 downto 0)));
+            do  <= scaled_settings_buf(int(rd_p));
             if wr_en='1' then
-                scaled_settings_buf(int(wr_p(4 downto 0)))  <= di;
+                scaled_settings_buf(int(wr_p))  <= di;
             end if;
             if wr_en='1' and rd_p=wr_p then
                 do  <= di;
@@ -242,9 +264,10 @@ begin
         end if;
     end process;
     
-    stm_proc : process(RST, cur_reg, CALCULATE, CONFIGURE_LEDEX, CONFIGURE_LEDCOR, CONFIGURE_LEDCON,
+    stm_proc : process(RST, cur_reg, CALCULATE,
+    	CONFIGURE_LEDEX, CONFIGURE_LEDCOR, CONFIGURE_LEDCON, CONFIGURE_BBD,
         SETTINGS_ADDR, SETTINGS_WR_EN, SETTINGS_DIN, FRAME_WIDTH, FRAME_HEIGHT,
-        multiplier_valid, div_multiplier_result, buf_do, scaled_buf_do, is_led_dimension_settings)
+        multiplier_valid, div_multiplier_result, buf_do, scaled_buf_do, is_fraction)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
@@ -252,6 +275,7 @@ begin
         r.cfg_sel_ledex     := '0';
         r.cfg_sel_ledcor    := '0';
         r.cfg_sel_ledcon    := '0';
+        r.cfg_sel_bbd       := '0';
         r.cfg_wr_en         := '0';
         r.multiplier_start  := '0';
         r.buf_wr_en         := '0';
@@ -265,7 +289,7 @@ begin
                 r.buf_rd_p  := SETTINGS_ADDR;
                 if SETTINGS_WR_EN='1' then
                     r.buf_wr_en         := '1';
-                    r.scaled_buf_wr_en  := is_led_dimension_settings;
+                    r.scaled_buf_wr_en  := is_fraction;
                     r.buf_wr_p          := SETTINGS_ADDR;
                     r.buf_di            := SETTINGS_DIN;
                 end if;
@@ -285,6 +309,10 @@ begin
                     r.buf_rd_p  := BUF_I_START_LED_TYPE;
                     r.state     := CONFIGURING_LEDCON;
                 end if;
+                if CONFIGURE_BBD='1' then
+                    r.buf_rd_p  := BUF_I_BBD_ENABLE;
+                    r.state     := CONFIGURING_BLACK_BORDER_DETECTOR;
+                end if;
             
             when CALCULATING_ABSOLUTE_HOR_VALUES_H =>
                 r.multiplier_multiplicand                       := FRAME_WIDTH;
@@ -299,7 +327,8 @@ begin
                     when BUF_I_HOR_LED_WIDTH_L  =>  r.buf_rd_p  := BUF_I_HOR_LED_STEP_H;
                     when BUF_I_HOR_LED_STEP_L   =>  r.buf_rd_p  := BUF_I_HOR_LED_OFFS_H;
                     when BUF_I_HOR_LED_OFFS_L   =>  r.buf_rd_p  := BUF_I_VER_LED_WIDTH_H;
-                    when others                 =>  r.buf_rd_p  := BUF_I_VER_LED_PAD_H;
+                    when BUF_I_VER_LED_WIDTH_L  =>  r.buf_rd_p  := BUF_I_VER_LED_PAD_H;
+                    when others                 =>  r.buf_rd_p  := BUF_I_BBD_SCAN_WIDTH_H;
                 end case;
                 r.multiplier_start  := '1';
                 r.state             := CALCULATING_WAIT_FOR_ABSOLUTE_HOR_VALUE;
@@ -316,8 +345,8 @@ begin
                 r.scaled_buf_wr_en  := '1';
                 r.buf_di            := div_multiplier_result(7 downto 0);
                 r.buf_wr_p          := cr.buf_wr_p+1;
-                r.state := CALCULATING_ABSOLUTE_HOR_VALUES_H;
-                if cr.buf_wr_p=BUF_I_VER_LED_PAD_H then
+                r.state             := CALCULATING_ABSOLUTE_HOR_VALUES_H;
+                if cr.buf_wr_p=BUF_I_BBD_SCAN_WIDTH_H then
                     r.buf_rd_p  := BUF_I_VER_LED_HEIGHT_H;
                     r.state     := CALCULATING_ABSOLUTE_VER_VALUES_H;
                 end if;
@@ -335,7 +364,8 @@ begin
                     when BUF_I_VER_LED_HEIGHT_L =>  r.buf_rd_p  := BUF_I_VER_LED_STEP_H;
                     when BUF_I_VER_LED_STEP_L   =>  r.buf_rd_p  := BUF_I_VER_LED_OFFS_H;
                     when BUF_I_VER_LED_OFFS_L   =>  r.buf_rd_p  := BUF_I_HOR_LED_HEIGHT_H;
-                    when others                 =>  r.buf_rd_p  := BUF_I_HOR_LED_PAD_H;
+                    when BUF_I_HOR_LED_HEIGHT_L =>  r.buf_rd_p  := BUF_I_HOR_LED_PAD_H;
+                    when others                 =>  r.buf_rd_p  := BUF_I_BBD_SCAN_HEIGHT_H;
                 end case;
                 r.multiplier_start  := '1';
                 r.state             := CALCULATING_WAIT_FOR_ABSOLUTE_VER_VALUE;
@@ -353,7 +383,7 @@ begin
                 r.buf_di            := div_multiplier_result(7 downto 0);
                 r.buf_wr_p          := cr.buf_wr_p+1;
                 r.state := CALCULATING_ABSOLUTE_VER_VALUES_H;
-                if cr.buf_wr_p=BUF_I_HOR_LED_PAD_H then
+                if cr.buf_wr_p=BUF_I_BBD_SCAN_HEIGHT_H then
                     r.buf_rd_p  := BUF_I_HOR_LED_CNT;
                     r.state     := ADDING_HOR_LED_COUNT;
                 end if;
@@ -406,6 +436,25 @@ begin
                 r.cfg_addr          := "0000000000";
                 r.cfg_data          := buf_do;
                 r.state             := WAITING_FOR_START;
+            
+            when CONFIGURING_BLACK_BORDER_DETECTOR =>
+                r.cfg_sel_bbd   := '1';
+                r.cfg_wr_en     := '1';
+                r.cfg_addr      := cr.cfg_addr+1;
+                r.cfg_data      := buf_do;
+                r.buf_rd_p      := cr.buf_rd_p+1;
+                case r.cfg_addr(3 downto 0) is
+                    when "0101" =>  r.cfg_data                      := scaled_buf_do;
+                    when "0110" =>  r.cfg_data                      := scaled_buf_do;
+                    when "0111" =>  r.cfg_data                      := scaled_buf_do;
+                    when "1000" =>  r.cfg_data                      := scaled_buf_do;
+                    when "1001" =>  r.cfg_data(DIM_BITS-9 downto 0) := FRAME_WIDTH(DIM_BITS-1 downto 8);
+                    when "1010" =>  r.cfg_data                      := FRAME_WIDTH(7 downto 0);
+                    when "1011" =>  r.cfg_data(DIM_BITS-9 downto 0) := FRAME_HEIGHT(DIM_BITS-1 downto 8);
+                    when "1100" =>  r.cfg_data                      := FRAME_HEIGHT(7 downto 0);
+                                    r.state := WAITING_FOR_START;
+                    when others =>  null;
+                end case;
             
         end case;
         

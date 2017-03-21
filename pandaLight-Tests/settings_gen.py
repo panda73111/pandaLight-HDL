@@ -1,28 +1,37 @@
 #!/usr/bin/env python3
 
-HOR_LED_COUNT         =  16
-HOR_LED_SCALED_WIDTH  =  60 / 1280
-HOR_LED_SCALED_HEIGHT =  80 / 720
-HOR_LED_SCALED_STEP   =  80 / 1280
-HOR_LED_SCALED_PAD    =   5 / 720
-HOR_LED_SCALED_OFFS   =  10 / 1280
-VER_LED_COUNT         =   9
-VER_LED_SCALED_WIDTH  =  80 / 1280
-VER_LED_SCALED_HEIGHT =  60 / 720
-VER_LED_SCALED_STEP   =  80 / 720
-VER_LED_SCALED_PAD    =   5 / 1280
-VER_LED_SCALED_OFFS   =  10 / 720
-START_LED_NUM         =   0
-FRAME_DELAY           =   0
-RGB_MODE              =   0 # standard RGB
-LED_CONTROL_MODE      =   3 # WS2812 chips
-GAMMA_CORRECTION      = 2.0
-MIN_RED               =   0
-MAX_RED               = 255
-MIN_GREEN             =   0
-MAX_GREEN             = 255
-MIN_BLUE              =   0
-MAX_BLUE              = 255
+DIMENSION_BITS = 11
+
+HOR_LED_COUNT           =  16
+HOR_LED_SCALED_WIDTH    =  60 / 1280
+HOR_LED_SCALED_HEIGHT   =  80 /  720
+HOR_LED_SCALED_STEP     =  80 / 1280
+HOR_LED_SCALED_PAD      =   5 /  720
+HOR_LED_SCALED_OFFS     =  10 / 1280
+VER_LED_COUNT           =   9
+VER_LED_SCALED_WIDTH    =  80 / 1280
+VER_LED_SCALED_HEIGHT   =  60 /  720
+VER_LED_SCALED_STEP     =  80 /  720
+VER_LED_SCALED_PAD      =   5 / 1280
+VER_LED_SCALED_OFFS     =  10 /  720
+START_LED_NUM           =   0
+FRAME_DELAY             =   0
+RGB_MODE                =   0 # standard RGB
+LED_CONTROL_MODE        =   3 # WS2812 chips
+GAMMA_CORRECTION        = 2.0
+MIN_RED                 =   0
+MAX_RED                 = 255
+MIN_GREEN               =   0
+MAX_GREEN               = 255
+MIN_BLUE                =   0
+MAX_BLUE                = 255
+BBD_ENABLE              =   1
+BBD_THRESHOLD           =  10
+BBD_CONSIST_FRAMES      =  10
+BBD_INCONSIST_FRAMES    =  10
+BBD_REMOVE_BIAS         =   0
+BBD_SCALED_SCAN_WIDTH   = 200 / 1280
+BBD_SCALED_SCAN_HEIGHT  = 200 /  720
 
 def gammaCorrect(val, corr):
     return int(255 * pow(val / 255, corr))
@@ -38,7 +47,7 @@ gamma_cor_int   = int(GAMMA_CORRECTION)
 gamma_cor_frac  = int((GAMMA_CORRECTION % 1) * 2 ** 12); # 12 Bit fraction
 
 def fractionToShort(fraction):
-    i = int(fraction * (2 ** 16 - 1))
+    i = int(fraction * (2 ** DIMENSION_BITS - 1))
     return [i >> 8 & 0xFF, i & 0xFF]
 
 values = [
@@ -72,6 +81,18 @@ values += [
     MIN_BLUE,
     MAX_BLUE
     ]
+
+values += [0] * (128-len(values))
+
+values += [
+    BBD_ENABLE,
+    BBD_THRESHOLD,
+    BBD_CONSIST_FRAMES,
+    BBD_INCONSIST_FRAMES,
+    BBD_REMOVE_BIAS,
+    *fractionToShort(BBD_SCALED_SCAN_WIDTH),
+    *fractionToShort(BBD_SCALED_SCAN_HEIGHT)
+]
 
 values += [0] * (256-len(values))
 
