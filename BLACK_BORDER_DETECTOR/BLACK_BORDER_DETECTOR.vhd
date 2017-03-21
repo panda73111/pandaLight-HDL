@@ -95,10 +95,9 @@ architecture rtl of BLACK_BORDER_DETECTOR is
     );
     
     signal cur_reg, next_reg    : reg_type := reg_type_def;
-    signal frame_x              : unsigned(DIM_BITS-1 downto 0) := (others => '1');
+    signal frame_x              : unsigned(DIM_BITS-1 downto 0) := (others => '0');
     signal frame_y              : unsigned(DIM_BITS-1 downto 0) := (others => '0');
     signal frame_valid_line     : boolean := false;
-    signal frame_vsync_q        : std_ulogic := '1';
     
     signal is_black : std_ulogic := '0';
     
@@ -141,20 +140,16 @@ begin
     pixel_cnt_proc : process(RST, CLK)
     begin
         if RST='1' then
-            frame_x             <= (others => '1');
-            frame_y             <= (others => '0');
-            frame_vsync_q       <= '1';
-            frame_valid_line    <= false;
+            frame_x <= (others => '0');
+            frame_y <= (others => '0');
         elsif rising_edge(CLK) then
-            frame_vsync_q   <= FRAME_VSYNC;
-            
             if FRAME_RGB_WR_EN='1' then
                 frame_x             <= frame_x+1;
                 frame_valid_line    <= true;
             end if;
             
             if FRAME_HSYNC='1' then
-                frame_x             <= (others => '1');
+                frame_x             <= (others => '0');
                 frame_valid_line    <= false;
                 if frame_valid_line then
                     frame_y <= frame_y+1;
@@ -162,7 +157,7 @@ begin
             end if;
             
             if FRAME_VSYNC='1' then
-                frame_x <= (others => '1');
+                frame_x <= (others => '0');
                 frame_y <= (others => '0');
             end if;
         end if;
@@ -183,7 +178,7 @@ begin
             CFG_WR_EN   => CFG_WR_EN,
             CFG_DATA    => CFG_DATA,
             
-            FRAME_VSYNC     => frame_vsync_q,
+            FRAME_VSYNC     => FRAME_VSYNC,
             FRAME_RGB_WR_EN => FRAME_RGB_WR_EN,
             
             FRAME_X => stdulv(frame_x),
