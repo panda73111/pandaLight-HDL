@@ -85,6 +85,7 @@ entity LED_COLOR_EXTRACTOR is
         CFG_DATA    : in std_ulogic_vector(7 downto 0);
         
         FRAME_VSYNC     : in std_ulogic;
+        FRAME_HSYNC     : in std_ulogic;
         FRAME_RGB_WR_EN : in std_ulogic;
         FRAME_RGB       : in std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0);
         
@@ -196,16 +197,22 @@ begin
             frame_x <= (others => '0');
             frame_y <= (others => '0');
         elsif rising_edge(CLK) then
+            if FRAME_RGB_WR_EN='1' then
+                frame_x             <= frame_x+1;
+                frame_valid_line    <= true;
+            end if;
+            
+            if FRAME_HSYNC='1' then
+                frame_x             <= (others => '0');
+                frame_valid_line    <= false;
+                if frame_valid_line then
+                    frame_y <= frame_y+1;
+                end if;
+            end if;
+            
             if FRAME_VSYNC='1' then
                 frame_x <= (others => '0');
                 frame_y <= (others => '0');
-            end if;
-            if FRAME_RGB_WR_EN='1' then
-                frame_x <= frame_x+1;
-                if frame_x=frame_width-1 then
-                    frame_x <= (others => '0');
-                    frame_y <= frame_y+1;
-                end if;
             end if;
         end if;
     end process;
@@ -224,7 +231,7 @@ begin
                 accu_g              <= accu_g_2(dim);
                 accu_b              <= accu_b_2(dim);
                 pixel_count         <= pixel_count_2(dim);
-                queue_led_num_in    <= led_num_2(dim)
+                queue_led_num_in    <= led_num_2(dim);
                 queue_side_in       <= led_side_2(dim);
                 
                 if dim=VER then
