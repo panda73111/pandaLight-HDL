@@ -225,7 +225,7 @@ architecture rtl of PANDA_LIGHT is
     signal ledex_clk    : std_ulogic := '0';
     signal ledex_rst    : std_ulogic := '0';
     
-    signal ledex_cfg_clk    : std_ulogic : '0';
+    signal ledex_cfg_clk    : std_ulogic := '0';
     signal ledex_cfg_addr   : std_ulogic_vector(4 downto 0) := "00000";
     signal ledex_cfg_wr_en  : std_ulogic := '0';
     signal ledex_cfg_data   : std_ulogic_vector(7 downto 0) := x"00";
@@ -248,7 +248,7 @@ architecture rtl of PANDA_LIGHT is
     signal lcor_clk : std_ulogic := '0';
     signal lcor_rst : std_ulogic := '0';
     
-    signal lcor_cfg_clk     : std_ulogic : '0';
+    signal lcor_cfg_clk     : std_ulogic := '0';
     signal lcor_cfg_addr    : std_ulogic_vector(9 downto 0) := (others => '0');
     signal lcor_cfg_wr_en   : std_ulogic := '0';
     signal lcor_cfg_data    : std_ulogic_vector(7 downto 0) := x"00";
@@ -271,7 +271,7 @@ architecture rtl of PANDA_LIGHT is
     signal lctrl_leds_out_clk_in    : std_ulogic := '0';
     signal lctrl_rst                : std_ulogic := '0';
     
-    signal lctrl_cfg_clk    : std_ulogic : '0';
+    signal lctrl_cfg_clk    : std_ulogic := '0';
     signal lctrl_cfg_wr_en  : std_ulogic := '0';
     signal lctrl_cfg_data   : std_ulogic_vector(7 downto 0) := x"00";
     
