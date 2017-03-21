@@ -1,40 +1,52 @@
 
-  BYTE ADDRESS | SIZE |             VALUE |                          UNIT |                                                                           NOTES
- --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
-               |      |        HORIZONTAL |                               |
- --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
-     0 (0x000) |    1 |        LED  count |       number of LEDs  [0-255] |                              number of LEDs on each top and bottom of the frame
-     1 (0x001) |    2 |        LED  width |                             * |                                                   the width of a horizontal LED
-     3 (0x003) |    2 |        LED height |                            ** |                                                  the height of a horizontal LED
-     5 (0x005) |    2 |        LED   step |                             * |                    pixels from one horizontal LED's left column to the next one
-     7 (0x007) |    2 |        LED    pad |                            ** |         pixels between the frame top and the first horizontal LED's left column
-     9 (0x009) |    2 |        LED offset |                             * | pixels between the frame's left side and the first horizontal LED's left column
- --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
-               |      |          VERTICAL |                               |
- --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
-    11 (0x00B) |    1 |        LED  count |       number of LEDs  [0-255] |                         number of LEDs on each left and right side of the frame
-    12 (0x00C) |    2 |        LED  width |                             * |                                                     the width of a vertical LED
-    14 (0x00E) |    2 |        LED height |                            ** |                                                    the height of a vertical LED
-    16 (0x010) |    2 |        LED   step |                            ** |                          pixels from one vertical LED's top row to the next one
-    18 (0x012) |    2 |        LED    pad |                             * |         pixels between the frame left side and the first vertical LED's top row
-    20 (0x014) |    2 |        LED offset |                            ** |             pixels between the frame's top and the first vertical LED's top row
- --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
-    64 (0x040) |    1 |  start LED number | zero based LED index  [0-255] |            index of the LED in the chain which is placed at the top left corner
-    65 (0x041) |    1 |       frame delay |     number of frames  [0-255] |                                                       number of buffered frames
-    66 (0x042) |    1 |          RGB mode |             mode index  [0-5] |                    LED strip channel order, 0=RGB 1=RBG 2=GRB 3=GBR 4=BRG 5=BGR
-    67 (0x043) |    1 |    LED strip type |             type index  [0-3] |      0=WS2801, 1=WS2811 fast mode (800 kHz), 2=slow mode (400 kHz), 3=WS2812(B)
- --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
-               |      | LOOKUP RECREATION |                               |           not used for calculations, only saved for re-generation of RGB lookup
- --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
-    68 (0x044) |    2 |  gamma correction |    4 Bit + 12 Bit fixed point |
-    70 (0x046) |    1 |     minimum   red |  color channel value  [0-255] |
-    71 (0x047) |    1 |     maximum   red |  color channel value  [0-255] |
-    72 (0x048) |    1 |     minimum green |  color channel value  [0-255] |
-    73 (0x049) |    1 |     maximum green |  color channel value  [0-255] |
-    74 (0x050) |    1 |     minimum  blue |  color channel value  [0-255] |
-    75 (0x051) |    1 |     maximum  blue |  color channel value  [0-255] |
- --------------+------+-------------------+-------------------------------+---------------------------------------------------------------------------------
-   256 (0x100) |  768 |        RGB lookup | color channel values  [0-255] |             0x100 to 0x1FF : red, 0x200 to 0x2FF : green, 0x300 to 0x3FF : blue
+  BYTE ADDRESS | SIZE |               VALUE |                          UNIT |                                                                           NOTES
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+               |      |   HORIZONTAL SPEC.  |                               |
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+     0 (0x000) |    1 |          LED  count | number of LEDs        [0-255] | number of LEDs on each top and bottom of the frame
+     1 (0x001) |    2 |          LED  width |                             * | the width of a horizontal LED
+     3 (0x003) |    2 |          LED height |                            ** | the height of a horizontal LED
+     5 (0x005) |    2 |          LED   step |                             * | pixels from one horizontal LED's left column to the next one
+     7 (0x007) |    2 |          LED    pad |                            ** | pixels between the frame top and the first horizontal LED's left column
+     9 (0x009) |    2 |          LED offset |                             * | pixels between the frame's left side and the first horizontal LED's left column
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+               |      |    VERTICAL SPEC.   |                               |
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+    11 (0x00B) |    1 |          LED  count | number of LEDs        [0-255] | number of LEDs on each left and right side of the frame
+    12 (0x00C) |    2 |          LED  width |                             * | the width of a vertical LED
+    14 (0x00E) |    2 |          LED height |                            ** | the height of a vertical LED
+    16 (0x010) |    2 |          LED   step |                            ** | pixels from one vertical LED's top row to the next one
+    18 (0x012) |    2 |          LED    pad |                             * | pixels between the frame left side and the first vertical LED's top row
+    20 (0x014) |    2 |          LED offset |                            ** | pixels between the frame's top and the first vertical LED's top row
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+               |      |   MISC. LED SPEC.   |                               |
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+    64 (0x040) |    1 |    start LED number | zero based LED index  [0-255] | index of the LED in the chain which is placed at the top left corner
+    65 (0x041) |    1 |         frame delay | number of frames      [0-255] | number of buffered frames
+    66 (0x042) |    1 |            RGB mode | mode index              [0-5] | LED strip channel order, 0=RGB 1=RBG 2=GRB 3=GBR 4=BRG 5=BGR
+    67 (0x043) |    1 |      LED strip type | type index              [0-3] | 0=ws2801, 1=ws2811 fast mode (800 kHz), 2=ws2811 slow mode (400 kHz)
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+               |      |   COLOR CORRECTION  |                               | not used for calculations, only saved for re-generating RGB lookup tables
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+    68 (0x044) |    2 |    gamma correction | 4 Bit + 12 Bit fixed point    |
+    70 (0x046) |    1 |       minimum   red | color channel value   [0-255] |
+    71 (0x047) |    1 |       maximum   red | color channel value   [0-255] |
+    72 (0x048) |    1 |       minimum green | color channel value   [0-255] |
+    73 (0x049) |    1 |       maximum green | color channel value   [0-255] |
+    74 (0x050) |    1 |       minimum  blue | color channel value   [0-255] |
+    75 (0x051) |    1 |       maximum  blue | color channel value   [0-255] |
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+               |      |   BLACKBORDER DET.  |                               |
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+   128 (0x080) |    1 |              enable | enable flag             [0-1] | enables or disables black border detection
+   129 (0x081) |    1 |           threshold | blackness threshold   [0-255] | if all channels are below this value, this pixel is considered black
+   130 (0x082) |    1 |   consistent frames | number of frames      [0-255] | number of frames to occur in a row for new border sizes to be accepted
+   131 (0x083) |    1 | inconsistent frames | number of frames      [0-255] | number of frames to occur in a row for old border sizes to be reset
+   132 (0x084) |    1 |         remove bias | number of pixels      [0-255] | number of pixels to also remove from a frame, additional to the border
+   133 (0x085) |    2 |          scan width |                             * | pixels to scan in horizontal direction
+   135 (0x087) |    2 |         scan height |                            ** | pixels to scan in vertical direction
+ --------------+------+---------------------+-------------------------------+---------------------------------------------------------------------------------
+   256 (0x100) |  768 |          RGB lookup | color channel values  [0-255] | 0x100 to 0x1FF : red, 0x200 to 0x2FF : green, 0x300 to 0x3FF : blue
 
 
    (All byte values are in big-endian order)

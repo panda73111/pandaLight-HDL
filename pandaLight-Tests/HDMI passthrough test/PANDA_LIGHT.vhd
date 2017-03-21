@@ -23,7 +23,7 @@ entity PANDA_LIGHT is
         G_CLK_MULT          : natural range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
         G_CLK_DIV           : natural range 1 to 256 := 2;
         G_CLK_PERIOD        : real := 20.0; -- 50 MHz in nano seconds
-        RX_SEL              : natural range 0 to 1 := 1;
+        RX_SEL              : natural range 0 to 1 := 0;
         RX0_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"000000";
         RX1_BITFILE_ADDR    : std_ulogic_vector(23 downto 0) := x"060000";
         ENABLE_UART_DEBUG   : boolean := false;
@@ -51,7 +51,7 @@ entity PANDA_LIGHT is
         
         -- USB UART
         USB_RXD     : in std_ulogic;
-        USB_TXD     : out std_ulogic := '0';
+        USB_TXD     : out std_ulogic := '1';
         USB_CTSN    : in std_ulogic;
         USB_RTSN    : out std_ulogic := '0';
         USB_DSRN    : in std_ulogic;
@@ -59,8 +59,29 @@ entity PANDA_LIGHT is
         USB_DCDN    : out std_ulogic := '0';
         USB_RIN     : out std_ulogic := '0';
         
+        -- ESP32 UART
+        ESP_CTS : in std_ulogic;
+        ESP_RTS : out std_ulogic := '0';
+        ESP_RXD : in std_ulogic;
+        ESP_TXD : out std_ulogic := '1';
+        ESP_IO0 : out std_ulogic := '0';
+        ESP_EN  : out std_ulogic := '0';
+        
+        -- SPI Flash
+        FLASH_MISO  : in std_ulogic;
+        FLASH_MOSI  : out std_ulogic := '0';
+        FLASH_CS    : out std_ulogic := '1';
+        FLASH_SCK   : out std_ulogic := '0';
+        
+        -- LEDs
+        LEDS_CLK    : out std_ulogic_vector(1 downto 0) := "00";
+        LEDS_DATA   : out std_ulogic_vector(1 downto 0) := "00";
+        
         -- PMOD
-        PMOD0   : out std_ulogic_vector(3 downto 0) := "0000"
+        PMOD0   : in std_ulogic_vector(3 downto 0);
+        PMOD1   : out std_ulogic_vector(3 downto 0) := x"0";
+        PMOD2   : in std_ulogic_vector(3 downto 0);
+        PMOD3   : out std_ulogic_vector(3 downto 0) := x"0"
     );
 end PANDA_LIGHT;
 
@@ -71,7 +92,7 @@ architecture rtl of PANDA_LIGHT is
     signal g_clk    : std_ulogic := '0';
     signal g_rst    : std_ulogic := '0';
     
-    signal g_clk_stopped    : std_ulogic := '0';
+    signal g_clk_locked : std_ulogic := '0';
     
     
     ----------------------------
@@ -158,9 +179,9 @@ begin
         port map (
             RST => '0',
             
-            CLK_IN          => CLK20,
-            CLK_OUT         => g_clk,
-            CLK_OUT_STOPPED => g_clk_stopped
+            CLK_IN  => CLK20,
+            CLK_OUT => g_clk,
+            LOCKED  => g_clk_locked
         );
     
     
@@ -168,12 +189,12 @@ begin
     ------ global signal management ------
     --------------------------------------
     
-    g_rst   <= g_clk_stopped;
+    g_rst   <= not g_clk_locked;
     
-    PMOD0(0)    <= RX_SCL(RX_SEL);
-    PMOD0(1)    <= RX_SDA(RX_SEL);
-    PMOD0(2)    <= TX_SCL;
-    PMOD0(3)    <= TX_SDA;
+    PMOD1(0)    <= RX_SCL(RX_SEL);
+    PMOD1(1)    <= RX_SDA(RX_SEL);
+    PMOD1(2)    <= TX_SCL;
+    PMOD1(3)    <= TX_SDA;
     
     
     ------------------------------------
