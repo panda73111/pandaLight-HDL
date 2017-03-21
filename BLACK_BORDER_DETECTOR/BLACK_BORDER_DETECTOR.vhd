@@ -222,7 +222,8 @@ begin
             BORDER_SIZE     => borders_size(VER)
         );
     
-    stm_proc : process(RST, cur_reg, enable, borders_valid, borders_size)
+    stm_proc : process(RST, cur_reg, enable, borders_valid,
+        borders_size, consistent_frames, inconsistent_frames)
         alias cr    : reg_type is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin

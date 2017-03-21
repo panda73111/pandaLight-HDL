@@ -153,7 +153,7 @@ begin
     end process;
     
     stm_proc : process(RST, cur_reg, FRAME_VSYNC, FRAME_RGB_WR_EN, IS_BLACK,
-        FRAME_X, FRAME_Y, frame_height, scan_height, scancolumn, buf_do)
+        FRAME_X, FRAME_Y, frame_height, scan_height, scancolumn, buf_do, remove_bias)
         alias cr    is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
