@@ -130,11 +130,11 @@ BEGIN
             CLK_IN_TO_CLK10_MULT    => CLK_IN_TO_CLK10_MULT,
             CLK_IN_TO_CLK10_DIV     => CLK_IN_TO_CLK10_DIV,
             DIM_BITS                => DIM_BITS,
-            MOCK_CLK_MAN            => true
+            MOCK_CLK_MAN            => false
         )
         port map (
             CLK_IN  => g_clk,
-            RST     => g_rst,
+            RST     => '0',
             
             PROFILE => PROFILE,
             
@@ -317,7 +317,6 @@ BEGIN
         -- hold reset state for 100 ns.
         g_rst   <= '1';
         wait for 100 ns;
-        wait until rising_edge(CLK) and pix_clk_locked='1';
         
         cfg := (
             enable              => '1',
@@ -333,10 +332,9 @@ BEGIN
         write_config(cfg);
         
         g_rst   <= '0';
+        wait until rising_edge(CLK) and pix_clk_locked='1' and FRAME_VSYNC='1';
         
-        wait until rising_edge(CLK) and FRAME_VSYNC='1';
-        
-        test(    FULL_BLACK, 0,        "Black frames", 120, 120);
+        test(    FULL_BLACK, 0,        "Black frames", 122, 122);
         test(    FULL_WHITE, 1,        "White frames",   0,   0);
         test(     TOP_BLACK, 2,    "Top black frames",   0,   0);
         test(  BOTTOM_BLACK, 3, "Bottom black frames",   0,   0);
