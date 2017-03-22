@@ -174,6 +174,7 @@ begin
             RST => RST,
             CLK => CLK,
             
+            CFG_CLK     => CFG_CLK,
             CFG_ADDR    => CFG_ADDR,
             CFG_WR_EN   => CFG_WR_EN,
             CFG_DATA    => CFG_DATA,
@@ -201,6 +202,7 @@ begin
             RST => RST,
             CLK => CLK,
             
+            CFG_CLK     => CFG_CLK,
             CFG_ADDR    => CFG_ADDR,
             CFG_WR_EN   => CFG_WR_EN,
             CFG_DATA    => CFG_DATA,
