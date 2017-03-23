@@ -59,7 +59,6 @@ ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS
     
     signal g_clk            : std_ulogic := '0';
     signal rst_extr         : std_ulogic := '0';
-    signal pix_clk          : std_ulogic := '0';
     signal pix_clk_locked   : std_ulogic := '0';
     
     signal frame_width, frame_height    : std_ulogic_vector(15 downto 0) := x"0000";
@@ -69,7 +68,6 @@ ARCHITECTURE behavior OF LED_COLOR_EXTRACTOR_tb IS
     
 BEGIN
     
-    CLK         <= pix_clk;
     CFG_CLK     <= g_clk;
     rst_extr    <= RST or not pix_clk_locked;
     
@@ -93,7 +91,7 @@ BEGIN
         
         PROFILE => profile,
         
-        CLK_OUT         => pix_clk,
+        CLK_OUT         => CLK,
         CLK_OUT_LOCKED  => pix_clk_locked,
         
         POSITIVE_HSYNC  => FRAME_HSYNC,
