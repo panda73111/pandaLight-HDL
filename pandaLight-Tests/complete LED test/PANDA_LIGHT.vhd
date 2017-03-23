@@ -298,39 +298,6 @@ architecture rtl of PANDA_LIGHT is
     signal rxpt_tx_channels_out : std_ulogic_vector(3 downto 0) := "0000";
     
     
-    ------------------------------
-    --- UART Bluetooth control ---
-    ------------------------------
-    
-    -- Inputs
-    signal btctrl_clk   : std_ulogic := '0';
-    signal btctrl_rst   : std_ulogic := '0';
-    
-    signal btctrl_bt_cts    : std_ulogic := '0';
-    signal btctrl_bt_rxd    : std_ulogic := '0';
-    
-    signal btctrl_din           : std_ulogic_vector(7 downto 0) := x"00";
-    signal btctrl_din_wr_en     : std_ulogic := '0';
-    signal btctrl_send_packet   : std_ulogic := '0';
-    
-    -- Outputs
-    signal btctrl_bt_rts    : std_ulogic := '0';
-    signal btctrl_bt_txd    : std_ulogic := '0';
-    signal btctrl_bt_wake   : std_ulogic := '0';
-    signal btctrl_bt_rstn   : std_ulogic := '0';
-    
-    signal btctrl_dout          : std_ulogic_vector(7 downto 0) := x"00";
-    signal btctrl_dout_valid    : std_ulogic := '0';
-    
-    signal btctrl_connected : std_ulogic := '0';
-    
-    signal btctrl_mtu_size          : std_ulogic_vector(9 downto 0) := (others => '0');
-    signal btctrl_mtu_size_valid    : std_ulogic := '0';
-    
-    signal btctrl_error : std_ulogic := '0';
-    signal btctrl_busy  : std_ulogic := '0';
-    
-    
     ------------------------
     --- UART USB control ---
     ------------------------
@@ -834,53 +801,6 @@ begin
             RX_RAW_DATA_VALID   => rxpt_rx_raw_data_valid,
             
             TX_CHANNELS_OUT => rxpt_tx_channels_out
-        );
-    
-    
-    ------------------------------
-    --- UART Bluetooth control ---
-    ------------------------------
-    
-    btctrl_clk  <= g_clk;
-    btctrl_rst  <= g_rst;
-    
-    btctrl_bt_cts   <= not BT_CTSN;
-    btctrl_bt_rxd   <= BT_RXD;
-    
-    btctrl_din          <= uart_dout;
-    btctrl_din_wr_en    <= uart_dout_wr_en;
-    btctrl_send_packet  <= uart_dout_send;
-    
-    UART_BLUETOOTH_CONTROL_inst : entity work.UART_BLUETOOTH_CONTROL
-        generic map (
-            CLK_IN_PERIOD   => G_CLK_PERIOD,
-            BUFFER_SIZE     => 1024
-        )
-        port map (
-            CLK => btctrl_clk,
-            RST => btctrl_rst,
-            
-            BT_CTS  => btctrl_bt_cts,
-            BT_RTS  => btctrl_bt_rts,
-            BT_RXD  => btctrl_bt_rxd,
-            BT_TXD  => btctrl_bt_txd,
-            BT_WAKE => btctrl_bt_wake,
-            BT_RSTN => btctrl_bt_rstn,
-            
-            DIN         => btctrl_din,
-            DIN_WR_EN   => btctrl_din_wr_en,
-            SEND_PACKET => btctrl_send_packet,
-            
-            DOUT        => btctrl_dout,
-            DOUT_VALID  => btctrl_dout_valid,
-            
-            CONNECTED   => btctrl_connected,
-            
-            MTU_SIZE        => btctrl_mtu_size,
-            MTU_SIZE_VALID  => btctrl_mtu_size_valid,
-            
-            ERROR   => btctrl_error,
-            BUSY    => btctrl_busy
         );
     
     
