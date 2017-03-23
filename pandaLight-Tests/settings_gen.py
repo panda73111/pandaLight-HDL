@@ -2,13 +2,13 @@
 
 DIMENSION_BITS = 11
 
-HOR_LED_COUNT           =  16
+HOR_LED_COUNT           =  8
 HOR_LED_SCALED_WIDTH    =  60 / 1280
 HOR_LED_SCALED_HEIGHT   =  80 /  720
 HOR_LED_SCALED_STEP     =  80 / 1280
 HOR_LED_SCALED_PAD      =   5 /  720
 HOR_LED_SCALED_OFFS     =  10 / 1280
-VER_LED_COUNT           =   9
+VER_LED_COUNT           =   4
 VER_LED_SCALED_WIDTH    =  80 / 1280
 VER_LED_SCALED_HEIGHT   =  60 /  720
 VER_LED_SCALED_STEP     =  80 /  720
@@ -17,7 +17,7 @@ VER_LED_SCALED_OFFS     =  10 /  720
 START_LED_NUM           =   0
 FRAME_DELAY             =   0
 RGB_MODE                =   0 # standard RGB
-LED_CONTROL_MODE        =   3 # WS2812 chips
+LED_CONTROL_MODE        =   0 # WS2801 chips
 GAMMA_CORRECTION        = 2.0
 MIN_RED                 =   0
 MAX_RED                 = 255
@@ -25,7 +25,7 @@ MIN_GREEN               =   0
 MAX_GREEN               = 255
 MIN_BLUE                =   0
 MAX_BLUE                = 255
-BBD_ENABLE              =   1
+BBD_ENABLE              =   0
 BBD_THRESHOLD           =  10
 BBD_CONSIST_FRAMES      =  10
 BBD_INCONSIST_FRAMES    =  10
