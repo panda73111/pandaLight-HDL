@@ -24,7 +24,7 @@ entity PANDA_LIGHT is
         RX_SEL              : natural range 0 to 1 := 0;
         MAX_LED_COUNT       : positive := 64;
         MAX_FRAME_COUNT     : natural := 128;
-        PANDALIGHT_MAGIC    : string := "PANDALIGHT";
+        PANDALIGHT_MAGIC    : string := "PL";
         VERSION_MAJOR       : natural range 0 to 255 := 0;
         VERSION_MINOR       : natural range 0 to 255 := 1;
         G_CLK_MULT          : positive range 2 to 256 := 5; -- 20 MHz * 5 / 2 = 50 MHz
@@ -115,9 +115,17 @@ architecture rtl of PANDA_LIGHT is
     signal start_settings_read_from_uart    : boolean := false;
     signal start_settings_write_to_uart     : boolean := false;
     signal start_bitfile_read_from_uart     : boolean := false;
+    signal start_led_read_from_uart         : boolean := false;
+    
+    signal uart_response_idle   : boolean := true;
+    signal configurator_idle    : boolean := true;
+    signal flash_control_idle   : boolean := true;
+    signal led_control_idle     : boolean := true;
     
     signal bitfile_index    : unsigned(0 downto 0) := "0";
     signal bitfile_size     : unsigned(23 downto 0) := x"000000";
+    
+    signal uart_led_count   : unsigned(7 downto 0) := x"00";
     
     signal usb_dsrn_deb         : std_ulogic := '0';
     signal usb_dsrn_deb_q       : std_ulogic := '0';
@@ -230,6 +238,7 @@ architecture rtl of PANDA_LIGHT is
     signal ledex_cfg_wr_en  : std_ulogic := '0';
     signal ledex_cfg_data   : std_ulogic_vector(7 downto 0) := x"00";
     
+    signal ledex_frame_hsync        : std_ulogic := '0';
     signal ledex_frame_vsync        : std_ulogic := '0';
     signal ledex_frame_rgb_wr_en    : std_ulogic := '0';
     signal ledex_frame_rgb          : std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
@@ -333,6 +342,7 @@ architecture rtl of PANDA_LIGHT is
     signal conf_configure_ledex     : std_ulogic := '0';
     signal conf_configure_ledcor    : std_ulogic := '0';
     signal conf_configure_ledcon    : std_ulogic := '0';
+    signal conf_configure_bbd       : std_ulogic := '0';
     
     signal conf_frame_width     : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     signal conf_frame_height    : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
@@ -346,6 +356,7 @@ architecture rtl of PANDA_LIGHT is
     signal conf_cfg_sel_ledex   : std_ulogic := '0';
     signal conf_cfg_sel_ledcor  : std_ulogic := '0';
     signal conf_cfg_sel_ledcon  : std_ulogic := '0';
+    signal conf_cfg_sel_bbd     : std_ulogic := '0';
     
     signal conf_cfg_addr        : std_ulogic_vector(9 downto 0) := (others => '0');
     signal conf_cfg_wr_en       : std_ulogic := '0';
@@ -419,25 +430,19 @@ begin
     usb_connected   <= usb_dsrn_deb='0';
     
     uart_rst        <= '1' when g_rst='1' or not uart_connected else '0';
-    uart_connected  <= usb_connected or btctrl_connected='1';
-    uart_din        <= btctrl_dout when btctrl_dout_valid='1' else usbctrl_dout;
-    uart_din_valid  <= btctrl_dout_valid or usbctrl_dout_valid;
+    uart_connected  <= usb_connected;
+    uart_din        <= usbctrl_dout;
+    uart_din_valid  <= usbctrl_dout_valid;
     
     FLASH_MOSI  <= fctrl_mosi;
     FLASH_CS    <= fctrl_sn;
     FLASH_SCK   <= fctrl_c;
     
-    LEDS_CLK    <= lctrl_leds_clk & lctrl_leds_clk;
-    LEDS_DATA   <= lctrl_leds_data & lctrl_leds_data;
+    LEDS_CLK    <= lctrl_leds_out_clk_out & lctrl_leds_out_clk_out;
+    LEDS_DATA   <= lctrl_leds_out_data & lctrl_leds_out_data;
     
-    BT_TXD  <= btctrl_bt_txd;
-    USB_TXD <= usbctrl_txd;
-    
+    USB_TXD     <= usbctrl_txd;
     USB_RTSN    <= not (usbctrl_rts and not fctrl_afull);
-    BT_RTSN     <= not (btctrl_bt_rts and not fctrl_afull);
-    
-    BT_RSTN <= btctrl_bt_rstn;
-    BT_WAKE <= btctrl_bt_wake;
     
     pmod0_DEBOUNCE_gen : for i in 0 to 3 generate
         
@@ -667,6 +672,7 @@ begin
     ledex_cfg_wr_en <= conf_cfg_wr_en and conf_cfg_sel_ledex;
     ledex_cfg_data  <= conf_cfg_data;
     
+    ledex_frame_hsync       <= analyzer_positive_hsync;
     ledex_frame_vsync       <= analyzer_positive_vsync;
     ledex_frame_rgb_wr_en   <= rx_rgb_valid;
     ledex_frame_rgb         <= rx_rgb;
@@ -689,6 +695,7 @@ begin
             CFG_WR_EN   => ledex_cfg_wr_en,
             CFG_DATA    => ledex_cfg_data,
             
+            FRAME_HSYNC     => ledex_frame_hsync,
             FRAME_VSYNC     => ledex_frame_vsync,
             FRAME_RGB_WR_EN => ledex_frame_rgb_wr_en,
             FRAME_RGB       => ledex_frame_rgb,
@@ -781,6 +788,69 @@ begin
             LEDS_OUT_DATA       => lctrl_leds_out_data
         );
     
+--    led_control_stim_gen : if true generate
+--        type state_type is (
+--            WAITING_FOR_START,
+--            READING_LED_RED,
+--            READING_LED_GREEN,
+--            READING_LED_BLUE
+--        );
+--        
+--        signal state            : state_type := WAITING_FOR_START;
+--        signal counter          : unsigned(8 downto 0);
+--        signal counter_expired  : boolean := false;
+--    begin
+--        
+--        led_control_idle    <= state=WAITING_FOR_START;
+--        counter_expired     <= counter(8)='1';
+--        
+--        led_control_stim_proc : process(lctrl_rst, lctrl_clk)
+--        begin
+--            if lctrl_rst='1' then
+--                state               <= WAITING_FOR_START;
+--                lctrl_led_rgb_wr_en <= '0';
+--                lctrl_led_vsync     <= '1';
+--            elsif rising_edge(lctrl_clk) then
+--                lctrl_led_rgb_wr_en <= '0';
+--                case state is
+--                
+--                    when WAITING_FOR_START =>
+--                        lctrl_led_vsync <= '1';
+--                        counter         <= '0' & (uart_led_count-2);
+--                        if start_led_read_from_uart then
+--                            state           <= READING_LED_RED;
+--                            lctrl_led_vsync <= '0';
+--                        end if;
+--                    
+--                    when READING_LED_RED =>
+--                        lctrl_led_rgb(23 downto 16) <= uart_din;
+--                        if uart_din_valid='1' then
+--                            state   <= READING_LED_GREEN;
+--                        end if;
+--                    
+--                    when READING_LED_GREEN =>
+--                        lctrl_led_rgb(15 downto 8)  <= uart_din;
+--                        if uart_din_valid='1' then
+--                            state   <= READING_LED_BLUE;
+--                        end if;
+--                    
+--                    when READING_LED_BLUE =>
+--                        lctrl_led_rgb(7 downto 0)   <= uart_din;
+--                        if uart_din_valid='1' then
+--                            counter             <= counter-1;
+--                            lctrl_led_rgb_wr_en <= '1';
+--                            state               <= READING_LED_RED;
+--                            if counter_expired then
+--                                state   <= WAITING_FOR_START;
+--                            end if;
+--                        end if;
+--                    
+--                end case;
+--            end if;
+--        end process;
+--        
+--    end generate;
+    
     
     -----------------------------
     --- RX to TX0 passthrough ---
@@ -855,14 +925,22 @@ begin
     
     uart_stim_gen : if true generate
         type cmd_eval_state_type is (
-            WAITING_FOR_COMMAND,
-            RECEIVING_DATA_FROM_UART,
+            INITIALIZING,
+            WAITING_FOR_MAGIC,
+            EVALUATING_COMMAND,
             RECEIVING_BITFILE_INDEX_FROM_UART,
-            RECEIVING_BITFILE_SIZE_FROM_UART
+            RECEIVING_BITFILE_SIZE_FROM_UART_BYTE_1,
+            RECEIVING_BITFILE_SIZE_FROM_UART_BYTE_2,
+            RECEIVING_BITFILE_SIZE_FROM_UART_BYTE_3,
+            RECEIVING_LED_COUNT_FROM_UART,
+            WAITING_FOR_BUSY,
+            WAITING_FOR_IDLE
         );
         
-        signal cmd_eval_state   : cmd_eval_state_type := WAITING_FOR_COMMAND;
-        signal cmd_eval_counter : unsigned(23 downto 0) := uns(1023, 24);
+        signal cmd_eval_state       : cmd_eval_state_type := WAITING_FOR_IDLE;
+        signal recv_magic_index     : natural range 1 to PANDALIGHT_MAGIC'length+1 := 1;
+        signal char_counter         : unsigned(log2(PANDALIGHT_MAGIC'length)+1 downto 0) := (others => '0');
+        signal char_counter_expired : boolean := false;
         
         type data_handling_state_type is (
             WAITING_FOR_COMMAND,
@@ -875,26 +953,28 @@ begin
         
         signal data_handling_state      : data_handling_state_type := WAITING_FOR_COMMAND;
         signal data_handling_counter    : unsigned(20 downto 0) := uns(1022, 21);
-        signal magic_char_index         : unsigned(3 downto 0) := uns(1, 4);
+        signal send_magic_index         : natural range 1 to PANDALIGHT_MAGIC'length+1 := 1;
+        signal data_counter_expired     : boolean := false;
         
-        signal cmd_counter_expired  : boolean := false;
-        signal data_counter_expired : boolean := false;
     begin
         
-        cmd_counter_expired     <= cmd_eval_counter(cmd_eval_counter'high)='1';
+        uart_response_idle      <= data_handling_state=WAITING_FOR_COMMAND;
+        char_counter_expired    <= char_counter(char_counter'high)='1';
         data_counter_expired    <= data_handling_counter(data_handling_counter'high)='1';
         
         uart_evaluation_proc : process(usbctrl_rst, usbctrl_clk)
         begin
             if usbctrl_rst='1' then
-                cmd_eval_state                  <= WAITING_FOR_COMMAND;
-                cmd_eval_counter                <= uns(1023, cmd_eval_counter'length);
+                cmd_eval_state                  <= WAITING_FOR_IDLE;
+                recv_magic_index                <= 1;
+                char_counter                    <= (others => '0');
                 start_sysinfo_to_uart           <= false;
                 start_settings_read_from_flash  <= false;
                 start_settings_write_to_flash   <= false;
                 start_settings_read_from_uart   <= false;
                 start_settings_write_to_uart    <= false;
                 start_bitfile_read_from_uart    <= false;
+                start_led_read_from_uart        <= false;
             elsif rising_edge(usbctrl_clk) then
                 start_sysinfo_to_uart           <= false;
                 start_settings_read_from_flash  <= false;
@@ -902,10 +982,29 @@ begin
                 start_settings_read_from_uart   <= false;
                 start_settings_write_to_uart    <= false;
                 start_bitfile_read_from_uart    <= false;
+                start_led_read_from_uart        <= false;
+                
                 case cmd_eval_state is
                     
-                    when WAITING_FOR_COMMAND =>
-                        if data_handling_state=WAITING_FOR_COMMAND and uart_din_valid='1' then
+                    when INITIALIZING =>
+                        recv_magic_index     <= 1;
+                        char_counter    <= uns(PANDALIGHT_MAGIC'length-2, char_counter'length);
+                        cmd_eval_state  <= WAITING_FOR_MAGIC;
+                    
+                    when WAITING_FOR_MAGIC =>
+                        if uart_din_valid='1' then
+                            recv_magic_index    <= recv_magic_index+1;
+                            char_counter        <= char_counter-1;
+                            if char_counter_expired then
+                                cmd_eval_state  <= EVALUATING_COMMAND;
+                            end if;
+                            if uns(uart_din)/=character'pos(PANDALIGHT_MAGIC(recv_magic_index)) then
+                                cmd_eval_state  <= INITIALIZING;
+                            end if;
+                        end if;
+                    
+                    when EVALUATING_COMMAND =>
+                        if uart_din_valid='1' then
                             case uart_din is
                                 when x"00" => -- send system information via UART
                                     start_sysinfo_to_uart           <= true;
@@ -917,43 +1016,68 @@ begin
                                     start_settings_write_to_flash   <= true;
                                 when x"22" => -- receive settings from UART
                                     start_settings_read_from_uart   <= true;
-                                    cmd_eval_counter    <= uns(1022, cmd_eval_counter'length);
-                                    cmd_eval_state      <= RECEIVING_DATA_FROM_UART;
+                                    cmd_eval_state  <= WAITING_FOR_BUSY;
                                 when x"23" => -- send settings to UART
                                     start_settings_write_to_uart    <= true;
                                 when x"40" => -- receive bitfile from UART
-                                    cmd_eval_state      <= RECEIVING_BITFILE_INDEX_FROM_UART;
+                                    cmd_eval_state  <= RECEIVING_BITFILE_INDEX_FROM_UART;
+                                when x"60" => -- receive LED colors from UART
+                                    cmd_eval_state  <= RECEIVING_LED_COUNT_FROM_UART;
                                 when others =>
                                     null;
                             end case;
                         end if;
                     
-                    when RECEIVING_DATA_FROM_UART =>
-                        if uart_din_valid='1' then
-                            cmd_eval_counter    <= cmd_eval_counter-1;
-                            if cmd_counter_expired then
-                                cmd_eval_state  <= WAITING_FOR_COMMAND;
-                            end if;
-                        end if;
-                    
                     when RECEIVING_BITFILE_INDEX_FROM_UART =>
-                        cmd_eval_counter    <= uns(1, cmd_eval_counter'length);
                         if uart_din_valid='1' then
                             bitfile_index   <= uns(uart_din(0 downto 0));
-                            cmd_eval_state  <= RECEIVING_BITFILE_SIZE_FROM_UART;
+                            cmd_eval_state  <= RECEIVING_BITFILE_SIZE_FROM_UART_BYTE_1;
                         end if;
                     
-                    when RECEIVING_BITFILE_SIZE_FROM_UART =>
+                    when RECEIVING_BITFILE_SIZE_FROM_UART_BYTE_1 =>
                         if uart_din_valid='1' then
-                            cmd_eval_counter    <= cmd_eval_counter-1;
-                            -- shift the bitfile size in from the right
-                            bitfile_size        <= bitfile_size(15 downto 0) & uns(uart_din);
-                            if cmd_counter_expired then
-                                cmd_eval_counter                <= (
-                                    bitfile_size(15 downto 0) & uns(uart_din))-2;
-                                start_bitfile_read_from_uart    <= true;
-                                cmd_eval_state                  <= RECEIVING_DATA_FROM_UART;
-                            end if;
+                            bitfile_size(23 downto 16)  <= uns(uart_din);
+                            cmd_eval_state              <= RECEIVING_BITFILE_SIZE_FROM_UART_BYTE_2;
+                        end if;
+                    
+                    when RECEIVING_BITFILE_SIZE_FROM_UART_BYTE_2 =>
+                        if uart_din_valid='1' then
+                            bitfile_size(15 downto 8)   <= uns(uart_din);
+                            cmd_eval_state              <= RECEIVING_BITFILE_SIZE_FROM_UART_BYTE_3;
+                        end if;
+                    
+                    when RECEIVING_BITFILE_SIZE_FROM_UART_BYTE_3 =>
+                        if uart_din_valid='1' then
+                            bitfile_size(7 downto 0)        <= uns(uart_din);
+                            start_bitfile_read_from_uart    <= true;
+                            cmd_eval_state                  <= WAITING_FOR_BUSY;
+                        end if;
+                    
+                    when RECEIVING_LED_COUNT_FROM_UART =>
+                        if uart_din_valid='1' then
+                            uart_led_count              <= uns(uart_din);
+                            start_led_read_from_uart    <= true;
+                            cmd_eval_state              <= WAITING_FOR_BUSY;
+                        end if;
+                    
+                    when WAITING_FOR_BUSY =>
+                        if not (
+                            uart_response_idle and
+                            configurator_idle and
+                            flash_control_idle and
+                            led_control_idle
+                        ) then
+                            cmd_eval_state  <= WAITING_FOR_IDLE;
+                        end if;
+                    
+                    when WAITING_FOR_IDLE =>
+                        if
+                            uart_response_idle and
+                            configurator_idle and
+                            flash_control_idle and
+                            led_control_idle
+                        then
+                            cmd_eval_state  <= INITIALIZING;
                         end if;
                     
                 end case;
@@ -965,7 +1089,7 @@ begin
             if usbctrl_rst='1' then
                 data_handling_state     <= WAITING_FOR_COMMAND;
                 data_handling_counter   <= uns(1022, data_handling_counter'length);
-                magic_char_index        <= uns(1, magic_char_index'length);
+                send_magic_index        <= 1;
                 uart_dout_wr_en         <= '0';
                 uart_dout_send          <= '0';
             elsif rising_edge(usbctrl_clk) then
@@ -976,9 +1100,8 @@ begin
                     
                     when WAITING_FOR_COMMAND =>
                         if start_sysinfo_to_uart then
-                            data_handling_counter   <=
-                                uns(PANDALIGHT_MAGIC'length-2, data_handling_counter'length);
-                            magic_char_index        <= uns(1, magic_char_index'length);
+                            data_handling_counter   <= uns(PANDALIGHT_MAGIC'length-2, data_handling_counter'length);
+                            send_magic_index        <= 1;
                             data_handling_state     <= SENDING_PANDALIGHT_MAGIC_TO_UART;
                         end if;
                         if start_settings_write_to_uart then
@@ -988,8 +1111,8 @@ begin
                     
                     when SENDING_PANDALIGHT_MAGIC_TO_UART =>
                         uart_dout_wr_en         <= '1';
-                        uart_dout               <= stdulv(PANDALIGHT_MAGIC(int(magic_char_index)));
-                        magic_char_index        <= magic_char_index+1;
+                        uart_dout               <= stdulv(PANDALIGHT_MAGIC(send_magic_index));
+                        send_magic_index        <= send_magic_index+1;
                         data_handling_counter   <= data_handling_counter-1;
                         if data_counter_expired then
                             data_handling_state <= SENDING_MAJOR_VERSION_TO_UART;
@@ -1043,6 +1166,7 @@ begin
             CONFIGURE_LEDEX     => conf_configure_ledex,
             CONFIGURE_LEDCOR    => conf_configure_ledcor,
             CONFIGURE_LEDCON    => conf_configure_ledcon,
+            CONFIGURE_BBD       => conf_configure_bbd,
             
             FRAME_WIDTH     => conf_frame_width,
             FRAME_HEIGHT    => conf_frame_height,
@@ -1050,6 +1174,7 @@ begin
             CFG_SEL_LEDEX   => conf_cfg_sel_ledex,
             CFG_SEL_LEDCOR  => conf_cfg_sel_ledcor,
             CFG_SEL_LEDCON  => conf_cfg_sel_ledcon,
+            CFG_SEL_BBD     => conf_cfg_sel_bbd,
             
             SETTINGS_ADDR   => conf_settings_addr,
             SETTINGS_WR_EN  => conf_settings_wr_en,
@@ -1098,7 +1223,8 @@ begin
         signal counter_expired  : boolean := false;
     begin
         
-        counter_expired <= counter(counter'high)='1';
+        configurator_idle   <= state=IDLE;
+        counter_expired     <= counter(counter'high)='1';
         
         configurator_stim_proc : process(conf_rst, conf_clk)
         begin
@@ -1316,7 +1442,8 @@ begin
         signal bitfile_address  : std_ulogic_vector(23 downto 0) := x"000000";
     begin
         
-        bitfile_address <= RX0_BITFILE_ADDR when bitfile_index=0 else RX1_BITFILE_ADDR;
+        flash_control_idle  <= state=IDLE;
+        bitfile_address     <= RX0_BITFILE_ADDR when bitfile_index=0 else RX1_BITFILE_ADDR;
         
         spi_flash_control_stim_proc : process(fctrl_rst, fctrl_clk)
             variable next_state : state_type := INIT;
