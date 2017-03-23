@@ -116,6 +116,7 @@ BEGIN
         CLK => CLK,
         RST => rst_extr,
         
+        CFG_CLK     => CFG_CLK,
         CFG_ADDR    => CFG_ADDR,
         CFG_WR_EN   => CFG_WR_EN,
         CFG_DATA    => CFG_DATA,
