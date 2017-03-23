@@ -79,8 +79,6 @@ begin
     DIMENSION_OUT   <= fifo_dout(fifo_dout'high-8);
     SIDE_OUT        <= fifo_dout(fifo_dout'high-9);
     
-    divisor <= stdulv(int(PIXEL_COUNT), ACCU_BITS);
-    
     fifo_din    <= LED_NUM_IN & DIMENSION_IN & SIDE_IN & ACCU_R & ACCU_G & ACCU_B;
     
     ASYNC_FIFO_inst : entity work.ASYNC_FIFO
@@ -143,6 +141,10 @@ begin
             divs_valid_latched  <= divs_valid_latched or divs_valid;
             if divs_valid_latched="111" then
                 divs_valid_latched  <= "000";
+            end if;
+            
+            if WR_EN='1' then
+                divisor <= stdulv(int(PIXEL_COUNT), ACCU_BITS);
             end if;
         end if;
     end process;
