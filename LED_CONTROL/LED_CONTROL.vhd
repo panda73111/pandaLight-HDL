@@ -244,7 +244,9 @@ begin
     end process;
     
     stm_proc : process(cur_reg, LED_RGB_WR_EN, LED_RGB, LED_VSYNC,
-        ws2801_busy, ws2811_busy, ws2812_busy, fifo_rd_en, led_vsync_q)
+        ws2801_vsync, ws2811_vsync, ws2812_vsync,
+        ws2801_busy, ws2811_busy, ws2812_busy,
+        fifo_rd_en, led_vsync_q)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin

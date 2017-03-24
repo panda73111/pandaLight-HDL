@@ -98,7 +98,7 @@ begin
     LEDS_OUT_DATA   <= cur_reg.leds_out_data;
     counter_expired <= cur_reg.tick_count(cur_reg.tick_count'high)='1';
     
-    process(RST, cur_reg, START, STOP, RGB, counter_expired)
+    process(RST, cur_reg, START, STOP, RGB, SLOW_MODE, counter_expired)
         alias cr is cur_reg;
         variable r  : reg_type := reg_type_def;
     begin
