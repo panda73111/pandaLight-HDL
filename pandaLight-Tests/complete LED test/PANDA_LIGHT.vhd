@@ -667,7 +667,7 @@ begin
     ledex_clk   <= rx_pix_clk;
     ledex_rst   <= not analyzer_valid or conf_cfg_sel_ledex;
     
-    ledex_cfg_clk   <= g_clk;
+    ledex_cfg_clk   <= conf_clk;
     ledex_cfg_addr  <= conf_cfg_addr(ledex_cfg_addr'range);
     ledex_cfg_wr_en <= conf_cfg_wr_en and conf_cfg_sel_ledex;
     ledex_cfg_data  <= conf_cfg_data;
@@ -714,7 +714,7 @@ begin
     lcor_clk    <= ledex_clk;
     lcor_rst    <= ledex_rst or conf_cfg_sel_ledcor;
     
-    lcor_cfg_clk    <= g_clk;
+    lcor_cfg_clk    <= conf_clk;
     lcor_cfg_addr   <= conf_cfg_addr(lcor_cfg_addr'range);
     lcor_cfg_wr_en  <= conf_cfg_wr_en and conf_cfg_sel_ledcor;
     lcor_cfg_data   <= conf_cfg_data;
@@ -757,7 +757,7 @@ begin
     lctrl_leds_out_clk_in   <= g_clk;
     lctrl_rst               <= lcor_rst or conf_cfg_sel_ledcon;
     
-    lctrl_cfg_clk   <= g_clk;
+    lctrl_cfg_clk   <= conf_clk;
     lctrl_cfg_wr_en <= conf_cfg_wr_en and conf_cfg_sel_ledcon;
     lctrl_cfg_data  <= conf_cfg_data;
     
