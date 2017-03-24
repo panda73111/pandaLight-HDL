@@ -154,7 +154,7 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     signal queue_dimension_out  : std_ulogic := '0';
     signal queue_side_in        : std_ulogic := '0';
     signal queue_side_out       : std_ulogic := '0';
-    
+    signal queue_busy           : std_ulogic := '0';
     signal queue_led_rgb_valid  : std_ulogic := '0';
     signal queue_led_rgb        : std_ulogic_vector(RGB_BITS-1 downto 0) := (others => '0');
     
@@ -162,7 +162,6 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     signal frame_x          : unsigned(DIM_BITS-1 downto 0) := (others => '0');
     signal frame_y          : unsigned(DIM_BITS-1 downto 0) := (others => '0');
     signal frame_valid_line : boolean := false;
-    signal led_rgb_valid_2  : std_ulogic_vector(0 to 1) := (others => '0');
     signal led_side_2       : std_ulogic_vector(0 to 1) := (others => '0');
     signal led_rgb_2        : led_rgb_2_type := (others => (others => '0'));
     signal ver_queued       : boolean := false;
@@ -170,8 +169,6 @@ architecture rtl of LED_COLOR_EXTRACTOR is
     -- configuration registers
     signal hor_led_count    : std_ulogic_vector(7 downto 0) := x"00";
     signal ver_led_count    : std_ulogic_vector(7 downto 0) := x"00";
-    
-    signal frame_width  : std_ulogic_vector(DIM_BITS-1 downto 0) := (others => '0');
     
 begin
     
@@ -184,10 +181,8 @@ begin
         if rising_edge(CFG_CLK) then
             if RST='1' and CFG_WR_EN='1' then
                 case CFG_ADDR is
-                    when "00000" => hor_led_count                       <= CFG_DATA;
-                    when "01011" => ver_led_count                       <= CFG_DATA;
-                    when "10110" => frame_width(DIM_BITS-1 downto 8)    <= CFG_DATA(DIM_BITS-9 downto 0);
-                    when "10111" => frame_width(         7 downto 0)    <= CFG_DATA;
+                    when "00000" => hor_led_count   <= CFG_DATA;
+                    when "01011" => ver_led_count   <= CFG_DATA;
                     when others => null;
                 end case;
             end if;
@@ -268,6 +263,8 @@ begin
             LED_NUM_IN      => queue_led_num_in,
             DIMENSION_IN    => queue_dimension_in,
             SIDE_IN         => queue_side_in,
+            
+            BUSY    => queue_busy,
             
             LED_RGB_VALID   => queue_led_rgb_valid,
             LED_RGB         => queue_led_rgb,
@@ -366,7 +363,7 @@ begin
             
             double_hor_led_count    := hor_led_count(6 downto 0) & '0';
                 
-                if queue_led_rgb_valid='1' then
+            if queue_led_rgb_valid='1' then
                 
                 -- count the LEDs from top left clockwise
                 if queue_dimension_out=stdulv(HOR, 1)(0) then
@@ -394,7 +391,8 @@ begin
             
             if
                 FRAME_VSYNC='1' and
-                led_rgb_valid_2="00"
+                queue_busy='0' and
+                queue_led_rgb_valid='0'
             then
                 LED_VSYNC   <= '1';
             end if;

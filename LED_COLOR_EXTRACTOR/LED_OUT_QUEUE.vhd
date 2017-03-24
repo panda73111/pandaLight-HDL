@@ -39,6 +39,8 @@ entity LED_OUT_QUEUE is
         DIMENSION_IN    : in std_ulogic;
         SIDE_IN         : in std_ulogic;
         
+        BUSY            : out std_ulogic := '0';
+        
         LED_RGB_VALID   : out std_ulogic := '0';
         LED_RGB         : out std_ulogic_vector(R_BITS+G_BITS+B_BITS-1 downto 0) := (others => '0');
         
@@ -68,6 +70,7 @@ architecture rtl of LED_OUT_QUEUE is
     
 begin
     
+    BUSY            <= not fifo_empty or fifo_valid or or_reduce(divs_busy) or or_reduce(divs_valid);
     LED_RGB_VALID   <= and_reduce(divs_valid_latched);
     
     LED_RGB <=
