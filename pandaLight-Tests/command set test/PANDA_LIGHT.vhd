@@ -221,7 +221,7 @@ architecture rtl of PANDA_LIGHT is
     signal fctrl_clk    : std_ulogic := '0';
     signal fctrl_rst    : std_ulogic := '0';
     
-    signal fctrl_addr   : std_ulogic_vector(23 downto 0) := x"000000";
+    signal fctrl_addr   : std_ulogic_vector(23 downto 0) := SETTINGS_FLASH_ADDR;
     signal fctrl_din    : std_ulogic_vector(7 downto 0) := x"00";
     signal fctrl_rd_en  : std_ulogic := '0';
     signal fctrl_wr_en  : std_ulogic := '0';
@@ -1014,6 +1014,7 @@ begin
                 fctrl_rd_en     <= '0';
                 fctrl_wr_en     <= '0';
                 fctrl_end_wr    <= '0';
+                fctrl_addr      <= SETTINGS_FLASH_ADDR;
             elsif rising_edge(fctrl_clk) then
                 fctrl_rd_en     <= '0';
                 fctrl_wr_en     <= '0';

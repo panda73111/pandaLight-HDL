@@ -21,7 +21,7 @@ use work.txt_util.all;
 
 entity PANDA_LIGHT is
     generic (
-        RX_SEL              : natural range 0 to 1 := 0;
+        RX_SEL              : natural range 0 to 1 := 1;
         MAX_LED_COUNT       : positive := 64;
         MAX_FRAME_COUNT     : natural := 128;
         PANDALIGHT_MAGIC    : string := "PL";
@@ -373,7 +373,7 @@ architecture rtl of PANDA_LIGHT is
     signal fctrl_clk    : std_ulogic := '0';
     signal fctrl_rst    : std_ulogic := '0';
     
-    signal fctrl_addr   : std_ulogic_vector(23 downto 0) := x"000000";
+    signal fctrl_addr   : std_ulogic_vector(23 downto 0) := SETTINGS_FLASH_ADDR;
     signal fctrl_din    : std_ulogic_vector(7 downto 0) := x"00";
     signal fctrl_rd_en  : std_ulogic := '0';
     signal fctrl_wr_en  : std_ulogic := '0';
@@ -1428,7 +1428,7 @@ begin
     
     spi_flash_control_stim_gen : if true generate
         type state_type is (
-            INIT,
+            INITIALIZING,
             IDLE,
             READING_DATA,
             WRITING_SETTINGS,
@@ -1436,7 +1436,7 @@ begin
             WAITING_FOR_IDLE
         );
         
-        signal state    : state_type := INIT;
+        signal state    : state_type := INITIALIZING;
         signal counter  : unsigned(23 downto 0) := uns(1023, 24);
         
         signal bitfile_address  : std_ulogic_vector(23 downto 0) := x"000000";
@@ -1446,13 +1446,14 @@ begin
         bitfile_address     <= RX0_BITFILE_ADDR when bitfile_index=0 else RX1_BITFILE_ADDR;
         
         spi_flash_control_stim_proc : process(fctrl_rst, fctrl_clk)
-            variable next_state : state_type := INIT;
+            variable next_state : state_type := INITIALIZING;
         begin
             if fctrl_rst='1' then
-                state           <= INIT;
+                state           <= INITIALIZING;
                 fctrl_rd_en     <= '0';
                 fctrl_wr_en     <= '0';
                 fctrl_end_wr    <= '0';
+                fctrl_addr      <= SETTINGS_FLASH_ADDR;
             elsif rising_edge(fctrl_clk) then
                 fctrl_rd_en     <= '0';
                 fctrl_wr_en     <= '0';
@@ -1460,7 +1461,7 @@ begin
                 
                 case state is
                     
-                    when INIT =>
+                    when INITIALIZING =>
                         state   <= READING_DATA;
                     
                     when IDLE =>
