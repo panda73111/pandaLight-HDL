@@ -573,6 +573,7 @@ begin
                     
                     when EVALUATING_COMMAND =>
                         if uart_din_valid='1' then
+                            cmd_eval_state  <= INITIALIZING;
                             case uart_din is
                                 when x"00" => -- send system information via UART
                                     start_sysinfo_to_uart           <= true;
