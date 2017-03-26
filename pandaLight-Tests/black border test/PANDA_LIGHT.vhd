@@ -968,10 +968,9 @@ begin
             RECEIVING_SETTINGS_FROM_UART
         );
         
-        signal state                : state_type := INITIALIZING;
-        signal counter              : unsigned(10 downto 0) := uns(1023, 11);
-        signal settings_addr        : std_ulogic_vector(9 downto 0) := (others => '0');
-        signal init_read_finished   : boolean := false;
+        signal state            : state_type := INITIALIZING;
+        signal counter          : unsigned(10 downto 0) := uns(1023, 11);
+        signal settings_addr    : std_ulogic_vector(9 downto 0) := (others => '0');
         
         signal counter_expired  : boolean := false;
     begin
@@ -1003,9 +1002,6 @@ begin
                         counter         <= uns(1023, counter'length);
                         settings_addr   <= (others => '0');
                         state           <= READING_SETTINGS_FROM_FLASH;
-                        if init_read_finished then
-                            state   <= CALCULATING;
-                        end if;
                     
                     when READING_SETTINGS_FROM_FLASH =>
                         conf_settings_addr  <= settings_addr;
@@ -1017,8 +1013,7 @@ begin
                         end if;
                         if counter_expired then
                             -- read 1k bytes
-                            init_read_finished  <= true;
-                            state               <= CALCULATING;
+                            state   <= CALCULATING;
                         end if;
                     
                     when CALCULATING =>

@@ -1195,7 +1195,7 @@ begin
             std_ulogic_vector(7 downto 0);
         
         type state_type is (
-            INIT,
+            INITIALIZING,
             READING_SETTINGS_FROM_FLASH,
             CALCULATING,
             CALCULATING_WAITING_FOR_BUSY,
@@ -1215,11 +1215,10 @@ begin
             SENDING_SETTINGS_TO_UART
         );
         
-        signal state                : state_type := INIT;
-        signal counter              : unsigned(10 downto 0) := uns(1023, 11);
-        signal settings_addr        : std_ulogic_vector(9 downto 0) := (others => '0');
-        signal init_read_finished   : boolean := false;
-        signal config_valid         : boolean := false;
+        signal state            : state_type := INITIALIZING;
+        signal counter          : unsigned(10 downto 0) := uns(1023, 11);
+        signal settings_addr    : std_ulogic_vector(9 downto 0) := (others => '0');
+        signal config_valid     : boolean := false;
         
         signal counter_expired  : boolean := false;
     begin
@@ -1230,6 +1229,7 @@ begin
         configurator_stim_proc : process(conf_rst, conf_clk)
         begin
             if conf_rst='1' then
+                state                   <= INITIALIZING;
                 conf_settings_wr_en     <= '0';
                 conf_settings_din       <= x"00";
                 conf_calculate          <= '0';
@@ -1252,13 +1252,10 @@ begin
                 
                 case state is
                     
-                    when INIT =>
+                    when INITIALIZING =>
                         counter         <= uns(1023, counter'length);
                         settings_addr   <= (others => '0');
                         state           <= READING_SETTINGS_FROM_FLASH;
-                        if init_read_finished then
-                            state   <= CALCULATING;
-                        end if;
                     
                     when READING_SETTINGS_FROM_FLASH =>
                         conf_settings_addr  <= settings_addr;
@@ -1270,8 +1267,7 @@ begin
                         end if;
                         if counter_expired then
                             -- read 1k bytes
-                            init_read_finished  <= true;
-                            state               <= CALCULATING;
+                            state   <= CALCULATING;
                         end if;
                     
                     when CALCULATING =>
