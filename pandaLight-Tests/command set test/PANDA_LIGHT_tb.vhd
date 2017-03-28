@@ -294,78 +294,74 @@ begin
         g_rst   <= '0';
         wait for 200 ns;
         
-        main_loop : loop
-                
-            -- send a wrong magic string to the module
-            report "Sending a wrong magic string";
-            send_string("TEST");
-            wait for 2 ms;
+        -- send a wrong magic string to the module
+        report "Sending a wrong magic string";
+        send_string("TEST");
+        wait for 2 ms;
 
-            -- send "send system information via UART" request to the module
-            report "Sending 'send system information via UART' request";
-            send_magic;
-            send_bytes(x"00");
-            wait for 2 ms;
+        -- send "send system information via UART" request to the module
+        report "Sending 'send system information via UART' request";
+        send_magic;
+        send_bytes(x"00");
+        wait for 2 ms;
 
-            -- send "load settings from flash" request to the module
-            report "Sending 'load settings from flash' request";
-            send_magic;
-            send_bytes(x"20");
-            wait for 2 ms;
+        -- send "load settings from flash" request to the module
+        report "Sending 'load settings from flash' request";
+        send_magic;
+        send_bytes(x"20");
+        wait for 2 ms;
 
-            -- send "save settings to flash" request to the module
-            report "Sending 'save settings to flash' request";
-            send_magic;
-            send_bytes(x"21");
-            wait for 2 ms;
+        -- send "save settings to flash" request to the module
+        report "Sending 'save settings to flash' request";
+        send_magic;
+        send_bytes(x"21");
+        wait for 2 ms;
 
-            -- send "receive settings from UART" request to the module
-            report "Sending 'receive settings from UART' request";
-            send_magic;
-            send_bytes(x"22");
-            for block_i in 4 downto 1 loop
-                send_bytes(TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8));
-            end loop;
-            wait for 2 ms;
-
-            -- send "send settings to UART" request to the module
-            report "Sending 'send settings to UART' request";
-            send_magic;
-            send_bytes(x"23");
-            wait for 2 ms;
-
-            -- send "receive bitfile from UART" (RX0 bitfile) request to the module
-            report "Sending 'receive bitfile from UART' request";
-            send_magic;
-            send_bytes(x"40");
-            send_bytes(x"00"); -- bitfile index
-            send_bytes(x"000400"); -- bitfile size (1 kB)
-            for i in 0 to 1023 loop
-                send_bytes(stdulv(i mod 256, 8));
-            end loop;
-            wait for 2 ms;
-            
-            for frame_i in 1 to 100 loop
-            
-                -- send "receive LED colors from UART" request to the module
-                report "Sending 'receive LED colors from UART' request";
-                send_magic;
-                send_bytes(x"60");
-                send_bytes(stdulv(200, 8)); -- LED count
-                for i in 1 to 200 loop
-                    send_bytes(stdulv(i, 8));
-                    send_bytes(stdulv((128+i) mod 255, 8));
-                    send_bytes(stdulv(255-i, 8));
-                end loop;
-            
-            end loop;
-            
-            wait for 2 ms;
-
-            report "NONE. All tests completed."
-                severity FAILURE;
-            
+        -- send "receive settings from UART" request to the module
+        report "Sending 'receive settings from UART' request";
+        send_magic;
+        send_bytes(x"22");
+        for block_i in 4 downto 1 loop
+            send_bytes(TEST_SETTINGS(block_i*256*8-1 downto (block_i-1)*256*8));
         end loop;
+        wait for 2 ms;
+
+        -- send "send settings to UART" request to the module
+        report "Sending 'send settings to UART' request";
+        send_magic;
+        send_bytes(x"23");
+        wait for 2 ms;
+
+        -- send "receive bitfile from UART" (RX0 bitfile) request to the module
+        report "Sending 'receive bitfile from UART' request";
+        send_magic;
+        send_bytes(x"40");
+        send_bytes(x"00"); -- bitfile index
+        send_bytes(x"000400"); -- bitfile size (1 kB)
+        for i in 0 to 1023 loop
+            send_bytes(stdulv(i mod 256, 8));
+        end loop;
+        wait for 2 ms;
+        
+        for frame_i in 1 to 100 loop
+        
+            -- send "receive LED colors from UART" request to the module
+            report "Sending 'receive LED colors from UART' request";
+            send_magic;
+            send_bytes(x"60");
+            send_bytes(stdulv(200, 8)); -- LED count
+            for i in 1 to 200 loop
+                send_bytes(stdulv(i, 8));
+                send_bytes(stdulv((128+i) mod 255, 8));
+                send_bytes(stdulv(255-i, 8));
+            end loop;
+        
+        end loop;
+        
+        wait for 2 ms;
+
+        report "NONE. All tests completed."
+            severity FAILURE;
         
         wait;
     end process;
