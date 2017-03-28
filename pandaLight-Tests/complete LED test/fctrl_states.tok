@@ -1,0 +1,36 @@
+#File version
+@FILE_VERSION=1.0.0
+# Default token value
+@DEFAULT_TOKEN=wait_for_input
+# Explicit token values
+wait_for_input=00000\b
+send_read_command=00001\b
+send_read_addr=00010\b
+wait_for_data_1=00110\b
+wait_for_data_2=00111\b
+read_data=00101\b
+read_deselect=00100\b
+erase_send_write_enable_command=00011\b
+erase_end_write_enable_command=01100\b
+send_sector_erase_command=01101\b
+send_erase_address=01111\b
+end_sector_erase_command=01110\b
+wait_for_sector_erase=01010\b
+erase_send_read_status_register_command=01011\b
+erase_wait_for_data=01001\b
+erase_read_status_register=01000\b
+erase_check_wip_bit=11000\b
+erase_hold_deselect=11001\b
+program_send_write_enable_command=11011\b
+program_end_write_enable_command=11010\b
+send_program_command=11110\b
+send_program_addr=11111\b
+send_data=11101\b
+end_program_command=11100\b
+wait_for_program=10100\b
+program_send_read_status_register_command=10101\b
+program_wait_for_data=10111\b
+program_read_status_register=10110\b
+program_check_wip_bit=10010\b
+program_hold_deselect=10011\b
+program_eval_next_state=10001\b
