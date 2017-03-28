@@ -38,7 +38,8 @@ entity PANDA_LIGHT is
         G_BITS              : positive range 5 to 12 := 8;
         B_BITS              : positive range 5 to 12 := 8;
         DIM_BITS            : positive range 8 to 16 := 11; -- resolutions up to 2047x2047
-        ACCU_BITS           : positive range 8 to 40 := 30 -- LED areas up to 2047x2047
+        ACCU_BITS           : positive range 8 to 40 := 30; -- LED areas up to 2047x2047
+        UART_BAUD_RATE      : positive := 921_600
     );
     port (
         CLK20   : in std_ulogic;
@@ -444,7 +445,7 @@ begin
     USB_TXD     <= usbctrl_txd;
     USB_RTSN    <= not (usbctrl_rts and not fctrl_afull);
     
-    pmod0_DEBOUNCE_gen : for i in 0 to 3 generate
+    pmod2_DEBOUNCE_gen : for i in 0 to 3 generate
         
         pmod2_DEBOUNCE_inst : entity work.DEBOUNCE
             generic map (
@@ -900,7 +901,8 @@ begin
     UART_CONTROL_inst : entity work.UART_CONTROL
         generic map (
             CLK_IN_PERIOD   => G_CLK_PERIOD,
-            BUFFER_SIZE     => 2048
+            BUFFER_SIZE     => 2048,
+            BAUD_RATE       => UART_BAUD_RATE
         )
         port map (
             CLK => usbctrl_clk,
