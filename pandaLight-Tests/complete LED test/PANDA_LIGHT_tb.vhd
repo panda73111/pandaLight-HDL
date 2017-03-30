@@ -151,8 +151,10 @@ begin
     
     test_spi_flash_inst : entity work.test_spi_flash
         generic map (
-            BYTE_COUNT  => 1024*1024, -- 8 MBit
-            VERBOSE     => VERBOSE
+            BYTE_COUNT      => 1024*1024, -- 8 MBit
+            INIT_FILE_PATH  => "..\settings.bin",
+            INIT_FILE_ADDR  => x"0C0000",
+            VERBOSE         => VERBOSE
         )
         port map (
             MISO    => FLASH_MOSI,
