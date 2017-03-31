@@ -253,32 +253,41 @@ BEGIN
                 -- horizontal back porch (minimum length of 12 pixels)
                 shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), 12);
                 
-                -- one null packet
-                
-                -- preamble
-                shift_out(ctrl(vsync & hsync), ctrl("10"), ctrl("10"), 8);
-                -- data island leading guard band
-                packet      := data_island_gb;
-                packet(0)   := terc4("11" & vsync & hsync);
-                shift_out(packet, 2);
-                
-                -- packet header and body
-                packet(0)   := terc4("00" & vsync & hsync);
-                packet(1)   := terc4("0000");
-                packet(2)   := terc4("0000");
-                shift_out(packet);
-                packet(0)   := terc4("10" & vsync & hsync);
-                for pkt_i in 1 to 31 loop
+                if VP.h_back_porch>12+8+2+32+2 then
+                    
+                    -- one null packet
+                    
+                    -- preamble
+                    shift_out(ctrl(vsync & hsync), ctrl("10"), ctrl("10"), 8);
+                    -- data island leading guard band
+                    packet      := data_island_gb;
+                    packet(0)   := terc4("11" & vsync & hsync);
+                    shift_out(packet, 2);
+                    
+                    -- packet header and body
+                    packet(0)   := terc4("00" & vsync & hsync);
+                    packet(1)   := terc4("0000");
+                    packet(2)   := terc4("0000");
                     shift_out(packet);
-                end loop;
-                
-                -- data island trailing guard band
-                packet      := data_island_gb;
-                packet(0)   := terc4("11" & vsync & hsync);
-                shift_out(packet, 2);
-                
-                -- control period, rest of hblank
-                shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), VP.h_back_porch-12-8-2-32-2);
+                    packet(0)   := terc4("10" & vsync & hsync);
+                    for pkt_i in 1 to 31 loop
+                        shift_out(packet);
+                    end loop;
+                    
+                    -- data island trailing guard band
+                    packet      := data_island_gb;
+                    packet(0)   := terc4("11" & vsync & hsync);
+                    shift_out(packet, 2);
+                    
+                    -- control period, rest of hblank
+                    shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), VP.h_back_porch-12-8-2-32-2);
+                    
+                else
+                    
+                    -- no time for a null packet
+                    shift_out(ctrl(vsync & hsync), ctrl("00"), ctrl("00"), VP.h_back_porch-12);
+                    
+                end if;
                 
             end loop;
         end loop;
