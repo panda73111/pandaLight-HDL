@@ -9,6 +9,7 @@ end testbench;
 
 architecture behavior of testbench is
     
+    constant RX_SEL         : natural range 0 to 1 := 0;
     constant VERBOSE        : boolean := false;
     constant UART_BAUD_RATE : positive := 921_600;
 
@@ -93,6 +94,7 @@ begin
     
     PANDA_LIGHT_inst : entity work.panda_light
     generic map (
+        RX_SEL          => RX_SEL,
         UART_BAUD_RATE  => UART_BAUD_RATE
     )
     port map (
@@ -259,6 +261,8 @@ begin
         PMOD2(0)    <= '1';
         wait for 100 ns;
         PMOD2(0)    <= '0';
+        wait for 100 ns;
+        RX_DET(RX_SEL)  <= '1';
         wait for 1 ms;
         
         -- send "send system information via UART" request to the module
@@ -271,6 +275,9 @@ begin
         report "Sending 'send settings to UART' request";
         send_magic;
         send_bytes(x"23");
+        wait for 2 ms;
+        
+        wait until LEDS_CLK/="00";
         wait for 2 ms;
         
         report "NONE. All tests completed."
