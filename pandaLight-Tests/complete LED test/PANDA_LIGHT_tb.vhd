@@ -206,7 +206,7 @@ begin
     
     test_tmds_encoder_inst : entity work.test_tmds_encoder
         generic map (
-            PROFILE => 0
+            PROFILE => VIDEO_PROFILE_160_120p_300
         )
         port map (
             CHANNELS_OUT_P  => RX_CHANNELS_IN_P(3 downto 0),
